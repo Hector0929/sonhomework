@@ -1,41 +1,47 @@
-import React from 'react';
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>測驗首頁</title>
+  <!-- 引入 Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* 設定 Inter 字體 */
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
+  <div class="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
+    <h1 class="text-2xl font-bold text-center text-gray-800 mb-8">測驗連結</h1>
 
-const App = () => {
-  // 定義三個連結的資料
-  const links = [
-    {
-      label: '開啟三位數加二位數測驗',
-      url: 'akila_plus_test.html', // 預設連結到 akila_plus_test.html
-    },
-    {
-      label: '開啟九九乘法表挑戰-倒數計時版',
-      url: 'multiplication_test.html', // 預設連結到 multiplication_test.html
-    },
-    {
-      label: '開啟九九乘法表挑戰-鍵盤輸入版',
-      url: 'multiplication_test2.html', // 預設連結到 multiplication_test2.html
-    },
-  ];
+    <div class="space-y-4">
+      <!-- 開啟三位數加二位數測驗按鈕 -->
+      <a
+        href="akila_plus_test.html"
+        class="block w-full bg-blue-600 text-white py-4 rounded-xl text-center text-lg font-semibold hover:bg-blue-700 transition duration-300 ease-in-out shadow-md"
+      >
+        開啟三位數加二位數測驗
+      </a>
 
-  return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4 font-inter">
-      <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
-        <h1 className="text-2xl font-bold text-center text-gray-800 mb-8">測驗連結</h1>
+      <!-- 開啟九九乘法表挑戰-倒數計時版按鈕 -->
+      <a
+        href="multiplication_test.html"
+        class="block w-full bg-blue-600 text-white py-4 rounded-xl text-center text-lg font-semibold hover:bg-blue-700 transition duration-300 ease-in-out shadow-md"
+      >
+        開啟九九乘法表挑戰-倒數計時版
+      </a>
 
-        <div className="space-y-4">
-          {links.map((link, index) => (
-            <a
-              key={index}
-              href={link.url}
-              className="block w-full bg-blue-600 text-white py-4 rounded-xl text-center text-lg font-semibold hover:bg-blue-700 transition duration-300 ease-in-out shadow-md"
-            >
-              {link.label}
-            </a>
-          ))}
-        </div>
-      </div>
+      <!-- 開啟九九乘法表挑戰-鍵盤輸入版按鈕 -->
+      <a
+        href="multiplication_test2.html"
+        class="block w-full bg-blue-600 text-white py-4 rounded-xl text-center text-lg font-semibold hover:bg-blue-700 transition duration-300 ease-in-out shadow-md"
+      >
+        開啟九九乘法表挑戰-鍵盤輸入版
+      </a>
     </div>
-  );
-};
-
-export default App;
+  </div>
+</body>
+</html>
