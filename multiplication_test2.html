@@ -18,8 +18,18 @@
     }
   </style>
 </head>
-<body class="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-  <div id="root"></div>
+<body class="min-h-screen bg-gray-100 flex flex-col items-center justify-between p-4">
+  <div id="root" class="flex flex-col items-center justify-center flex-grow w-full">
+    <!-- React 應用程式將渲染在此處 -->
+  </div>
+
+  <!-- 返回首頁按鈕 - 始終顯示在底部 -->
+  <a
+    href="index.html"
+    class="mt-8 w-full max-w-md bg-gray-400 text-white py-3 rounded-xl text-center text-lg font-semibold hover:bg-gray-500 transition duration-300 ease-in-out shadow-md"
+  >
+    返回首頁
+  </a>
 
   <script type="text/babel">
     const { useState, useEffect } = React;
@@ -103,111 +113,109 @@
       };
 
       return (
-        <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4 font-inter">
-          <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
-            <h1 className="text-2xl font-bold text-center text-gray-800 mb-6">個位數乘法測驗</h1>
+        <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
+          <h1 className="text-2xl font-bold text-center text-gray-800 mb-6">個位數乘法測驗</h1>
 
-            {quizCompleted ? (
-              // 測驗完成畫面
-              <div className="text-center">
-                <h2 className="text-3xl font-extrabold text-green-600 mb-4">恭喜你過關了！</h2>
-                <p className="text-lg text-gray-700 mb-6">
-                  你真是太棒了！答對了 {correctCount} 題中的 {totalCount} 題。
-                  繼續努力，你會越來越厲害的！
-                </p>
+          {quizCompleted ? (
+            // 測驗完成畫面
+            <div className="text-center">
+              <h2 className="text-3xl font-extrabold text-green-600 mb-4">恭喜你過關了！</h2>
+              <p className="text-lg text-gray-700 mb-6">
+                你真是太棒了！答對了 {correctCount} 題中的 {totalCount} 題。
+                繼續努力，你會越來越厲害的！
+              </p>
 
-                {incorrectQuestions.length > 0 && (
-                  <div className="mb-6 text-left bg-red-50 p-4 rounded-lg border border-red-200">
-                    <h3 className="text-xl font-semibold text-red-700 mb-2">你答錯的問題：</h3>
-                    <ul className="list-disc list-inside text-red-600">
-                      {incorrectQuestions.map((q, index) => (
-                        <li key={index}>{q}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+              {incorrectQuestions.length > 0 && (
+                <div className="mb-6 text-left bg-red-50 p-4 rounded-lg border border-red-200">
+                  <h3 className="text-xl font-semibold text-red-700 mb-2">你答錯的問題：</h3>
+                  <ul className="list-disc list-inside text-red-600">
+                    {incorrectQuestions.map((q, index) => (
+                      <li key={index}>{q}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
-                <button
-                  onClick={handleRestart}
-                  className="w-full bg-blue-600 text-white py-3 rounded-xl hover:bg-blue-700 transition duration-300 ease-in-out shadow-md text-lg font-semibold"
-                >
-                  重新開始
-                </button>
+              <button
+                onClick={handleRestart}
+                className="w-full bg-blue-600 text-white py-3 rounded-xl hover:bg-blue-700 transition duration-300 ease-in-out shadow-md text-lg font-semibold"
+              >
+                重新開始
+              </button>
+            </div>
+          ) : (
+            // 測驗進行中畫面
+            <>
+              <div className="text-center text-gray-600 mb-4">
+                題目 {correctCount} / 10
               </div>
-            ) : (
-              // 測驗進行中畫面
-              <>
-                <div className="text-center text-gray-600 mb-4">
-                  題目 {correctCount} / 10
-                </div>
 
-                <div className="bg-blue-50 p-6 rounded-xl text-center text-5xl font-bold text-blue-800 mb-6 shadow-inner">
-                  {num1} × {num2} = ?
-                </div>
+              <div className="bg-blue-50 p-6 rounded-xl text-center text-5xl font-bold text-blue-800 mb-6 shadow-inner">
+                {num1} × {num2} = ?
+              </div>
 
-                <input
-                  type="text"
-                  value={answer}
-                  readOnly
-                  className="w-full p-4 text-center text-4xl font-semibold text-gray-800 bg-gray-50 rounded-xl mb-6 border-2 border-gray-200 focus:outline-none focus:border-blue-400 shadow-sm"
-                  placeholder="輸入答案"
-                />
+              <input
+                type="text"
+                value={answer}
+                readOnly
+                className="w-full p-4 text-center text-4xl font-semibold text-gray-800 bg-gray-50 rounded-xl mb-6 border-2 border-gray-200 focus:outline-none focus:border-blue-400 shadow-sm"
+                placeholder="輸入答案"
+              />
 
-                {/* 數字鍵盤 */}
-                <div className="grid grid-cols-3 gap-4 mb-6">
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-                    <button
-                      key={num}
-                      onClick={() => handleNumberClick(String(num))}
-                      className="bg-gray-200 text-gray-800 text-3xl font-semibold py-5 rounded-xl hover:bg-gray-300 transition duration-150 ease-in-out shadow-md active:bg-gray-400"
-                    >
-                      {num}
-                    </button>
-                  ))}
+              {/* 數字鍵盤 */}
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
                   <button
-                    onClick={handleDeleteClick}
-                    className="bg-red-200 text-red-800 text-3xl font-semibold py-5 rounded-xl hover:bg-red-300 transition duration-150 ease-in-out shadow-md active:bg-red-400 flex items-center justify-center"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-8 w-8"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M12 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M3 12l6.414 6.414a2 2 0 001.414.586H19a2 2 0 002-2V7a2 2 0 00-2-2h-8.172a2 2 0 00-1.414.586L3 12z"
-                      />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => handleNumberClick('0')}
+                    key={num}
+                    onClick={() => handleNumberClick(String(num))}
                     className="bg-gray-200 text-gray-800 text-3xl font-semibold py-5 rounded-xl hover:bg-gray-300 transition duration-150 ease-in-out shadow-md active:bg-gray-400"
                   >
-                    0
+                    {num}
                   </button>
-                  <button
-                    onClick={handleSubmit}
-                    className="bg-blue-600 text-white text-3xl font-semibold py-5 rounded-xl hover:bg-blue-700 transition duration-150 ease-in-out shadow-md active:bg-blue-800 flex items-center justify-center"
+                ))}
+                <button
+                  onClick={handleDeleteClick}
+                  className="bg-red-200 text-red-800 text-3xl font-semibold py-5 rounded-xl hover:bg-red-300 transition duration-150 ease-in-out shadow-md active:bg-red-400 flex items-center justify-center"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-8 w-8"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-8 w-8"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M3 12l6.414 6.414a2 2 0 001.414.586H19a2 2 0 002-2V7a2 2 0 00-2-2h-8.172a2 2 0 00-1.414.586L3 12z"
+                    />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => handleNumberClick('0')}
+                  className="bg-gray-200 text-gray-800 text-3xl font-semibold py-5 rounded-xl hover:bg-gray-300 transition duration-150 ease-in-out shadow-md active:bg-gray-400"
+                >
+                  0
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  className="bg-blue-600 text-white text-3xl font-semibold py-5 rounded-xl hover:bg-blue-700 transition duration-150 ease-in-out shadow-md active:bg-blue-800 flex items-center justify-center"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-8 w-8"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </button>
+              </div>
+            </>
+          )}
         </div>
       );
     };
@@ -218,10 +226,4 @@
     root.render(<App />);
   </script>
 </body>
-    </body>
-    <div class="w-full max-w-sm mx-auto mt-6 flex justify-center">
-        <a href="index.html" class="bg-gray-700 text-white font-bold py-3 px-8 rounded-lg hover:bg-gray-900 transition">
-            回到首頁
-        </a>
-    </div>
 </html>
