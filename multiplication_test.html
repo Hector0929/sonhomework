@@ -164,6 +164,14 @@
         .time-select:focus {
             border-color: #2196F3;
         }
+        .home-button {
+            background-image: linear-gradient(to right, #6c757d 0%, #495057  51%, #6c757d  100%);
+            color: white;
+            margin-top: 20px; /* Add some space above the button */
+        }
+        .home-button:hover {
+            background-position: right center;
+        }
     </style>
 </head>
 <body>
@@ -185,7 +193,7 @@
                 時間: <span id="time-left">30</span> 秒
             </div>
 
-            <div id="question-display" class="text-4xl font-extrabold text-gray-900 mb-5">
+            <div id="question-display" class="text-xl font-extrabold text-gray-900 mb-5">
                 <!-- Question will be displayed here -->
             </div>
 
@@ -239,12 +247,10 @@
                 重新挑戰
             </button>
         </div>
-    </div>
-
-    <div class="w-full max-w-sm mx-auto mt-6 flex justify-center">
-        <a href="index.html" class="bg-gray-700 text-white font-bold py-3 px-8 rounded-lg hover:bg-gray-900 transition">
-            回到首頁
-        </a>
+        <!-- New: Return to Homepage Button -->
+        <button id="home-button" class="button-style home-button w-full max-w-xs block mx-auto mt-8">
+            返回首頁
+        </button>
     </div>
 
     <script>
@@ -263,8 +269,9 @@
         const numpad = document.getElementById('numpad');
         const rechallengeButton = document.getElementById('rechallenge-button');
         const timeSettingSelect = document.getElementById('time-setting');
-        const timeSettingContainer = document.getElementById('time-setting-container'); // New: Container for time setting
+        const timeSettingContainer = document.getElementById('time-setting-container');
         const avgTimePerCorrectParagraph = document.getElementById('avg-time-per-correct');
+        const homeButton = document.getElementById('home-button'); // New: Home button element
 
         // Game state variables
         let initialGameTime = 30; // Stores the time chosen by the user at the start of the game
@@ -383,6 +390,7 @@
             submitButton.disabled = false;
             answerInput.disabled = true; // Keep keyboard input disabled to enforce numpad use
             avgTimePerCorrectParagraph.textContent = ''; // Clear previous average time display
+            homeButton.classList.add('hidden'); // Hide home button during game
 
             displayQuestion();
             startTimer();
@@ -406,13 +414,18 @@
             startButton.classList.remove('hidden'); // Show start button
             
             // Hide game play elements and results
-            questionDisplay.textContent = '選擇時間並點擊「開始遊戲」按鈕來進行挑戰！'; // Set initial instruction
+            // Changed font size for this instruction text
+            questionDisplay.textContent = '選擇時間並點擊「開始遊戲」按鈕來進行挑戰！';
+            questionDisplay.classList.remove('text-4xl'); // Remove old size
+            questionDisplay.classList.add('text-xl');    // Add new smaller size
+
             timerDisplay.textContent = timeLeft; // Display selected initial time
             answerInput.value = '';
             answerInput.disabled = true;
             submitButton.disabled = true;
             feedbackArea.classList.add('hidden');
             resultsArea.classList.add('hidden'); // Hide results area
+            homeButton.classList.remove('hidden'); // Show home button on setup/results
 
             timeSettingSelect.disabled = false; // Enable time setting for selection
         }
@@ -426,7 +439,9 @@
             answerInput.disabled = true;
             gameArea.classList.add('hidden'); // Hide game elements (including setup)
             resultsArea.classList.remove('hidden'); // Show results
-            
+            timeSettingSelect.disabled = false; // Re-enable time setting after game ends
+            homeButton.classList.remove('hidden'); // Show home button on setup/results
+
             correctCountSpan.textContent = score;
 
             // Calculate and display average time per correct answer
@@ -499,6 +514,9 @@
         startButton.addEventListener('click', startGame); // Starts the game from setup
         submitButton.addEventListener('click', checkAnswer);
         rechallengeButton.addEventListener('click', resetGameAndShowSetup); // Goes back to setup screen
+        homeButton.addEventListener('click', function() {
+            window.location.href = 'index.html'; // Redirect to index.html
+        });
 
         // Prevent physical keyboard input
         answerInput.addEventListener('keydown', function(event) {
