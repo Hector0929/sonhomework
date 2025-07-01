@@ -91,6 +91,11 @@
         </button>
     </div>
 
+    <!-- 新增：回首頁按鈕 -->
+    <a href="index.html" class="mt-8 px-8 py-4 bg-gray-600 text-white text-xl font-bold rounded-lg shadow-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors">
+        返回首頁
+    </a>
+
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
@@ -435,7 +440,7 @@
             if (enemySpawnTimer >= nextEnemySpawnTime) {
                 spawnEnemy();
                 enemySpawnTimer = 0;
-                nextEnemySpawnTime = Math.random() * 1000 + 500;
+                nextEnemySpawnTime = Math.random() * 2000 + 1000;
             }
 
             enemies.forEach(enemy => enemy.update());
