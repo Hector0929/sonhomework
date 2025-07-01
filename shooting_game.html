@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>九九乘法打擊敵機遊戲 (精靈球版)</title>
+    <title>九九乘法打擊敵機遊戲</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -112,48 +112,20 @@
         const finalScoreDisplay = document.getElementById('finalScore');
         const restartGameButton = document.getElementById('restartGameButton');
 
-        // --- 圖片載入邏輯 ---
-        const playerImage = new Image();
-        let isImageLoaded = false;
-
-        // 圖片載入前，禁用開始按鈕
-        startGameButton.disabled = true;
-        startGameButton.textContent = '圖片載入中...';
-
-        playerImage.onload = () => {
-            isImageLoaded = true;
-            startGameButton.disabled = false;
-            startGameButton.textContent = '開始遊戲';
-            console.log('精靈球圖片已載入！');
-            // 呼叫 resizeCanvas 來繪製初始的玩家（精靈球）
-            resizeCanvas();
-        };
-
-        playerImage.onerror = () => {
-            console.error('無法載入 poke_ball.png。請確保檔案與 HTML 檔案在同一個資料夾中。');
-            startGameButton.textContent = '圖片載入失敗';
-            startGameButton.classList.add('bg-red-500', 'cursor-not-allowed');
-            feedbackDisplay.textContent = '無法載入精靈球圖片！';
-        };
-
-        // 設定圖片來源，這會觸發 onload 或 onerror
-        playerImage.src = 'poke_ball.png';
-        // --- 圖片載入邏輯結束 ---
-
         // 遊戲狀態變數
         let score = 0;
-        let gameTimer = 40;
-        let questionTimer = 5;
+        let gameTimer = 40; // 遊戲總時間 (秒)
+        let questionTimer = 5; // 每題答題時間 (秒)
         let currentQuestion = { num1: 0, num2: 0, answer: 0 };
         let gameStarted = false;
         let gameOver = false;
-        let specialCannonAvailable = false;
-        let lastCannonScoreThreshold = 0;
+        let specialCannonAvailable = false; // 特殊大砲是否可用
+        let lastCannonScoreThreshold = 0; // 上一次獲得大砲的分數閾值
 
         // 遊戲元素狀態
         let player = null;
         let enemies = [];
-        let askedQuestions = new Set();
+        let askedQuestions = new Set(); // 已問過的問題集合，避免重複
 
         // 計時器和動畫幀 ID
         let lastFrameTime = 0;
@@ -162,32 +134,33 @@
         let gameTimerIntervalId = null;
         let questionTimerIntervalId = null;
         let enemySpawnTimer = 0;
-        const enemySpawnInterval = 3000;
+        const enemySpawnInterval = 3000; // 敵機生成間隔 (毫秒)，從 1000 改為 3000
 
         // 遊戲設定
         const maxEnemies = 10;
-        const enemySpeed = 0.5;
-        const WIN_SCORE = 500;
+        const enemySpeed = 0.5; // 敵機速度減緩，從 1 改為 0.5
+        const WIN_SCORE = 500; // 過關分數
 
-        // --- 修改後的 Player 類別 ---
+        // 遊戲元素類別定義
         class Player {
-            constructor(x, y, width, height) {
+            constructor(x, y, width, height, color = 'blue') {
                 this.x = x;
                 this.y = y;
                 this.width = width;
                 this.height = height;
-                this.image = playerImage; // 直接引用已載入的圖片物件
+                this.color = color;
             }
 
             draw(ctx) {
-                // 檢查圖片是否已載入完成
-                if (isImageLoaded && this.image.complete && this.image.naturalWidth !== 0) {
-                    ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
-                } else {
-                    // 如果圖片未載入，繪製一個備用方塊
-                    ctx.fillStyle = 'purple';
-                    ctx.fillRect(this.x, this.y, this.width, this.height);
-                }
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                ctx.beginPath();
+                ctx.moveTo(this.x + this.width / 2, this.y);
+                ctx.lineTo(this.x, this.y + this.height);
+                ctx.lineTo(this.x + this.width, this.y + this.height);
+                ctx.closePath();
+                ctx.fillStyle = 'darkblue';
+                ctx.fill();
             }
         }
 
@@ -198,11 +171,11 @@
                 this.width = width;
                 this.height = height;
                 this.color = color;
-                this.isHit = false;
+                this.isHit = false; // 標記是否被大砲擊中
             }
 
             draw(ctx) {
-                if (this.isHit) return;
+                if (this.isHit) return; // 如果被標記為擊中，則不繪製
                 ctx.fillStyle = this.color;
                 ctx.fillRect(this.x, this.y, this.width, this.height);
                 ctx.strokeStyle = 'black';
@@ -247,26 +220,28 @@
             questionStartTime = Date.now();
             resetQuestionTimer();
 
+            // 生成錯誤答案
             const answers = [currentQuestion.answer];
-            while (answers.length < 4) {
+            while (answers.length < 4) { // 生成 4 個答案選項
                 let wrongAnswer;
                 do {
                     wrongAnswer = Math.floor(Math.random() * 81) + 1;
                 } while (answers.includes(wrongAnswer) || Math.abs(wrongAnswer - currentQuestion.answer) < 3);
                 answers.push(wrongAnswer);
             }
-            shuffleArray(answers);
+            shuffleArray(answers); // 打亂答案順序
 
+            // 清空舊按鈕並生成新按鈕
             answerOptionsContainer.innerHTML = '';
             answers.forEach(ans => {
                 const button = document.createElement('button');
                 button.textContent = ans;
                 button.classList.add('answer-button');
-                button.dataset.answer = ans;
+                button.dataset.answer = ans; // 將答案儲存在 data 屬性中
                 button.addEventListener('click', handleAnswerClick);
                 answerOptionsContainer.appendChild(button);
             });
-            enableAnswerButtons();
+            enableAnswerButtons(); // 啟用答案按鈕
         }
 
         function enableAnswerButtons() {
@@ -282,7 +257,7 @@
         }
 
         function resetQuestionTimer() {
-            questionTimer = 5;
+            questionTimer = 5; // 重設為 5 秒
             questionTimerBar.style.width = '100%';
             if (questionTimerIntervalId) {
                 clearInterval(questionTimerIntervalId);
@@ -296,33 +271,35 @@
                     }
                     questionTimer = 0;
                 }
-                questionTimerBar.style.width = `${(questionTimer / 5) * 100}%`;
+                questionTimerBar.style.width = `${(questionTimer / 5) * 100}%`; // 根據 5 秒計算寬度
             }, 50);
         }
 
+        // 修正後的 fireBullet 函數，直接處理敵機的消除
         function fireBullet(numTargets, specialCannon = false) {
             if (specialCannon) {
-                enemies.forEach(enemy => enemy.isHit = true);
-                score += enemies.length * 10;
+                enemies.forEach(enemy => enemy.isHit = true); // 標記所有敵機為擊中
+                score += enemies.length * 10; // 為所有被擊中的敵機加分
                 feedbackDisplay.textContent = '大砲發射！全滅！';
                 specialCannonAvailable = false;
-                specialCannonButton.classList.add('hidden');
+                specialCannonButton.classList.add('hidden'); // 隱藏大砲按鈕
             } else {
+                // 找到距離玩家最近的 numTargets 數量敵機
                 const enemiesToHit = enemies
-                    .filter(enemy => !enemy.isHit)
+                    .filter(enemy => !enemy.isHit) // 只考慮未被擊中的敵機
                     .map(enemy => ({ enemy, distance: Math.hypot(player.x + player.width / 2 - (enemy.x + enemy.width / 2), player.y - enemy.y) }))
                     .sort((a, b) => a.distance - b.distance)
-                    .slice(0, numTargets);
+                    .slice(0, numTargets); // 選擇最近的 N 個
 
                 enemiesToHit.forEach(({ enemy }) => {
-                    enemy.isHit = true;
-                    score += 10;
+                    enemy.isHit = true; // 標記敵機為擊中
+                    score += 10; // 為每個被擊中的敵機加分
                 });
 
                 if (numTargets === 1) feedbackDisplay.textContent = '殲滅 1 隻敵軍！';
                 else if (numTargets === 2) feedbackDisplay.textContent = '殲滅 2 隻敵軍！';
                 else if (numTargets === 3) feedbackDisplay.textContent = '殲滅 3 隻敵軍！';
-                else if (numTargets >= enemies.length && enemies.length > 0) feedbackDisplay.textContent = '全滅敵軍！';
+                else if (numTargets >= enemies.length) feedbackDisplay.textContent = '全滅敵軍！'; // 當目標數量大於等於現有敵機數時，顯示全滅
             }
             scoreDisplay.textContent = `分數: ${score}`;
         }
@@ -331,33 +308,36 @@
             if (!gameStarted || gameOver) return;
 
             const selectedAnswer = parseInt(event.target.dataset.answer, 10);
-            disableAnswerButtons();
+            disableAnswerButtons(); // 點擊後禁用按鈕，避免重複點擊
 
             if (selectedAnswer === currentQuestion.answer) {
-                const answerTime = (Date.now() - questionStartTime) / 1000;
-                score += 10;
+                const answerTime = (Date.now() - questionStartTime) / 1000; // 計算答題時間 (秒)
+                score += 10; // 答對加基本分數
 
                 let targetsToEliminate = 0;
-                if (answerTime <= 2) {
-                    targetsToEliminate = enemies.length;
-                } else if (answerTime <= 3) {
+                if (answerTime <= 2) { // 2秒全滅
+                    targetsToEliminate = enemies.length; // 模擬全滅
+                } else if (answerTime <= 3) { // 3秒3隻
                     targetsToEliminate = 3;
-                } else if (answerTime <= 4) {
+                } else if (answerTime <= 4) { // 4秒殲滅2隻
                     targetsToEliminate = 2;
-                } else if (answerTime <= 5) {
+                } else if (answerTime <= 5) { // 5秒殲滅一隻
                     targetsToEliminate = 1;
                 }
-                fireBullet(targetsToEliminate);
-                checkSpecialCannonAvailability();
-                checkWinCondition();
-                generateQuestion();
+                fireBullet(targetsToEliminate); // 調用修正後的 fireBullet
+                checkSpecialCannonAvailability(); // 檢查特殊大砲是否可用
+                checkWinCondition(); // 檢查是否過關
+                generateQuestion(); // 生成新問題
             } else {
                 feedbackDisplay.textContent = '答錯了！再試一次。';
-                enableAnswerButtons();
+                // 答錯不立即生成新問題，讓玩家有機會重試或等待時間結束
+                enableAnswerButtons(); // 答錯重新啟用按鈕
             }
         }
 
+
         function checkSpecialCannonAvailability() {
+            // 每 50 分獲得一次大砲，且只在達到新的 50 分閾值時觸發
             const currentScoreThreshold = Math.floor(score / 50) * 50;
             if (currentScoreThreshold > lastCannonScoreThreshold && currentScoreThreshold > 0) {
                 specialCannonAvailable = true;
@@ -369,16 +349,16 @@
 
         function useSpecialCannon() {
             if (specialCannonAvailable && gameStarted && !gameOver) {
-                fireBullet(0, true);
+                fireBullet(0, true); // 0 顆子彈，但觸發特殊大砲邏輯
                 specialCannonAvailable = false;
                 specialCannonButton.classList.add('hidden');
-                generateQuestion();
+                generateQuestion(); // 發射大砲後生成新問題
             }
         }
 
         function checkWinCondition() {
             if (score >= WIN_SCORE) {
-                endGame("恭喜過關！", true);
+                endGame("恭喜過關！", true); // 傳遞 true 表示是過關勝利
             }
         }
 
@@ -389,12 +369,15 @@
             }
         }
 
+        // 修正後的 handleCollisions 函數，只處理敵機的移除
         function handleCollisions() {
+            // 移除被標記為擊中的敵機
             enemies = enemies.filter(enemy => !enemy.isHit);
 
+            // 敵機到達底部 (玩家失敗條件)
             enemies = enemies.filter(enemy => {
                 if (enemy.y + enemy.height > canvas.height) {
-                    endGame("敵軍突破防線，你被擊敗了！", false);
+                    endGame("敵軍突破防線，你被擊敗了！", false); // 傳遞 false 表示是失敗
                     return false;
                 }
                 return true;
@@ -436,17 +419,13 @@
         }
 
         function startGame() {
-            if (!isImageLoaded) {
-                feedbackDisplay.textContent = '圖片仍在載入中，請稍候...';
-                return;
-            }
-            hideCelebrationScreen();
+            hideCelebrationScreen(); // 隱藏慶賀畫面
             gameStarted = true;
             gameOver = false;
             score = 0;
             gameTimer = 40;
             specialCannonAvailable = false;
-            lastCannonScoreThreshold = 0;
+            lastCannonScoreThreshold = 0; // 重設大砲閾值
 
             scoreDisplay.textContent = `分數: ${score}`;
             timerDisplay.textContent = `時間: ${gameTimer}s`;
@@ -455,18 +434,18 @@
             askedQuestions.clear();
             enemySpawnTimer = 0;
 
-            // --- 使用修改後的 Player 類別 ---
+            // 初始化玩家位置
             player = new Player(
-                canvas.width / 2 - 25, // 玩家 X 座標
-                canvas.height - 60,    // 玩家 Y 座標
-                50,                    // 玩家寬度
-                50                     // 玩家高度
+                canvas.width / 2 - 25,
+                canvas.height - 60,
+                50,
+                50
             );
 
             generateQuestion();
             startGameButton.textContent = '重新開始';
-            startGameButton.disabled = true;
-            specialCannonButton.classList.add('hidden');
+            startGameButton.disabled = true; // 遊戲開始後禁用按鈕
+            specialCannonButton.classList.add('hidden'); // 隱藏大砲按鈕
 
             if (gameTimerIntervalId) clearInterval(gameTimerIntervalId);
             gameTimerIntervalId = setInterval(() => {
@@ -474,7 +453,7 @@
                 timerDisplay.textContent = `時間: ${gameTimer}s`;
                 if (gameTimer <= 0) {
                     clearInterval(gameTimerIntervalId);
-                    endGame("時間到，遊戲結束！", false);
+                    endGame("時間到，遊戲結束！", false); // 傳遞 false 表示是失敗
                 }
             }, 1000);
 
@@ -491,12 +470,12 @@
             if (gameTimerIntervalId) clearInterval(gameTimerIntervalId);
             if (questionTimerIntervalId) clearInterval(questionTimerIntervalId);
 
-            disableAnswerButtons();
-            startGameButton.disabled = false;
+            disableAnswerButtons(); // 禁用答案按鈕
+            startGameButton.disabled = false; // 遊戲結束後啟用按鈕
             startGameButton.textContent = '重新開始';
-            questionDisplay.textContent = '遊戲結束';
-            questionTimerBar.style.width = '0%';
-            specialCannonButton.classList.add('hidden');
+            questionDisplay.textContent = '遊戲結束'; // 顯示遊戲結束
+            questionTimerBar.style.width = '0%'; // 時間條清空
+            specialCannonButton.classList.add('hidden'); // 隱藏大砲按鈕
 
             if (isWin) {
                 showCelebrationScreen();
@@ -512,44 +491,41 @@
             celebrationScreen.classList.add('hidden');
         }
 
+        // 事件監聽器
         startGameButton.addEventListener('click', startGame);
         specialCannonButton.addEventListener('click', useSpecialCannon);
-        restartGameButton.addEventListener('click', startGame);
+        restartGameButton.addEventListener('click', startGame); // 慶賀畫面中的重新開始按鈕
 
+        // 畫布響應式調整大小
         function resizeCanvas() {
             const gameArea = document.getElementById('game-area');
             if (gameArea) {
                 canvas.width = gameArea.clientWidth;
-                canvas.height = window.innerHeight / 2;
+                canvas.height = window.innerHeight / 2; // 設定為視窗高度的一半
             } else {
-                canvas.width = window.innerWidth * 0.8;
-                canvas.height = window.innerHeight / 2;
+                canvas.width = window.innerWidth * 0.8; // 預設值
+                canvas.height = window.innerHeight / 2; // 預設值
             }
 
-            // 遊戲開始前，如果圖片已載入，先畫出玩家
-            if (!gameStarted) {
-                ctx.clearRect(0, 0, canvas.width, canvas.height); // 清除畫布
-                // 創建一個臨時的 player 物件來繪製
-                const tempPlayer = new Player(
-                    canvas.width / 2 - 25,
-                    canvas.height - 60,
-                    50,
-                    50
-                );
-                tempPlayer.draw(ctx);
-            } else if (player) {
-                // 如果遊戲正在進行，更新玩家位置
+            // 重新定位玩家
+            if (player) {
                 player.x = canvas.width / 2 - player.width / 2;
                 player.y = canvas.height - 60;
             }
-            
-            draw(); // 重新繪製整個場景
+            draw(); // 重新繪製
+            // 初始顯示文字
+            if (!gameStarted && !gameOver) {
+                ctx.font = '24px Arial';
+                ctx.fillStyle = 'black';
+                ctx.textAlign = 'center';
+                ctx.fillText('點擊開始遊戲', canvas.width / 2, canvas.height / 2);
+            }
         }
 
         window.addEventListener('resize', resizeCanvas);
 
-        // 初始設定畫布大小
-        // 使用 setTimeout 確保 DOM 和 CSS 完全加載後再執行
+        // 初始設定畫布大小並繪製
+        // 使用 setTimeout 確保 DOM 和 CSS 完全加載後再執行 resizeCanvas
         window.onload = () => {
             setTimeout(resizeCanvas, 100);
         };
