@@ -435,7 +435,7 @@
             if (enemySpawnTimer >= nextEnemySpawnTime) {
                 spawnEnemy();
                 enemySpawnTimer = 0;
-                nextEnemySpawnTime = Math.random() * 2000 + 1000;
+                nextEnemySpawnTime = Math.random() * 1000 + 500;
             }
 
             enemies.forEach(enemy => enemy.update());
