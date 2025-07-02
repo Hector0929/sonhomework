@@ -322,7 +322,6 @@
         // Ensure global Firebase variables are available (for Canvas environment)
         // Note: In a deployed web app, you would typically define appId directly from your Firebase project ID.
         // Here, we use the projectId from the provided config as the appId for the artifacts path.
-        const appId = "shootinggame-c7634"; // Use the projectId from the provided config as the appId
         const firebaseConfig = {
             apiKey: "AIzaSyCBhUzLaW5gvEgx2WsaL_jQvYLUDNi8qew",
             authDomain: "shootinggame-c7634.firebaseapp.com",
@@ -332,6 +331,9 @@
             appId: "1:942695280947:web:6588adab2c5ad0a0478e46",
             measurementId: "G-99Z8KE9J6F"
         };
+        // Use the __app_id provided by the Canvas environment, or fallback to firebaseConfig.projectId
+        const appId = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.projectId;
+
         // initialAuthToken is provided by the Canvas environment for authentication
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null; 
 
@@ -411,8 +413,11 @@
                 unsubscribeLeaderboard(); // Unsubscribe previous listener if exists
             }
             // Use the projectId as appId in the collection path
+            const collectionPath = `artifacts/${appId}/public/data/multiplicationScores`;
+            console.log("Attempting to fetch leaderboard from path:", collectionPath); // Log the path for debugging
+
             const q = query(
-                collection(db, `artifacts/${appId}/public/data/multiplicationScores`)
+                collection(db, collectionPath)
             );
             unsubscribeLeaderboard = onSnapshot(q, (snapshot) => {
                 let scores = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
