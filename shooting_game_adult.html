@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>九九乘法打擊敵機遊戲 V8 (按鈕縮小)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 自定義字體 */
+        body {
+            font-family: "Inter", sans-serif;
+        }
+        /* 確保 canvas 佔用其父容器的可用空間 */
+        canvas {
+            display: block;
+            background-color: #a7f3d0; /* 淺綠色背景 */
+            border-bottom: 2px solid #9ca3af; /* 灰色邊框 */
+            border-radius: 0.5rem; /* 圓角 */
+            width: 100%; /* 佔滿父容器寬度 */
+            height: calc(50vh); /* 將高度設定為視口高度的一半 */
+        }
+        /* 彈出視窗的基底樣式 */
+        .modal-screen {
+            position: fixed; /* 改為 fixed 以覆蓋整個視窗 */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 2rem;
+            font-weight: bold;
+            text-align: center;
+            z-index: 100;
+            padding: 1rem;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4 relative">
+    <!-- 名稱輸入畫面 -->
+    <div id="nameInputScreen" class="modal-screen flex">
+        <div class="bg-white p-8 rounded-lg shadow-xl text-black w-full max-w-sm">
+            <h2 class="text-3xl font-bold mb-4">輸入你的玩家名稱</h2>
+            <input type="text" id="playerNameInput" class="w-full px-4 py-2 border rounded-lg text-xl" placeholder="玩家名稱" maxlength="10">
+            <button id="submitNameButton" class="mt-4 w-full px-6 py-3 bg-green-600 text-white text-xl font-bold rounded-lg shadow-md hover:bg-green-700">
+                確認
+            </button>
+        </div>
+    </div>
+
+    <!-- 排行榜畫面 -->
+    <div id="leaderboardScreen" class="modal-screen hidden">
+         <div class="bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md">
+            <h2 class="text-4xl font-bold mb-6 text-yellow-400">� 線上排行榜 🏆</h2>
+            <ol id="leaderboardList" class="text-left text-2xl space-y-2">
+                <!-- 排行榜項目將由 JS 生成 -->
+            </ol>
+            <button id="closeLeaderboardButton" class="mt-8 px-6 py-3 bg-red-600 text-white text-xl font-bold rounded-lg shadow-md hover:bg-red-700">
+                關閉
+            </button>
+        </div>
+    </div>
+
+    <!-- 主遊戲區域 -->
+    <div id="game-area" class="w-full max-w-3xl bg-white rounded-lg shadow-lg overflow-hidden flex-col hidden">
+        <!-- 遊戲畫布區域 -->
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- 遊戲控制和資訊區域 -->
+        <div class="p-4 bg-gray-50 flex flex-col items-center justify-center text-center rounded-b-lg">
+            <div class="text-2xl font-semibold mb-2 flex justify-between items-center w-full px-4">
+                <span id="scoreDisplay">分數: 0</span>
+                <button id="viewLeaderboardButton" class="px-4 py-2 bg-yellow-500 text-white text-base font-bold rounded-lg shadow-md hover:bg-yellow-600">
+                    排行榜
+                </button>
+            </div>
+            <div class="text-4xl font-bold mb-4 text-center w-full">
+                <span id="questionDisplay">點擊開始遊戲</span>
+            </div>
+            <div id="answerOptionsContainer" class="grid grid-cols-2 gap-4 mb-4 w-full max-w-sm"></div>
+            <div class="h-2 bg-gray-300 rounded-full mt-4 overflow-hidden w-full max-w-xs">
+                <div id="questionTimerBar" class="h-full bg-green-500 transition-all duration-100 ease-linear" style="width: 100%;"></div>
+            </div>
+            <div id="feedbackDisplay" class="mt-2 text-red-600 font-semibold h-6"></div>
+            <button id="startGameButton" class="mt-4 px-6 py-3 bg-blue-600 text-white text-xl font-bold rounded-lg shadow-md hover:bg-blue-700">
+                開始遊戲
+            </button>
+        </div>
+    </div>
+    
+    <!-- 返回首頁按鈕 -->
+    <button id="homeButton" class="mt-6 px-8 py-4 bg-gray-600 text-white text-xl font-bold rounded-lg shadow-md hover:bg-gray-700">
+        返回首頁
+    </button>
+
+    <!-- Firebase 腳本 -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // DOM 元素
+        const nameInputScreen = document.getElementById('nameInputScreen');
+        const playerNameInput = document.getElementById('playerNameInput');
+        const submitNameButton = document.getElementById('submitNameButton');
+        const leaderboardScreen = document.getElementById('leaderboardScreen');
+        const leaderboardList = document.getElementById('leaderboardList');
+        const closeLeaderboardButton = document.getElementById('closeLeaderboardButton');
+        const viewLeaderboardButton = document.getElementById('viewLeaderboardButton');
+        const gameArea = document.getElementById('game-area');
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const questionDisplay = document.getElementById('questionDisplay');
+        const answerOptionsContainer = document.getElementById('answerOptionsContainer');
+        const questionTimerBar = document.getElementById('questionTimerBar');
+        const feedbackDisplay = document.getElementById('feedbackDisplay');
+        const startGameButton = document.getElementById('startGameButton');
+        const homeButton = document.getElementById('homeButton');
+        
+        // Firebase 初始化
+        let db;
+        let leaderboardCol;
+        try {
+            const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'multiplication-shooter-game';
+            
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            const auth = getAuth(app);
+
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                await signInWithCustomToken(auth, __initial_auth_token);
+            } else {
+                await signInAnonymously(auth);
+            }
+            console.log("Firebase 已認證。");
+
+            leaderboardCol = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
+            listenToLeaderboard();
+
+        } catch (e) {
+            console.error("Firebase 初始化失敗:", e);
+            alert("無法連接到排行榜伺服器，請檢查您的網路連線或稍後再試。");
+        }
+
+        // 圖片載入邏輯
+        const playerImage = new Image();
+        let isImageLoaded = false;
+        startGameButton.disabled = true;
+        startGameButton.textContent = '圖片載入中...';
+        playerImage.onload = () => {
+            isImageLoaded = true;
+            startGameButton.disabled = false;
+            startGameButton.textContent = '開始遊戲';
+            console.log('玩家圖片已載入！');
+            resizeCanvas();
+        };
+        playerImage.onerror = () => {
+            console.error('無法載入玩家圖片。');
+            startGameButton.textContent = '圖片載入失敗';
+            startGameButton.classList.add('bg-red-500', 'cursor-not-allowed');
+            feedbackDisplay.textContent = '無法載入玩家圖片！';
+        };
+        playerImage.src = 'pikachu.png';
+
+        // 遊戲狀態變數
+        let currentPlayerName = '';
+        let score = 0;
+        let questionTimer = 5;
+        let currentQuestion = { num1: 0, num2: 0, answer: 0 };
+        let gameStarted = false;
+        let gameOver = false;
+        let player = null;
+        let enemies = [];
+        let bullets = [];
+        let askedQuestions = new Set();
+        let lastFrameTime = 0;
+        let questionStartTime = 0;
+        let gameLoopId = null;
+        let questionTimerIntervalId = null;
+        let enemySpawnTimer = 0;
+        let speedIncreaseIntervalId = null;
+        const maxEnemies = 10;
+        
+        // 遊戲難度變數
+        let enemySpeed = 0.5;
+        const initialEnemySpawnInterval = 3000;
+        let enemySpawnInterval = initialEnemySpawnInterval;
+
+        // 排行榜相關函數
+        async function saveToLeaderboard(name, score) {
+            if (!leaderboardCol) return;
+            try {
+                await addDoc(leaderboardCol, { name, score, createdAt: new Date() });
+                console.log("分數已儲存至線上排行榜！");
+            } catch (e) {
+                console.error("儲存分數失敗:", e);
+                feedbackDisplay.textContent = "無法儲存分數！";
+            }
+        }
+
+        function listenToLeaderboard() {
+            if (!leaderboardCol) return;
+            const q = query(leaderboardCol, orderBy("score", "desc"), limit(10));
+            onSnapshot(q, (snapshot) => {
+                const leaderboard = [];
+                snapshot.forEach((doc) => { leaderboard.push(doc.data()); });
+                updateLeaderboardUI(leaderboard);
+            }, (error) => {
+                console.error("讀取排行榜失敗:", error);
+                leaderboardList.innerHTML = '<li class="text-red-400">無法載入排行榜...</li>';
+            });
+        }
+
+        function updateLeaderboardUI(leaderboard) {
+            leaderboardList.innerHTML = '';
+            if (leaderboard.length === 0) {
+                leaderboardList.innerHTML = '<li class="text-gray-400">目前沒有任何紀錄...</li>';
+            } else {
+                leaderboard.forEach((entry, index) => {
+                    const li = document.createElement('li');
+                    li.className = 'flex justify-between p-2 rounded';
+                    let medal = ['🥇', '🥈', '🥉'][index] || '';
+                    li.innerHTML = `
+                        <span class="font-bold w-1/3">${medal} ${index + 1}. ${entry.name}</span>
+                        <span class="text-yellow-300 w-2/3 text-right">${entry.score} 分</span>
+                    `;
+                    if (index < 3) li.classList.add('bg-yellow-500', 'bg-opacity-20');
+                    leaderboardList.appendChild(li);
+                });
+            }
+        }
+
+        function displayLeaderboard() {
+            leaderboardScreen.classList.remove('hidden');
+            leaderboardScreen.classList.add('flex');
+        }
+
+        // 遊戲物件類別
+        class Bullet {
+            constructor(startX, startY, targetEnemy) { this.x = startX; this.y = startY; this.target = targetEnemy; this.speed = 15; this.isDone = false; }
+            update() { const targetX = this.target.x + this.target.width / 2; const targetY = this.target.y + this.target.height / 2; const dx = targetX - this.x; const dy = targetY - this.y; const distance = Math.sqrt(dx * dx + dy * dy); if (distance < this.speed) { this.isDone = true; this.target.isHit = true; score += 10; scoreDisplay.textContent = `分數: ${score}`; feedbackDisplay.textContent = '殲滅 1 隻敵軍！'; } else { this.x += (dx / distance) * this.speed; this.y += (dy / distance) * this.speed; } }
+            draw(ctx) { ctx.fillStyle = 'yellow'; ctx.beginPath(); ctx.arc(this.x, this.y, 5, 0, Math.PI * 2); ctx.fill(); }
+        }
+        class Player {
+            constructor(x, y, width, height) { this.x = x; this.y = y; this.width = width; this.height = height; this.image = playerImage; }
+            draw(ctx) { if (isImageLoaded && this.image.complete && this.image.naturalWidth !== 0) { ctx.drawImage(this.image, this.x, this.y, this.width, this.height); } else { ctx.fillStyle = 'purple'; ctx.fillRect(this.x, this.y, this.width, this.height); } }
+        }
+        class Enemy {
+            constructor(x, y, width, height, color = 'red') { this.x = x; this.y = y; this.width = width; this.height = height; this.color = color; this.isHit = false; }
+            draw(ctx) { if (this.isHit) return; ctx.fillStyle = this.color; ctx.fillRect(this.x, this.y, this.width, this.height); ctx.strokeStyle = 'black'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(this.x, this.y); ctx.lineTo(this.x + this.width, this.y + this.height); ctx.moveTo(this.x + this.width, this.y); ctx.lineTo(this.x, this.y + this.height); ctx.stroke(); }
+            update() { this.y += enemySpeed; }
+        }
+
+        // 遊戲核心邏輯
+        function generateQuestion() {
+            let num1, num2, questionString;
+            do {
+                num1 = Math.floor(Math.random() * 9) + 1;
+                num2 = Math.floor(Math.random() * 9) + 1;
+                questionString = `${Math.min(num1, num2)}x${Math.max(num1, num2)}`;
+            } while (askedQuestions.has(questionString) && askedQuestions.size < 81);
+            if (askedQuestions.size === 81) {
+                askedQuestions.clear();
+            }
+            askedQuestions.add(questionString);
+            currentQuestion = { num1, num2, answer: num1 * num2 };
+            questionDisplay.textContent = `${currentQuestion.num1} x ${currentQuestion.num2} = ?`;
+            feedbackDisplay.textContent = '';
+            questionStartTime = Date.now();
+            resetQuestionTimer();
+            const answers = [currentQuestion.answer];
+            while (answers.length < 4) {
+                let wrongAnswer;
+                do {
+                    wrongAnswer = Math.floor(Math.random() * 81) + 1;
+                } while (answers.includes(wrongAnswer) || Math.abs(wrongAnswer - currentQuestion.answer) < 3);
+                answers.push(wrongAnswer);
+            }
+            for (let i = answers.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [answers[i], answers[j]] = [answers[j], answers[i]];
+            }
+            answerOptionsContainer.innerHTML = '';
+            answers.forEach(ans => {
+                const button = document.createElement('button');
+                button.textContent = ans;
+                // *** V8: 縮小按鈕樣式 ***
+                button.classList.add(
+                    'px-6', 'py-3', 'text-2xl', // 縮小 padding 和文字大小
+                    'bg-blue-600', 'text-white', 'rounded-lg', 'shadow-md',
+                    'hover:bg-blue-700', 'focus:outline-none', 'focus:ring-2', 'focus:ring-blue-500'
+                );
+                button.dataset.answer = ans;
+                button.addEventListener('click', handleAnswerClick);
+                answerOptionsContainer.appendChild(button);
+            });
+            enableAnswerButtons();
+        }
+
+        function enableAnswerButtons() {
+            Array.from(answerOptionsContainer.children).forEach(button => {
+                button.disabled = false;
+                button.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                button.classList.remove('bg-gray-400', 'cursor-not-allowed');
+            });
+        }
+
+        function disableAnswerButtons() {
+            Array.from(answerOptionsContainer.children).forEach(button => {
+                button.disabled = true;
+                button.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                button.classList.add('bg-gray-400', 'cursor-not-allowed');
+            });
+        }
+        function resetQuestionTimer() { questionTimer = 5; questionTimerBar.style.width = '100%'; if (questionTimerIntervalId) { clearInterval(questionTimerIntervalId); } questionTimerIntervalId = setInterval(() => { questionTimer -= 0.05; if (questionTimer <= 0.05) { clearInterval(questionTimerIntervalId); if (gameStarted && !gameOver) { endGame("時間到，你被敵軍打敗了！"); } questionTimer = 0; } questionTimerBar.style.width = `${(questionTimer / 5) * 100}%`; }, 50); }
+        function handleAnswerClick(event) { if (!gameStarted || gameOver) return; const selectedAnswer = parseInt(event.target.dataset.answer, 10); disableAnswerButtons(); if (selectedAnswer === currentQuestion.answer) { const availableEnemies = enemies.filter(e => !e.isHit && !bullets.some(b => b.target === e)); if (availableEnemies.length > 0) { const targetEnemy = availableEnemies.sort((a, b) => b.y - a.y)[0]; const bulletStartX = player.x + player.width / 2; const bulletStartY = player.y; bullets.push(new Bullet(bulletStartX, bulletStartY, targetEnemy)); } generateQuestion(); } else { feedbackDisplay.textContent = '答錯了！再試一次。'; enableAnswerButtons(); } }
+        function spawnEnemy() { if (enemies.length < maxEnemies) { const x = Math.random() * (canvas.width - 50); enemies.push(new Enemy(x, 0, 40, 40)); } }
+        function handleCollisions() { enemies = enemies.filter(enemy => !enemy.isHit); enemies.forEach(enemy => { if (enemy.y + enemy.height > canvas.height) { endGame("敵軍突破防線，你被擊敗了！"); } }); }
+        function update(deltaTime) { enemies.forEach(enemy => enemy.update()); bullets.forEach(bullet => bullet.update()); bullets = bullets.filter(bullet => !bullet.isDone); enemySpawnTimer += deltaTime; if (enemySpawnTimer > enemySpawnInterval) { spawnEnemy(); enemySpawnTimer = 0; } handleCollisions(); }
+        function draw() { ctx.clearRect(0, 0, canvas.width, canvas.height); if (player) { player.draw(ctx); } enemies.forEach(enemy => enemy.draw(ctx)); bullets.forEach(bullet => bullet.draw(ctx)); }
+        function gameLoop(currentTime) { if (!gameStarted || gameOver) return; const deltaTime = currentTime - lastFrameTime; lastFrameTime = currentTime; update(deltaTime); draw(); gameLoopId = requestAnimationFrame(gameLoop); }
+        
+        function startGame() {
+            if (!isImageLoaded) { feedbackDisplay.textContent = '圖片仍在載入中...'; return; }
+            gameStarted = true; gameOver = false; score = 0;
+            
+            enemySpeed = 0.5;
+            enemySpawnInterval = initialEnemySpawnInterval;
+
+            scoreDisplay.textContent = `分數: ${score}`;
+            feedbackDisplay.textContent = '';
+            enemies = []; bullets = []; askedQuestions.clear(); enemySpawnTimer = 0;
+            player = new Player(canvas.width / 2 - 25, canvas.height - 60, 50, 50);
+            generateQuestion();
+            startGameButton.textContent = '重新開始';
+            startGameButton.disabled = true;
+            if (speedIncreaseIntervalId) clearInterval(speedIncreaseIntervalId);
+            
+            speedIncreaseIntervalId = setInterval(() => {
+                enemySpeed *= 1.75;
+                if (enemySpawnInterval > 800) {
+                     enemySpawnInterval *= 0.8;
+                }
+                feedbackDisplay.textContent = '難度提升！';
+                setTimeout(() => { if (gameStarted && feedbackDisplay.textContent === '難度提升！') { feedbackDisplay.textContent = ''; } }, 1500);
+            }, 10000);
+
+            lastFrameTime = performance.now();
+            gameLoopId = requestAnimationFrame(gameLoop);
+        }
+
+        async function endGame(reason) {
+            gameOver = true; gameStarted = false;
+            feedbackDisplay.textContent = reason + ` 最終分數: ${score}`;
+            if (gameLoopId) cancelAnimationFrame(gameLoopId);
+            if (questionTimerIntervalId) clearInterval(questionTimerIntervalId);
+            if (speedIncreaseIntervalId) clearInterval(speedIncreaseIntervalId);
+            bullets = [];
+            disableAnswerButtons();
+            startGameButton.disabled = false;
+            startGameButton.textContent = '重新開始';
+            questionDisplay.textContent = '遊戲結束';
+            questionTimerBar.style.width = '0%';
+            
+            await saveToLeaderboard(currentPlayerName, score);
+            setTimeout(displayLeaderboard, 1500);
+        }
+
+        function resizeCanvas() {
+            const gameArea = document.getElementById('game-area');
+            if (gameArea) { canvas.width = gameArea.clientWidth; canvas.height = window.innerHeight / 2; }
+            else { canvas.width = window.innerWidth * 0.8; canvas.height = window.innerHeight / 2; }
+            if (!gameStarted) { ctx.clearRect(0, 0, canvas.width, canvas.height); const tempPlayer = new Player(canvas.width / 2 - 25, canvas.height - 60, 50, 50); tempPlayer.draw(ctx); }
+            else if (player) { player.x = canvas.width / 2 - player.width / 2; player.y = canvas.height - 60; }
+            draw();
+        }
+
+        // 事件監聽器
+        submitNameButton.addEventListener('click', () => {
+            const name = playerNameInput.value.trim();
+            if (name) {
+                currentPlayerName = name;
+                nameInputScreen.classList.add('hidden');
+                nameInputScreen.classList.remove('flex');
+                gameArea.classList.remove('hidden');
+                gameArea.classList.add('flex');
+                resizeCanvas();
+            } else {
+                alert('請輸入一個有效的名稱！');
+            }
+        });
+
+        viewLeaderboardButton.addEventListener('click', displayLeaderboard);
+        closeLeaderboardButton.addEventListener('click', () => {
+            leaderboardScreen.classList.add('hidden');
+            leaderboardScreen.classList.remove('flex');
+        });
+        
+        homeButton.addEventListener('click', () => {
+            window.location.reload();
+        });
+        
+        startGameButton.addEventListener('click', startGame);
+        window.addEventListener('resize', resizeCanvas);
+        window.onload = () => { /* 初始畫面由名稱輸入畫面控制 */ };
+    </script>
+</body>
+</html>
+�

@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>九九乘法表挑戰V2</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for the Inter font and overall look */
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #a8c0ff, #3f2b96); /* Gradient background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh; /* Ensure it takes full viewport height for centering */
+            margin: 0;
+            padding: 15px; /* Slightly reduced overall padding */
+            box-sizing: border-box;
+        }
+        .game-container {
+            background-color: #ffffff;
+            border-radius: 20px; /* More rounded corners */
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2); /* Enhanced shadow */
+            padding: 25px; /* Slightly reduced padding */
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+            opacity: 0; /* Hidden initially */
+            transform: translateY(20px); /* Slightly moved down initially */
+            animation: fadeInScale 0.7s forwards ease-out; /* Animation for appearance */
+        }
+
+        /* Animation keyframes */
+        @keyframes fadeInScale {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .button-style {
+            padding: 12px 25px;
+            border-radius: 12px; /* Rounded buttons */
+            font-weight: bold;
+            transition: all 0.3s ease; /* Smooth transitions */
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            background-size: 200% auto;
+        }
+
+        .button-style:hover {
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .start-button, .rechallenge-button { /* Apply similar style to re-challenge button */
+            background-image: linear-gradient(to right, #4CAF50 0%, #8BC34A  51%, #4CAF50  100%);
+            color: white;
+        }
+        .start-button:hover, .rechallenge-button:hover {
+            background-position: right center; /* change the direction of the change here */
+        }
+
+        .submit-button {
+            /* Doubled vertical padding for height */
+            padding: 24px 25px; /* Original was 12px vertical padding */
+            border-radius: 12px; /* Rounded buttons */
+            font-weight: bold;
+            transition: all 0.3s ease; /* Smooth transitions */
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            background-size: 200% auto;
+            /* Explicitly set the blue gradient for submit button */
+            background-image: linear-gradient(to right, #2196F3 0%, #03A9F4  51%, #2196F3  100%);
+            color: white; /* Ensure text color is white */
+        }
+        .submit-button:hover {
+            background-position: right center;
+        }
+
+        .input-style {
+            padding: 10px 15px; /* Slightly reduced input padding */
+            border-radius: 12px;
+            border: 2px solid #e0e0e0;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+        .input-style:focus {
+            border-color: #4CAF50;
+        }
+
+        .feedback-message {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+        .feedback-correct {
+            background-color: #e6ffe6;
+            color: #28a745;
+        }
+        .feedback-incorrect {
+            background-color: #ffe6e6;
+            color: #dc3545;
+        }
+        .results-section {
+            margin-top: 20px; /* Slightly reduced margin */
+            padding-top: 20px; /* Slightly reduced padding */
+            border-top: 1px dashed #e0e0e0;
+        }
+
+        /* Styles for the number pad */
+        .numpad-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr); /* 3 columns */
+            gap: 8px; /* Slightly reduced space between buttons */
+            margin-top: 15px; /* Slightly reduced margin */
+            width: 100%;
+            max-width: 300px; /* Max width for the numpad */
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .numpad-button {
+            padding: 12px 0; /* Slightly reduced padding for numpad buttons */
+            font-size: 1.6rem; /* Slightly smaller font for numbers */
+            border-radius: 12px;
+            background-color: #f0f0f0;
+            color: #333;
+            border: 1px solid #ddd;
+            cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .numpad-button:hover {
+            background-color: #e0e0e0;
+            transform: translateY(-1px);
+        }
+
+        .numpad-button:active {
+            background-color: #d0d0d0;
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .numpad-clear, .numpad-backspace {
+            background-color: #ffcccc; /* Light red for clear/backspace */
+            color: #cc0000;
+        }
+
+        .numpad-clear:hover, .numpad-backspace:hover {
+            background-color: #ffb3b3;
+        }
+
+        /* Style for time select dropdown */
+        .time-select {
+            padding: 8px 15px;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+            font-size: 1rem;
+            margin-bottom: 15px;
+            appearance: none; /* Remove default arrow */
+            background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23666666%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13%205.1L146.2%20202.7%2018.5%2074.5a17.6%2017.6%200%200%200-25.1%2024.5l137.9%20137.9a17.6%2017.6%200%200%0024.7%200l137.9-137.9a17.6%2017.6%200%200%200%20-13-29.2z%22%2F%3E%3C%2Fsvg%3E');
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 12px;
+            cursor: pointer;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+        .time-select:focus {
+            border-color: #2196F3;
+        }
+        .home-button {
+            background-image: linear-gradient(to right, #6c757d 0%, #495057  51%, #6c757d  100%);
+            color: white;
+            margin-top: 20px; /* Add some space above the button */
+        }
+        .home-button:hover {
+            background-position: right center;
+        }
+        .leaderboard-list li {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 1.1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .leaderboard-list li:nth-child(1) {
+            background-color: #ffe082; /* Gold for 1st place */
+            color: #333;
+            font-weight: bold;
+            transform: scale(1.02);
+        }
+        .leaderboard-list li:nth-child(2) {
+            background-color: #e0e0e0; /* Silver for 2nd place */
+            color: #333;
+        }
+        .leaderboard-list li:nth-child(3) {
+            background-color: #ffccbc; /* Bronze for 3rd place */
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1 class="text-xl font-extrabold text-gray-800 mb-4">九九乘法表挑戰</h1>
+        <p class="text-gray-600 mb-6 text-base">選擇倒數計時時間，並盡力回答更多的題目吧！</p>
+
+        <div id="game-area" class="space-y-4">
+            <div class="mb-4" id="name-input-container">
+                <label for="user-name" class="block text-gray-700 text-sm font-bold mb-2">你的名字：</label>
+                <input
+                    type="text"
+                    id="user-name"
+                    class="input-style w-full max-w-xs text-center text-xl mb-2"
+                    placeholder="請輸入名字"
+                    maxlength="15"
+                />
+                <p id="name-error-message" class="text-red-500 text-sm hidden">請輸入你的名字！</p> <!-- New error message -->
+            </div>
+
+            <div class="mb-4" id="time-setting-container">
+                <label for="time-setting" class="block text-gray-700 text-sm font-bold mb-2">選擇時間：</label>
+                <select id="time-setting" class="time-select w-full max-w-xs block mx-auto">
+                    <option value="30">30 秒</option>
+                    <option value="60">60 秒</option>
+                    <option value="90">90 秒</option>
+                </select>
+            </div>
+
+            <p id="instruction-text" class="text-base font-extrabold text-gray-900 mb-5">
+                <!-- Instruction text will be set by JS -->
+            </p>
+
+            <!-- Timer Display - This will be shown during the game -->
+            <div id="timer-display" class="text-3xl font-bold text-blue-600 mb-3 hidden">
+                時間: <span id="time-left">30.00</span> 秒
+            </div>
+
+            <!-- Question Display - This will be shown during the game -->
+            <div id="question-display" class="text-4xl font-extrabold text-gray-900 mb-5 hidden">
+                <!-- Question will be displayed here -->
+            </div>
+
+            <input type="number" id="answer-input" class="input-style w-full max-w-xs text-center text-2xl mb-3 hidden" placeholder="你的答案" disabled>
+
+            <!-- Number Pad -->
+            <div id="numpad" class="numpad-grid hidden">
+                <button class="numpad-button" data-value="1">1</button>
+                <button class="numpad-button" data-value="2">2</button>
+                <button class="numpad-button" data-value="3">3</button>
+                <button class="numpad-button" data-value="4">4</button>
+                <button class="numpad-button" data-value="5">5</button>
+                <button class="numpad-button" data-value="6">6</button>
+                <button class="numpad-button" data-value="7">7</button>
+                <button class="numpad-button" data-value="8">8</button>
+                <button class="numpad-button" data-value="9">9</button>
+                <button class="numpad-button numpad-clear" data-value="clear">清除</button>
+                <button class="numpad-button" data-value="0">0</button>
+                <button class="numpad-button numpad-backspace" data-value="backspace">←</button>
+            </div>
+
+            <button id="submit-button" class="button-style submit-button w-full max-w-xs block mx-auto mt-5 hidden" disabled>
+                提交答案
+            </button>
+
+            <button id="start-button" class="button-style start-button w-full max-w-xs block mx-auto mt-5" disabled>
+                開始遊戲
+            </button>
+
+            <div id="feedback-area" class="feedback-message hidden">
+                <!-- Feedback (Correct/Incorrect) will be displayed here -->
+            </div>
+        </div>
+
+        <div id="results-area" class="results-section hidden">
+            <h2 class="text-2xl font-bold text-gray-800 mb-3">遊戲結束！</h2>
+            <p class="text-xl font-semibold text-green-700 mb-2">你答對了 <span id="correct-count" class="font-extrabold">0</span> 題！</p>
+            <p id="avg-time-per-correct" class="text-xl font-semibold text-blue-700 mb-2">
+                <!-- Average time per correct answer will be displayed here -->
+            </p>
+            <div id="incorrect-questions" class="text-left mt-3">
+                <h3 class="text-lg font-bold text-red-600 mb-2">答錯的題目：</h3>
+                <ul id="incorrect-list" class="list-disc list-inside text-gray-700 text-base">
+                    <!-- Incorrect questions will be listed here -->
+                </ul>
+            </div>
+            <p id="positive-feedback" class="text-lg font-semibold text-purple-700 mt-5">
+                <!-- Positive feedback will be displayed here -->
+            </p>
+            <button id="rechallenge-button" class="button-style rechallenge-button w-full max-w-xs block mx-auto mt-6">
+                重新挑戰
+            </button>
+
+            <!-- Leaderboard Section -->
+            <div class="mt-8 pt-6 border-t border-dashed border-gray-300">
+                <h3 class="text-2xl font-bold text-gray-800 mb-4">排行榜</h3>
+                <ul id="leaderboard-list" class="list-none p-0 leaderboard-list">
+                    <!-- Leaderboard entries will be dynamically loaded here -->
+                    <li class="text-gray-500">載入排行榜中...</li>
+                </ul>
+            </div>
+        </div>
+        <!-- Return to Homepage Button -->
+        <button id="home-button" class="button-style home-button w-full max-w-xs block mx-auto mt-8">
+            返回首頁
+        </button>
+    </div>
+
+    <script type="module">
+        // Firebase SDKs
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Ensure global Firebase variables are available
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null; 
+
+        // Initialize Firebase App and Services
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Get DOM elements
+        const userNameInput = document.getElementById('user-name'); // New: User name input
+        const nameInputContainer = document.getElementById('name-input-container'); // New: Name input container
+        const instructionText = document.getElementById('instruction-text'); // New: Instruction text
+        const timerDisplay = document.getElementById('timer-display'); // Get the div element for timer
+        const timeLeftSpan = document.getElementById('time-left'); // Get the span inside timerDisplay
+        const questionDisplay = document.getElementById('question-display');
+        const answerInput = document.getElementById('answer-input');
+        const submitButton = document.getElementById('submit-button');
+        const startButton = document.getElementById('start-button');
+        const feedbackArea = document.getElementById('feedback-area');
+        const gameArea = document.getElementById('game-area');
+        const resultsArea = document.getElementById('results-area');
+        const correctCountSpan = document.getElementById('correct-count');
+        const incorrectList = document.getElementById('incorrect-list');
+        const positiveFeedbackParagraph = document.getElementById('positive-feedback');
+        const numpad = document.getElementById('numpad');
+        const rechallengeButton = document.getElementById('rechallenge-button');
+        const timeSettingSelect = document.getElementById('time-setting');
+        const timeSettingContainer = document.getElementById('time-setting-container');
+        const avgTimePerCorrectParagraph = document.getElementById('avg-time-per-correct');
+        const homeButton = document.getElementById('home-button');
+        const leaderboardList = document.getElementById('leaderboard-list'); // New: Leaderboard list
+        const nameErrorMessage = document.getElementById('name-error-message'); // New: Name error message
+
+        // Game state variables
+        let userId = null; // Firebase User ID
+        let initialGameTime = 30; // Stores the time chosen by the user in seconds
+        let timeLeft = 30; // Current remaining time in seconds (float)
+        let score = 0;
+        let incorrectQuestions = [];
+        let currentQuestion = {};
+        let timerInterval;
+        let gameActive = false;
+
+        // --- Firebase Authentication and Leaderboard Listener ---
+        let unsubscribeAuth;
+        let unsubscribeLeaderboard;
+
+        // Authenticate user on load
+        async function authenticateUser() {
+            try {
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Firebase authentication failed:", error);
+            }
+        }
+
+        // Listen for auth state changes to get userId
+        unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+            if (user) {
+                userId = user.uid;
+                console.log("User authenticated:", userId);
+                // Start listening to leaderboard once authenticated
+                setupLeaderboardListener();
+            } else {
+                userId = null;
+                console.log("No user authenticated.");
+            }
+        });
+
+        // Leaderboard listener function
+        function setupLeaderboardListener() {
+            if (unsubscribeLeaderboard) {
+                unsubscribeLeaderboard(); // Unsubscribe previous listener if exists
+            }
+            const q = query(
+                collection(db, `artifacts/${appId}/public/data/multiplicationScores`)
+                // No orderBy or limit in the Firestore query to avoid index errors
+            );
+            unsubscribeLeaderboard = onSnapshot(q, (snapshot) => {
+                let scores = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                // Client-side sorting: Higher score first, then less time, then latest timestamp
+                scores.sort((a, b) => {
+                    // Sort by score (descending)
+                    if (a.score !== b.score) {
+                        return b.score - a.score;
+                    }
+                    // Then by timeTaken (ascending)
+                    if (a.timeTaken !== b.timeTaken) {
+                        return a.timeTaken - b.timeTaken;
+                    }
+                    // Then by timestamp (descending) - ensure timestamp is a valid object
+                    if (a.timestamp && b.timestamp && typeof a.timestamp.toMillis === 'function' && typeof b.timestamp.toMillis === 'function') {
+                        return b.timestamp.toMillis() - a.timestamp.toMillis();
+                    }
+                    return 0;
+                });
+
+                // Take top 10 after sorting
+                renderLeaderboard(scores.slice(0, 10));
+            }, (error) => {
+                console.error("Error fetching leaderboard:", error);
+                leaderboardList.innerHTML = '<li class="text-red-500">載入排行榜失敗，請檢查網路或稍後再試。</li>';
+            });
+        }
+
+        // Render leaderboard function
+        function renderLeaderboard(scores) {
+            leaderboardList.innerHTML = ''; // Clear previous list
+            if (scores.length === 0) {
+                leaderboardList.innerHTML = '<li class="text-gray-500">目前還沒有成績！快來挑戰吧！</li>';
+            } else {
+                scores.forEach((entry, index) => {
+                    const listItem = document.createElement('li');
+                    listItem.className = `flex justify-between items-center py-2 px-4 rounded-lg mb-2 shadow-sm ${
+                        index === 0 ? 'bg-yellow-100 text-yellow-800 font-bold' :
+                        index === 1 ? 'bg-gray-100 text-gray-700' :
+                        index === 2 ? 'bg-amber-100 text-amber-700' : 'bg-white text-gray-800'
+                    }`;
+                    listItem.innerHTML = `
+                        <span class="text-lg">#${index + 1} ${entry.userName || '匿名玩家'}</span>
+                        <span class="text-lg">${entry.score} 題 / ${entry.timeTaken.toFixed(2)} 秒</span>
+                    `; // Display timeTaken to 2 decimal places
+                    leaderboardList.appendChild(listItem);
+                });
+            }
+        }
+
+        // --- Game Logic Functions ---
+
+        /**
+         * Generates a new multiplication question.
+         * Factors will be between 2 and 9 (inclusive), excluding 1.
+         * @returns {object} An object containing factor1, factor2, and their product.
+         */
+        function generateQuestion() {
+            // Generate numbers from 2 to 9 (inclusive)
+            const factor1 = Math.floor(Math.random() * 8) + 2;
+            const factor2 = Math.floor(Math.random() * 8) + 2;
+            const product = factor1 * factor2;
+            return { factor1, factor2, product };
+        }
+
+        /**
+         * Displays the current question on the screen.
+         */
+        function displayQuestion() {
+            currentQuestion = generateQuestion();
+            questionDisplay.textContent = `${currentQuestion.factor1} × ${currentQuestion.factor2} = ?`;
+            answerInput.value = ''; // Clear previous answer
+            feedbackArea.classList.add('hidden'); // Hide feedback
+        }
+
+        /**
+         * Handles the user's answer submission.
+         */
+        function checkAnswer() {
+            if (!gameActive) return;
+
+            const userAnswer = parseInt(answerInput.value, 10);
+            if (isNaN(userAnswer) || answerInput.value.trim() === '') {
+                incorrectQuestions.push({
+                    question: `${currentQuestion.factor1} × ${currentQuestion.factor2}`,
+                    userAnswer: '未填寫',
+                    correctAnswer: currentQuestion.product
+                });
+                showFeedback(`錯誤，答案是 ${currentQuestion.product} (未填寫)`, 'feedback-incorrect');
+                displayQuestion();
+                return;
+            }
+
+            if (userAnswer === currentQuestion.product) {
+                score++;
+                showFeedback('正確！', 'feedback-correct');
+            } else {
+                incorrectQuestions.push({
+                    question: `${currentQuestion.factor1} × ${currentQuestion.factor2}`,
+                    userAnswer: userAnswer,
+                    correctAnswer: currentQuestion.product
+                });
+                showFeedback(`錯誤，答案是 ${currentQuestion.product}`, 'feedback-incorrect');
+            }
+            displayQuestion();
+        }
+
+        /**
+         * Displays a temporary feedback message.
+         * @param {string} message - The message to display.
+         * @param {string} typeClass - CSS class for styling (e.g., 'feedback-correct', 'feedback-incorrect').
+         */
+        function showFeedback(message, typeClass) {
+            feedbackArea.textContent = message;
+            feedbackArea.className = `feedback-message ${typeClass}`;
+            feedbackArea.classList.remove('hidden');
+        }
+
+        /**
+         * Starts the game countdown.
+         */
+        function startTimer() {
+            clearInterval(timerInterval); // Clear any existing timer
+            timerInterval = setInterval(() => {
+                timeLeft -= 0.01; // Decrement by 0.01 seconds (10ms interval)
+                if (timeLeft <= 0) {
+                    timeLeft = 0; // Ensure it doesn't go negative
+                    clearInterval(timerInterval);
+                    endGame();
+                }
+                timeLeftSpan.textContent = timeLeft.toFixed(2); // Update the span inside timerDisplay
+            }, 10); // Update every 10 milliseconds
+        }
+
+        /**
+         * Initializes and starts the game.
+         */
+        function startGame() {
+            const userNameVal = userNameInput.value.trim();
+            if (!userNameVal) {
+                nameErrorMessage.classList.remove('hidden'); // Show error message
+                return;
+            }
+            nameErrorMessage.classList.add('hidden'); // Hide error message if name is valid
+
+            // Get selected time from the dropdown and store it as initialGameTime
+            initialGameTime = parseInt(timeSettingSelect.value, 10);
+            timeLeft = initialGameTime; // Set current time left to the selected initial time
+
+            // Reset game state
+            score = 0;
+            incorrectQuestions = [];
+            currentQuestion = {};
+            gameActive = true;
+
+            // Clear any existing timer before starting a new one
+            clearInterval(timerInterval);
+
+            // Update UI for game in progress
+            nameInputContainer.classList.add('hidden'); // Hide name input
+            timeSettingContainer.classList.add('hidden'); // Hide time setting dropdown
+            startButton.classList.add('hidden'); // Hide start button
+            instructionText.classList.add('hidden'); // Hide instruction text
+
+            timerDisplay.classList.remove('hidden'); // Show timer container
+            questionDisplay.classList.remove('hidden'); // Show question
+            answerInput.classList.remove('hidden'); // Show answer input
+            numpad.classList.remove('hidden'); // Show numpad
+            submitButton.classList.remove('hidden'); // Show submit button
+            // homeButton.classList.add('hidden'); // REMOVED: Keep home button visible during game
+
+            timeLeftSpan.textContent = timeLeft.toFixed(2); // Display initial time with decimals in the span
+            answerInput.value = '';
+            feedbackArea.classList.add('hidden');
+            resultsArea.classList.add('hidden'); // Ensure results area is hidden
+            submitButton.disabled = false;
+            answerInput.disabled = true; // Keep keyboard input disabled to enforce numpad use
+            avgTimePerCorrectParagraph.textContent = ''; // Clear previous average time display
+
+            displayQuestion();
+            startTimer();
+        }
+
+        /**
+         * Resets the game to its initial setup state, allowing name and time selection.
+         */
+        function resetGameAndShowSetup() {
+            gameActive = false;
+            clearInterval(timerInterval); // Stop any running timer
+
+            // Reset game state
+            timeLeft = parseInt(timeSettingSelect.value, 10); // Reset time to selected value
+            score = 0;
+            incorrectQuestions = [];
+            
+            // Show setup elements
+            nameInputContainer.classList.remove('hidden'); // Show name input
+            timeSettingContainer.classList.remove('hidden'); // Show time setting dropdown
+            startButton.classList.remove('hidden'); // Show start button
+            instructionText.classList.remove('hidden'); // Show instruction text
+            homeButton.classList.remove('hidden'); // Show home button
+
+            // Hide game play elements and results
+            timerDisplay.classList.add('hidden'); // Hide timer container
+            questionDisplay.classList.add('hidden'); // Hide question
+            answerInput.classList.add('hidden'); // Hide answer input
+            numpad.classList.add('hidden'); // Hide numpad
+            submitButton.classList.add('hidden'); // Hide submit button
+            feedbackArea.classList.add('hidden');
+            resultsArea.classList.add('hidden'); // Hide results area
+
+            // Reset input fields and button states
+            userNameInput.value = ''; // Clear name input
+            nameErrorMessage.classList.add('hidden'); // Hide error message
+            timeSettingSelect.disabled = false; // Enable time setting for selection
+            startButton.disabled = true; // Disable start button until name is entered
+            answerInput.value = '';
+            answerInput.disabled = true;
+            submitButton.disabled = true;
+
+            instructionText.textContent = '選擇時間並點擊「開始遊戲」按鈕來進行挑戰！'; // Set initial instruction
+            timeLeftSpan.textContent = timeLeft.toFixed(2); // Display selected initial time with decimals in the span
+        }
+
+        /**
+         * Ends the game and displays results.
+         */
+        async function endGame() {
+            gameActive = false;
+            submitButton.disabled = true;
+            answerInput.disabled = true;
+            
+            // Hide game play elements
+            timerDisplay.classList.add('hidden'); // Hide timer container
+            questionDisplay.classList.add('hidden');
+            answerInput.classList.add('hidden');
+            numpad.classList.add('hidden');
+            submitButton.classList.add('hidden');
+            feedbackArea.classList.add('hidden');
+
+            resultsArea.classList.remove('hidden'); // Show results
+            homeButton.classList.remove('hidden'); // Show home button on results
+
+            correctCountSpan.textContent = score;
+
+            // Calculate and display average time per correct answer
+            const totalTimeSpent = initialGameTime - timeLeft; // Time elapsed during the game
+            if (score > 0) {
+                const avgTime = (totalTimeSpent / score).toFixed(2); // Calculate average and round to 2 decimal places
+                avgTimePerCorrectParagraph.textContent = `平均每題答對花費： ${avgTime} 秒`;
+            } else {
+                avgTimePerCorrectParagraph.textContent = `答對題數不足以計算平均時間。`;
+            }
+
+            // Display incorrect questions
+            incorrectList.innerHTML = '';
+            if (incorrectQuestions.length === 0) {
+                incorrectList.innerHTML = '<li class="text-gray-500">太棒了，你沒有答錯任何題目！</li>';
+            } else {
+                incorrectQuestions.forEach(item => {
+                    const listItem = document.createElement('li');
+                    listItem.textContent = `${item.question} = ${item.correctAnswer} (你的答案: ${item.userAnswer})`;
+                    incorrectList.appendChild(listItem);
+                });
+            }
+
+            // Provide positive feedback with humor
+            let feedbackText = '';
+            if (score === 0) {
+                feedbackText = '別灰心！乘法就像變魔術，多練習幾次，你也能變出正確答案的！再試一次，讓數字跳舞吧！';
+            } else if (score < 5) {
+                feedbackText = '初試啼聲，表現不錯喔！就像超級英雄剛開始學飛，多練習幾次，就能飛向九九乘法的宇宙了！';
+            } else if (score < 10) {
+                feedbackText = '你已經掌握了乘法的奧秘！現在，把你的腦袋當成計算機，再次加速衝刺吧！';
+            } else if (score < 20) {
+                feedbackText = '哇，你的乘法速度快得像閃電俠！再多一點點練習，你就能成為乘法界的傳奇了！';
+            } else if (score < 30) {
+                feedbackText = '太驚人了！你是不是偷偷藏了乘法秘笈？你簡直是九九乘法表的超級明星，繼續發光發熱吧！';
+            } else {
+                feedbackText = '我的天啊！你簡直是乘法界的神童！九九乘法表對你來說根本是小菜一碟！請收下我的膝蓋！';
+            }
+            positiveFeedbackParagraph.textContent = feedbackText;
+
+            // Save score to Firestore
+            if (userId && userNameInput.value.trim()) {
+                try {
+                    await addDoc(collection(db, `artifacts/${appId}/public/data/multiplicationScores`), {
+                        userId: userId,
+                        userName: userNameInput.value.trim(),
+                        score: score,
+                        timeTaken: totalTimeSpent,
+                        initialGameTime: initialGameTime,
+                        timestamp: serverTimestamp() // Use server timestamp
+                    });
+                    console.log("Score saved to Firestore!");
+                } catch (e) {
+                    console.error("Error adding document: ", e);
+                }
+            } else {
+                console.warn("User ID or User Name not available, score not saved to Firestore.");
+            }
+        }
+
+        // --- Numpad Logic ---
+        numpad.addEventListener('click', function(event) {
+            if (!gameActive) return;
+
+            const target = event.target;
+            if (target.classList.contains('numpad-button')) {
+                const value = target.dataset.value;
+                let currentAnswer = answerInput.value;
+
+                if (value === 'clear') {
+                    answerInput.value = '';
+                } else if (value === 'backspace') {
+                    answerInput.value = currentAnswer.slice(0, -1);
+                } else {
+                    // Prevent leading zero if input is empty and 0 is pressed
+                    // Also prevent more than 3 digits for a two-digit multiplication (max 81)
+                    if (currentAnswer.length < 3) {
+                         if (currentAnswer === '' && value === '0') {
+                            answerInput.value = ''; // Do not add leading zero
+                        } else {
+                            answerInput.value += value;
+                        }
+                    }
+                }
+            }
+        });
+
+        // Event Listeners
+        startButton.addEventListener('click', startGame);
+        submitButton.addEventListener('click', checkAnswer);
+        rechallengeButton.addEventListener('click', resetGameAndShowSetup); // Goes back to setup screen
+        homeButton.addEventListener('click', function() {
+            resetGameAndShowSetup(); // Reset the game to setup screen
+        });
+
+        // Enable/Disable start button based on name input
+        userNameInput.addEventListener('input', function() {
+            startButton.disabled = userNameInput.value.trim() === '';
+            // Hide error message when user starts typing
+            if (userNameInput.value.trim() !== '') {
+                nameErrorMessage.classList.add('hidden');
+            }
+        });
+
+        // Prevent physical keyboard input for answer field
+        answerInput.addEventListener('keydown', function(event) {
+            event.preventDefault();
+        });
+
+        // Update timer display when time selection changes
+        timeSettingSelect.addEventListener('change', function() {
+            timeLeftSpan.textContent = parseInt(timeSettingSelect.value, 10).toFixed(2); // Update the span inside timerDisplay
+        });
+
+        // Initialize display on page load
+        window.onload = function() {
+            authenticateUser(); // Authenticate Firebase first
+            resetGameAndShowSetup(); // Then show the setup screen
+        };
+
+        // Cleanup on page unload (optional, but good practice)
+        window.onbeforeunload = () => {
+            if (unsubscribeAuth) unsubscribeAuth();
+            if (unsubscribeLeaderboard) unsubscribeLeaderboard();
+            if (timerInterval) clearInterval(timerInterval);
+        };
+    </script>
+</body>
+</html>
