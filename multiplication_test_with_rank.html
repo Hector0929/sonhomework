@@ -738,7 +738,11 @@
         submitButton.addEventListener('click', checkAnswer);
         rechallengeButton.addEventListener('click', resetGameAndShowSetup); // Goes back to setup screen
         homeButton.addEventListener('click', function() {
-            resetGameAndShowSetup(); // Reset the game to setup screen
+            // In a standard web environment, this would navigate to index.html.
+            // In this Canvas environment, it will likely reload the current page or cause an error.
+            // The closest equivalent to "return to home" here is resetting the game to setup.
+            // window.location.href = 'index.html'; // This line is commented out as it might not work as expected in Canvas.
+            resetGameAndShowSetup(); // Using resetGameAndShowSetup as a functional alternative for Canvas.
         });
 
         // Enable/Disable start button based on name input
