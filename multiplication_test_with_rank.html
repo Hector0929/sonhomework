@@ -1,789 +1,454 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>九九乘法表挑戰V2</title>
+    <title>九九乘法打擊敵機遊戲 V9 (Firebase 整合版)</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Custom styles for the Inter font and overall look */
+        /* 自定義字體 */
         body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #a8c0ff, #3f2b96); /* Gradient background */
+            font-family: "Inter", sans-serif;
+        }
+        /* 確保 canvas 佔用其父容器的可用空間 */
+        canvas {
+            display: block;
+            background-color: #a7f3d0; /* 淺綠色背景 */
+            border-bottom: 2px solid #9ca3af; /* 灰色邊框 */
+            border-radius: 0.5rem; /* 圓角 */
+            width: 100%; /* 佔滿父容器寬度 */
+            height: calc(50vh); /* 將高度設定為視口高度的一半 */
+        }
+        /* 彈出視窗的基底樣式 */
+        .modal-screen {
+            position: fixed; /* 改為 fixed 以覆蓋整個視窗 */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
-            min-height: 100vh; /* Ensure it takes full viewport height for centering */
-            margin: 0;
-            padding: 15px; /* Slightly reduced overall padding */
-            box-sizing: border-box;
-        }
-        .game-container {
-            background-color: #ffffff;
-            border-radius: 20px; /* More rounded corners */
-            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2); /* Enhanced shadow */
-            padding: 25px; /* Slightly reduced padding */
-            max-width: 500px;
-            width: 100%;
+            font-size: 2rem;
+            font-weight: bold;
             text-align: center;
-            opacity: 0; /* Hidden initially */
-            transform: translateY(20px); /* Slightly moved down initially */
-            animation: fadeInScale 0.7s forwards ease-out; /* Animation for appearance */
+            z-index: 100;
+            padding: 1rem;
         }
-
-        /* Animation keyframes */
-        @keyframes fadeInScale {
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .button-style {
-            padding: 12px 25px;
-            border-radius: 12px; /* Rounded buttons */
-            font-weight: bold;
-            transition: all 0.3s ease; /* Smooth transitions */
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-            background-size: 200% auto;
-        }
-
-        .button-style:hover {
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
-            transform: translateY(-2px);
-        }
-
-        .start-button, .rechallenge-button { /* Apply similar style to re-challenge button */
-            background-image: linear-gradient(to right, #4CAF50 0%, #8BC34A  51%, #4CAF50  100%);
-            color: white;
-        }
-        .start-button:hover, .rechallenge-button:hover {
-            background-position: right center; /* change the direction of the change here */
-        }
-
-        .submit-button {
-            /* Doubled vertical padding for height */
-            padding: 24px 25px; /* Original was 12px vertical padding */
-            border-radius: 12px; /* Rounded buttons */
-            font-weight: bold;
-            transition: all 0.3s ease; /* Smooth transitions */
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-            background-size: 200% auto;
-            /* Explicitly set the blue gradient for submit button */
-            background-image: linear-gradient(to right, #2196F3 0%, #03A9F4  51%, #2196F3  100%);
-            color: white; /* Ensure text color is white */
-        }
-        .submit-button:hover {
-            background-position: right center;
-        }
-
-        .input-style {
-            padding: 10px 15px; /* Slightly reduced input padding */
-            border-radius: 12px;
-            border: 2px solid #e0e0e0;
-            outline: none;
-            transition: border-color 0.3s ease;
-        }
-        .input-style:focus {
-            border-color: #4CAF50;
-        }
-
-        .feedback-message {
-            margin-top: 15px;
-            padding: 10px;
-            border-radius: 8px;
-            font-weight: bold;
-        }
-        .feedback-correct {
-            background-color: #e6ffe6;
-            color: #28a745;
-        }
-        .feedback-incorrect {
-            background-color: #ffe6e6;
-            color: #dc3545;
-        }
-        .results-section {
-            margin-top: 20px; /* Slightly reduced margin */
-            padding-top: 20px; /* Slightly reduced padding */
-            border-top: 1px dashed #e0e0e0;
-        }
-
-        /* Styles for the number pad */
-        .numpad-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr); /* 3 columns */
-            gap: 8px; /* Slightly reduced space between buttons */
-            margin-top: 15px; /* Slightly reduced margin */
-            width: 100%;
-            max-width: 300px; /* Max width for the numpad */
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .numpad-button {
-            padding: 12px 0; /* Slightly reduced padding for numpad buttons */
-            font-size: 1.6rem; /* Slightly smaller font for numbers */
-            border-radius: 12px;
-            background-color: #f0f0f0;
-            color: #333;
-            border: 1px solid #ddd;
-            cursor: pointer;
-            transition: background-color 0.2s ease, transform 0.1s ease;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        }
-
-        .numpad-button:hover {
-            background-color: #e0e0e0;
-            transform: translateY(-1px);
-        }
-
-        .numpad-button:active {
-            background-color: #d0d0d0;
-            transform: translateY(0);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        .numpad-clear, .numpad-backspace {
-            background-color: #ffcccc; /* Light red for clear/backspace */
-            color: #cc0000;
-        }
-
-        .numpad-clear:hover, .numpad-backspace:hover {
-            background-color: #ffb3b3;
-        }
-
-        /* Style for time select dropdown */
-        .time-select {
-            padding: 8px 15px;
-            border-radius: 8px;
-            border: 2px solid #e0e0e0;
-            font-size: 1rem;
-            margin-bottom: 15px;
-            appearance: none; /* Remove default arrow */
-            background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23666666%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13%205.1L146.2%20202.7%2018.5%2074.5a17.6%2017.6%200%200%200-25.1%2024.5l137.9%20137.9a17.6%2017.6%200%200%0024.7%200l137.9-137.9a17.6%2017.6%200%200%200%20-13-29.2z%22%2F%3E%3C%2Fsvg%3E');
-            background-repeat: no-repeat;
-            background-position: right 10px center;
-            background-size: 12px;
-            cursor: pointer;
-            outline: none;
-            transition: border-color 0.3s ease;
-        }
-        .time-select:focus {
-            border-color: #2196F3;
-        }
-        .home-button {
-            background-image: linear-gradient(to right, #6c757d 0%, #495057  51%, #6c757d  100%);
-            color: white;
-            margin-top: 20px; /* Add some space above the button */
-        }
-        .home-button:hover {
-            background-position: right center;
-        }
-        .leaderboard-list li {
-            background-color: #f8f9fa;
-            border-radius: 8px;
-            margin-bottom: 8px;
-            padding: 10px 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 1.1rem;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-        .leaderboard-list li:nth-child(1) {
-            background-color: #ffe082; /* Gold for 1st place */
-            color: #333;
-            font-weight: bold;
-            transform: scale(1.02);
-        }
-        .leaderboard-list li:nth-child(2) {
-            background-color: #e0e0e0; /* Silver for 2nd place */
-            color: #333;
-        }
-        .leaderboard-list li:nth-child(3) {
-            background-color: #ffccbc; /* Bronze for 3rd place */
-            color: #333;
+        /* 遊戲容器的基底樣式，確保在需要時可以顯示 */
+        #game-area {
+            display: none; /* 預設隱藏，由 JS 控制顯示 */
+            flex-direction: column; /* 確保內容垂直排列 */
         }
     </style>
 </head>
-<body>
-    <div class="game-container">
-        <h1 class="text-xl font-extrabold text-gray-800 mb-4">九九乘法表挑戰</h1>
-        <p class="text-gray-600 mb-6 text-base">選擇倒數計時時間，並盡力回答更多的題目吧！</p>
-
-        <div id="game-area" class="space-y-4">
-            <div class="mb-4" id="name-input-container">
-                <label for="user-name" class="block text-gray-700 text-sm font-bold mb-2">你的名字：</label>
-                <input
-                    type="text"
-                    id="user-name"
-                    class="input-style w-full max-w-xs text-center text-xl mb-2"
-                    placeholder="請輸入名字"
-                    maxlength="15"
-                />
-                <p id="name-error-message" class="text-red-500 text-sm hidden">請輸入你的名字！</p> <!-- New error message -->
-            </div>
-
-            <div class="mb-4" id="time-setting-container">
-                <label for="time-setting" class="block text-gray-700 text-sm font-bold mb-2">選擇時間：</label>
-                <select id="time-setting" class="time-select w-full max-w-xs block mx-auto">
-                    <option value="30">30 秒</option>
-                    <option value="60">60 秒</option>
-                    <option value="90">90 秒</option>
-                </select>
-            </div>
-
-            <p id="instruction-text" class="text-base font-extrabold text-gray-900 mb-5">
-                <!-- Instruction text will be set by JS -->
-            </p>
-
-            <!-- Timer Display - This will be shown during the game -->
-            <div id="timer-display" class="text-3xl font-bold text-blue-600 mb-3 hidden">
-                時間: <span id="time-left">30.00</span> 秒
-            </div>
-
-            <!-- Question Display - This will be shown during the game -->
-            <div id="question-display" class="text-4xl font-extrabold text-gray-900 mb-5 hidden">
-                <!-- Question will be displayed here -->
-            </div>
-
-            <input type="number" id="answer-input" class="input-style w-full max-w-xs text-center text-2xl mb-3 hidden" placeholder="你的答案" disabled>
-
-            <!-- Number Pad -->
-            <div id="numpad" class="numpad-grid hidden">
-                <button class="numpad-button" data-value="1">1</button>
-                <button class="numpad-button" data-value="2">2</button>
-                <button class="numpad-button" data-value="3">3</button>
-                <button class="numpad-button" data-value="4">4</button>
-                <button class="numpad-button" data-value="5">5</button>
-                <button class="numpad-button" data-value="6">6</button>
-                <button class="numpad-button" data-value="7">7</button>
-                <button class="numpad-button" data-value="8">8</button>
-                <button class="numpad-button" data-value="9">9</button>
-                <button class="numpad-button numpad-clear" data-value="clear">清除</button>
-                <button class="numpad-button" data-value="0">0</button>
-                <button class="numpad-button numpad-backspace" data-value="backspace">←</button>
-            </div>
-
-            <button id="submit-button" class="button-style submit-button w-full max-w-xs block mx-auto mt-5 hidden" disabled>
-                提交答案
+<body class="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4 relative">
+    <!-- 名稱輸入畫面 -->
+    <div id="nameInputScreen" class="modal-screen flex">
+        <div class="bg-white p-8 rounded-lg shadow-xl text-black w-full max-w-sm">
+            <h2 class="text-3xl font-bold mb-4">輸入你的玩家名稱</h2>
+            <input type="text" id="playerNameInput" class="w-full px-4 py-2 border rounded-lg text-xl" placeholder="玩家名稱" maxlength="10">
+            <button id="submitNameButton" class="mt-4 w-full px-6 py-3 bg-green-600 text-white text-xl font-bold rounded-lg shadow-md hover:bg-green-700">
+                確認
             </button>
-
-            <button id="start-button" class="button-style start-button w-full max-w-xs block mx-auto mt-5" disabled>
-                開始遊戲
-            </button>
-
-            <div id="feedback-area" class="feedback-message hidden">
-                <!-- Feedback (Correct/Incorrect) will be displayed here -->
-            </div>
         </div>
-
-        <div id="results-area" class="results-section hidden">
-            <h2 class="text-2xl font-bold text-gray-800 mb-3">遊戲結束！</h2>
-            <p class="text-xl font-semibold text-green-700 mb-2">你答對了 <span id="correct-count" class="font-extrabold">0</span> 題！</p>
-            <p id="avg-time-per-correct" class="text-xl font-semibold text-blue-700 mb-2">
-                <!-- Average time per correct answer will be displayed here -->
-            </p>
-            <div id="incorrect-questions" class="text-left mt-3">
-                <h3 class="text-lg font-bold text-red-600 mb-2">答錯的題目：</h3>
-                <ul id="incorrect-list" class="list-disc list-inside text-gray-700 text-base">
-                    <!-- Incorrect questions will be listed here -->
-                </ul>
-            </div>
-            <p id="positive-feedback" class="text-lg font-semibold text-purple-700 mt-5">
-                <!-- Positive feedback will be displayed here -->
-            </p>
-            <button id="rechallenge-button" class="button-style rechallenge-button w-full max-w-xs block mx-auto mt-6">
-                重新挑戰
-            </button>
-
-            <!-- Leaderboard Section -->
-            <div class="mt-8 pt-6 border-t border-dashed border-gray-300">
-                <h3 class="text-2xl font-bold text-gray-800 mb-4">排行榜</h3>
-                <ul id="leaderboard-list" class="list-none p-0 leaderboard-list">
-                    <!-- Leaderboard entries will be dynamically loaded here -->
-                    <li class="text-gray-500">載入排行榜中...</li>
-                </ul>
-            </div>
-        </div>
-        <!-- Return to Homepage Button -->
-        <button id="home-button" class="button-style home-button w-full max-w-xs block mx-auto mt-8">
-            返回首頁
-        </button>
     </div>
 
+    <!-- 排行榜畫面 -->
+    <div id="leaderboardScreen" class="modal-screen hidden">
+           <div class="bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md">
+                <h2 class="text-4xl font-bold mb-6 text-yellow-400">🏆 線上排行榜 🏆</h2>
+                <ol id="leaderboardList" class="text-left text-2xl space-y-2">
+                    <!-- 排行榜項目將由 JS 生成 -->
+                </ol>
+                <button id="closeLeaderboardButton" class="mt-8 px-6 py-3 bg-red-600 text-white text-xl font-bold rounded-lg shadow-md hover:bg-red-700">
+                    關閉
+                </button>
+            </div>
+    </div>
+
+    <!-- 主遊戲區域 -->
+    <div id="game-area" class="w-full max-w-3xl bg-white rounded-lg shadow-lg overflow-hidden">
+        <!-- 遊戲畫布區域 -->
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- 遊戲控制和資訊區域 -->
+        <div class="p-4 bg-gray-50 flex flex-col items-center justify-center text-center rounded-b-lg">
+            <div class="text-2xl font-semibold mb-2 flex justify-between items-center w-full px-4">
+                <span id="scoreDisplay">分數: 0</span>
+                <button id="viewLeaderboardButton" class="px-4 py-2 bg-yellow-500 text-white text-base font-bold rounded-lg shadow-md hover:bg-yellow-600">
+                    排行榜
+                </button>
+            </div>
+            <div class="text-4xl font-bold mb-4 text-center w-full">
+                <span id="questionDisplay">點擊開始遊戲</span>
+            </div>
+            <div id="answerOptionsContainer" class="grid grid-cols-2 gap-4 mb-4 w-full max-w-sm"></div>
+            <div class="h-2 bg-gray-300 rounded-full mt-4 overflow-hidden w-full max-w-xs">
+                <div id="questionTimerBar" class="h-full bg-green-500 transition-all duration-100 ease-linear" style="width: 100%;"></div>
+            </div>
+            <div id="feedbackDisplay" class="mt-2 text-red-600 font-semibold h-6"></div>
+            <button id="startGameButton" class="mt-4 px-6 py-3 bg-blue-600 text-white text-xl font-bold rounded-lg shadow-md hover:bg-blue-700">
+                開始遊戲
+            </button>
+        </div>
+    </div>
+    
+    <!-- 返回首頁按鈕 -->
+    <button id="homeButton" class="mt-6 px-8 py-4 bg-gray-600 text-white text-xl font-bold rounded-lg shadow-md hover:bg-gray-700">
+        返回首頁
+    </button>
+
+    <!-- Firebase 腳本 -->
     <script type="module">
-        // Firebase SDKs
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, query, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Ensure global Firebase variables are available
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = {
-            apiKey: "AIzaSyCBhUzLaW5gvEgx2WsaL_jQvYLUDNi8qew",
-            authDomain: "shootinggame-c7634.firebaseapp.com",
-            projectId: "shootinggame-c7634",
-            storageBucket: "shootinggame-c7634.firebasestorage.app",
-            messagingSenderId: "942695280947",
-            appId: "1:942695280947:web:6588adab2c5ad0a0478e46",
-            measurementId: "G-99Z8KE9J6F"
-        };
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null; 
-
-        // Initialize Firebase App and Services
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-
-        // Get DOM elements
-        const userNameInput = document.getElementById('user-name'); // New: User name input
-        const nameInputContainer = document.getElementById('name-input-container'); // New: Name input container
-        const instructionText = document.getElementById('instruction-text'); // New: Instruction text
-        const timerDisplay = document.getElementById('timer-display'); // Get the div element for timer
-        const timeLeftSpan = document.getElementById('time-left'); // Get the span inside timerDisplay
-        const questionDisplay = document.getElementById('question-display');
-        const answerInput = document.getElementById('answer-input');
-        const submitButton = document.getElementById('submit-button');
-        const startButton = document.getElementById('start-button');
-        const feedbackArea = document.getElementById('feedback-area');
+        // DOM 元素
+        const nameInputScreen = document.getElementById('nameInputScreen');
+        const playerNameInput = document.getElementById('playerNameInput');
+        const submitNameButton = document.getElementById('submitNameButton');
+        const leaderboardScreen = document.getElementById('leaderboardScreen');
+        const leaderboardList = document.getElementById('leaderboardList');
+        const closeLeaderboardButton = document.getElementById('closeLeaderboardButton');
+        const viewLeaderboardButton = document.getElementById('viewLeaderboardButton');
         const gameArea = document.getElementById('game-area');
-        const resultsArea = document.getElementById('results-area');
-        const correctCountSpan = document.getElementById('correct-count');
-        const incorrectList = document.getElementById('incorrect-list');
-        const positiveFeedbackParagraph = document.getElementById('positive-feedback');
-        const numpad = document.getElementById('numpad');
-        const rechallengeButton = document.getElementById('rechallenge-button');
-        const timeSettingSelect = document.getElementById('time-setting');
-        const timeSettingContainer = document.getElementById('time-setting-container');
-        const avgTimePerCorrectParagraph = document.getElementById('avg-time-per-correct');
-        const homeButton = document.getElementById('home-button');
-        const leaderboardList = document.getElementById('leaderboard-list'); // New: Leaderboard list
-        const nameErrorMessage = document.getElementById('name-error-message'); // New: Name error message
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const questionDisplay = document.getElementById('questionDisplay');
+        const answerOptionsContainer = document.getElementById('answerOptionsContainer');
+        const questionTimerBar = document.getElementById('questionTimerBar');
+        const feedbackDisplay = document.getElementById('feedbackDisplay');
+        const startGameButton = document.getElementById('startGameButton');
+        const homeButton = document.getElementById('homeButton');
+        
+        // Firebase 初始化
+        let db;
+        let leaderboardCol;
+        try {
+            // *** 使用您自己的 Firebase 設定檔 ***
+            const firebaseConfig = {
+              apiKey: "AIzaSyCBhUzLaW5gvEgx2WsaL_jQvYLUDNi8qew",
+              authDomain: "shootinggame-c7634.firebaseapp.com",
+              projectId: "shootinggame-c7634",
+              storageBucket: "shootinggame-c7634.firebasestorage.app", // 已更新
+              messagingSenderId: "942695280947",
+              appId: "1:942695280947:web:6588adab2c5ad0a0478e46",
+              measurementId: "G-99Z8KE9J6F"
+            };
+            
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            const auth = getAuth(app);
 
-        // Game state variables
-        let userId = null; // Firebase User ID
-        let initialGameTime = 30; // Stores the time chosen by the user in seconds
-        let timeLeft = 30; // Current remaining time in seconds (float)
+            // 在公開網站上，我們使用匿名登入
+            signInAnonymously(auth).then(() => {
+                console.log("Firebase 已匿名認證。");
+                // *** 使用簡化的資料庫路徑 ***
+                leaderboardCol = collection(db, 'leaderboard');
+                listenToLeaderboard();
+            }).catch(e => {
+                console.error("Firebase 匿名認證失敗:", e);
+                alert("無法連接到 Firebase 認證服務，請檢查您的網路連線或稍後再試。");
+            });
+
+        } catch (e) {
+            console.error("Firebase 初始化失敗:", e);
+            alert("無法連接到排行榜伺服器，請檢查您的網路連線或稍後再試。");
+        }
+
+        // 圖片載入邏輯
+        const playerImage = new Image();
+        let isImageLoaded = false;
+        startGameButton.disabled = true;
+        startGameButton.textContent = '圖片載入中...';
+        playerImage.onload = () => {
+            isImageLoaded = true;
+            startGameButton.disabled = false;
+            startGameButton.textContent = '開始遊戲';
+            console.log('玩家圖片已載入！');
+            resizeCanvas();
+        };
+        playerImage.onerror = () => {
+            console.error('無法載入玩家圖片。');
+            startGameButton.textContent = '圖片載入失敗';
+            startGameButton.classList.add('bg-red-500', 'cursor-not-allowed');
+            feedbackDisplay.textContent = '無法載入玩家圖片！';
+        };
+        playerImage.src = 'https://placehold.co/64x64/800080/FFFFFF?text=P';
+
+        // 遊戲狀態變數
+        let currentPlayerName = '';
         let score = 0;
-        let incorrectQuestions = [];
-        let currentQuestion = {};
-        let timerInterval;
-        let gameActive = false;
+        let questionTimer = 5;
+        let currentQuestion = { num1: 0, num2: 0, answer: 0 };
+        let gameStarted = false;
+        let gameOver = false;
+        let player = null;
+        let enemies = [];
+        let bullets = [];
+        let askedQuestions = new Set();
+        let lastFrameTime = 0;
+        let questionStartTime = 0;
+        let gameLoopId = null;
+        let questionTimerIntervalId = null;
+        let enemySpawnTimer = 0;
+        let speedIncreaseIntervalId = null;
+        const maxEnemies = 10;
+        
+        // 遊戲難度變數
+        let enemySpeed = 0.5;
+        const initialEnemySpawnInterval = 3000;
+        let enemySpawnInterval = initialEnemySpawnInterval;
 
-        // --- Firebase Authentication and Leaderboard Listener ---
-        let unsubscribeAuth;
-        let unsubscribeLeaderboard;
-
-        // Authenticate user on load
-        async function authenticateUser() {
+        // 排行榜相關函數
+        async function saveToLeaderboard(name, score) {
+            if (!leaderboardCol) return;
             try {
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (error) {
-                console.error("Firebase authentication failed:", error);
+                await addDoc(leaderboardCol, { name, score, createdAt: new Date() }); // 使用 Date() 而非 serverTimestamp()
+                console.log("分數已儲存至線上排行榜！");
+            } catch (e) {
+                console.error("儲存分數失敗:", e);
+                feedbackDisplay.textContent = "無法儲存分數！";
             }
         }
 
-        // Listen for auth state changes to get userId
-        unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-            if (user) {
-                userId = user.uid;
-                console.log("User authenticated:", userId);
-                // Start listening to leaderboard once authenticated
-                setupLeaderboardListener();
-            } else {
-                userId = null;
-                console.log("No user authenticated.");
-            }
-        });
+        function listenToLeaderboard() {
+            if (!leaderboardCol) return;
+            // 移除 orderBy 和 limit，改為客戶端排序和限制
+            const q = query(leaderboardCol);
+            onSnapshot(q, (snapshot) => {
+                let leaderboard = [];
+                snapshot.forEach((doc) => { leaderboard.push(doc.data()); });
 
-        // Leaderboard listener function
-        function setupLeaderboardListener() {
-            if (unsubscribeLeaderboard) {
-                unsubscribeLeaderboard(); // Unsubscribe previous listener if exists
-            }
-            const q = query(
-                collection(db, `artifacts/${appId}/public/data/multiplicationScores`)
-                // No orderBy or limit in the Firestore query to avoid index errors
-            );
-            unsubscribeLeaderboard = onSnapshot(q, (snapshot) => {
-                let scores = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-                // Client-side sorting: Higher score first, then less time, then latest timestamp
-                scores.sort((a, b) => {
-                    // Sort by score (descending)
+                // 客戶端排序：分數降序，然後建立時間降序
+                leaderboard.sort((a, b) => {
                     if (a.score !== b.score) {
-                        return b.score - a.score;
+                        return b.score - a.score; // 分數高的在前
                     }
-                    // Then by timeTaken (ascending)
-                    if (a.timeTaken !== b.timeTaken) {
-                        return a.timeTaken - b.timeTaken;
-                    }
-                    // Then by timestamp (descending) - ensure timestamp is a valid object
-                    if (a.timestamp && b.timestamp && typeof a.timestamp.toMillis === 'function' && typeof b.timestamp.toMillis === 'function') {
-                        return b.timestamp.toMillis() - a.timestamp.toMillis();
-                    }
-                    return 0;
+                    // 如果分數相同，則比較建立時間（新的在前）
+                    const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : (a.createdAt ? a.createdAt.toDate().getTime() : 0);
+                    const dateB = b.createdAt instanceof Date ? b.createdAt.getTime() : (b.createdAt ? b.createdAt.toDate().getTime() : 0);
+                    return dateB - dateA;
                 });
 
-                // Take top 10 after sorting
-                renderLeaderboard(scores.slice(0, 10));
+                updateLeaderboardUI(leaderboard.slice(0, 10)); // 只取前10名
             }, (error) => {
-                console.error("Error fetching leaderboard:", error);
-                leaderboardList.innerHTML = '<li class="text-red-500">載入排行榜失敗，請檢查網路或稍後再試。</li>';
+                console.error("讀取排行榜失敗:", error);
+                leaderboardList.innerHTML = '<li class="text-red-400">無法載入排行榜...</li>';
             });
         }
 
-        // Render leaderboard function
-        function renderLeaderboard(scores) {
-            leaderboardList.innerHTML = ''; // Clear previous list
-            if (scores.length === 0) {
-                leaderboardList.innerHTML = '<li class="text-gray-500">目前還沒有成績！快來挑戰吧！</li>';
+        function updateLeaderboardUI(leaderboard) {
+            leaderboardList.innerHTML = '';
+            if (leaderboard.length === 0) {
+                leaderboardList.innerHTML = '<li class="text-gray-400">目前沒有任何紀錄...</li>';
             } else {
-                scores.forEach((entry, index) => {
-                    const listItem = document.createElement('li');
-                    listItem.className = `flex justify-between items-center py-2 px-4 rounded-lg mb-2 shadow-sm ${
-                        index === 0 ? 'bg-yellow-100 text-yellow-800 font-bold' :
-                        index === 1 ? 'bg-gray-100 text-gray-700' :
-                        index === 2 ? 'bg-amber-100 text-amber-700' : 'bg-white text-gray-800'
-                    }`;
-                    listItem.innerHTML = `
-                        <span class="text-lg">#${index + 1} ${entry.userName || '匿名玩家'}</span>
-                        <span class="text-lg">${entry.score} 題 / ${entry.timeTaken.toFixed(2)} 秒</span>
-                    `; // Display timeTaken to 2 decimal places
-                    leaderboardList.appendChild(listItem);
+                leaderboard.forEach((entry, index) => {
+                    const li = document.createElement('li');
+                    li.className = 'flex justify-between p-2 rounded';
+                    let medal = ['🥇', '🥈', '🥉'][index] || '';
+                    li.innerHTML = `
+                        <span class="font-bold w-1/3">${medal} ${index + 1}. ${entry.name}</span>
+                        <span class="text-yellow-300 w-2/3 text-right">${entry.score} 分</span>
+                    `;
+                    if (index < 3) li.classList.add('bg-yellow-500', 'bg-opacity-20');
+                    leaderboardList.appendChild(li);
                 });
             }
         }
 
-        // --- Game Logic Functions ---
+        function displayLeaderboard() {
+            leaderboardScreen.classList.remove('hidden');
+            leaderboardScreen.classList.add('flex');
+        }
 
-        /**
-         * Generates a new multiplication question.
-         * Factors will be between 2 and 9 (inclusive), excluding 1.
-         * @returns {object} An object containing factor1, factor2, and their product.
-         */
+        // 遊戲物件類別
+        class Bullet {
+            constructor(startX, startY, targetEnemy) { this.x = startX; this.y = startY; this.target = targetEnemy; this.speed = 15; this.isDone = false; }
+            update() { const targetX = this.target.x + this.target.width / 2; const targetY = this.target.y + this.target.height / 2; const dx = targetX - this.x; const dy = targetY - this.y; const distance = Math.sqrt(dx * dx + dy * dy); if (distance < this.speed) { this.isDone = true; this.target.isHit = true; score += 10; scoreDisplay.textContent = `分數: ${score}`; feedbackDisplay.textContent = '殲滅 1 隻敵軍！'; } else { this.x += (dx / distance) * this.speed; this.y += (dy / distance) * this.speed; } }
+            draw(ctx) { ctx.fillStyle = 'yellow'; ctx.beginPath(); ctx.arc(this.x, this.y, 5, 0, Math.PI * 2); ctx.fill(); }
+        }
+        class Player {
+            constructor(x, y, width, height) { this.x = x; this.y = y; this.width = width; this.height = height; this.image = playerImage; }
+            draw(ctx) { if (isImageLoaded && this.image.complete && this.image.naturalWidth !== 0) { ctx.drawImage(this.image, this.x, this.y, this.width, this.height); } else { ctx.fillStyle = 'purple'; ctx.fillRect(this.x, this.y, this.width, this.height); } }
+        }
+        class Enemy {
+            constructor(x, y, width, height, color = 'red') { this.x = x; this.y = y; this.width = width; this.height = height; this.color = color; this.isHit = false; }
+            draw(ctx) { if (this.isHit) return; ctx.fillStyle = this.color; ctx.fillRect(this.x, this.y, this.width, this.height); ctx.strokeStyle = 'black'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(this.x, this.y); ctx.lineTo(this.x + this.width, this.y + this.height); ctx.moveTo(this.x + this.width, this.y); ctx.lineTo(this.x, this.y + this.height); ctx.stroke(); }
+            update() { this.y += enemySpeed; }
+        }
+
+        // 遊戲核心邏輯
         function generateQuestion() {
-            // Generate numbers from 2 to 9 (inclusive)
-            const factor1 = Math.floor(Math.random() * 8) + 2;
-            const factor2 = Math.floor(Math.random() * 8) + 2;
-            const product = factor1 * factor2;
-            return { factor1, factor2, product };
-        }
-
-        /**
-         * Displays the current question on the screen.
-         */
-        function displayQuestion() {
-            currentQuestion = generateQuestion();
-            questionDisplay.textContent = `${currentQuestion.factor1} × ${currentQuestion.factor2} = ?`;
-            answerInput.value = ''; // Clear previous answer
-            feedbackArea.classList.add('hidden'); // Hide feedback
-        }
-
-        /**
-         * Handles the user's answer submission.
-         */
-        function checkAnswer() {
-            if (!gameActive) return;
-
-            const userAnswer = parseInt(answerInput.value, 10);
-            if (isNaN(userAnswer) || answerInput.value.trim() === '') {
-                incorrectQuestions.push({
-                    question: `${currentQuestion.factor1} × ${currentQuestion.factor2}`,
-                    userAnswer: '未填寫',
-                    correctAnswer: currentQuestion.product
-                });
-                showFeedback(`錯誤，答案是 ${currentQuestion.product} (未填寫)`, 'feedback-incorrect');
-                displayQuestion();
-                return;
+            let num1, num2, questionString;
+            do {
+                num1 = Math.floor(Math.random() * 9) + 1;
+                num2 = Math.floor(Math.random() * 9) + 1;
+                questionString = `${Math.min(num1, num2)}x${Math.max(num1, num2)}`;
+            } while (askedQuestions.has(questionString) && askedQuestions.size < 81);
+            if (askedQuestions.size === 81) {
+                askedQuestions.clear();
             }
-
-            if (userAnswer === currentQuestion.product) {
-                score++;
-                showFeedback('正確！', 'feedback-correct');
-            } else {
-                incorrectQuestions.push({
-                    question: `${currentQuestion.factor1} × ${currentQuestion.factor2}`,
-                    userAnswer: userAnswer,
-                    correctAnswer: currentQuestion.product
-                });
-                showFeedback(`錯誤，答案是 ${currentQuestion.product}`, 'feedback-incorrect');
+            askedQuestions.add(questionString);
+            currentQuestion = { num1, num2, answer: num1 * num2 };
+            questionDisplay.textContent = `${currentQuestion.num1} x ${currentQuestion.num2} = ?`;
+            feedbackDisplay.textContent = '';
+            questionStartTime = Date.now();
+            resetQuestionTimer();
+            const answers = [currentQuestion.answer];
+            while (answers.length < 4) {
+                let wrongAnswer;
+                do {
+                    wrongAnswer = Math.floor(Math.random() * 81) + 1;
+                } while (answers.includes(wrongAnswer) || Math.abs(wrongAnswer - currentQuestion.answer) < 3);
+                answers.push(wrongAnswer);
             }
-            displayQuestion();
+            for (let i = answers.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [answers[i], answers[j]] = [answers[j], answers[i]];
+            }
+            answerOptionsContainer.innerHTML = '';
+            answers.forEach(ans => {
+                const button = document.createElement('button');
+                button.textContent = ans;
+                button.classList.add(
+                    'px-6', 'py-3', 'text-2xl',
+                    'bg-blue-600', 'text-white', 'rounded-lg', 'shadow-md',
+                    'hover:bg-blue-700', 'focus:outline-none', 'focus:ring-2', 'focus:ring-blue-500'
+                );
+                button.dataset.answer = ans;
+                button.addEventListener('click', handleAnswerClick);
+                answerOptionsContainer.appendChild(button);
+            });
+            enableAnswerButtons();
         }
 
-        /**
-         * Displays a temporary feedback message.
-         * @param {string} message - The message to display.
-         * @param {string} typeClass - CSS class for styling (e.g., 'feedback-correct', 'feedback-incorrect').
-         */
-        function showFeedback(message, typeClass) {
-            feedbackArea.textContent = message;
-            feedbackArea.className = `feedback-message ${typeClass}`;
-            feedbackArea.classList.remove('hidden');
+        function enableAnswerButtons() {
+            Array.from(answerOptionsContainer.children).forEach(button => {
+                button.disabled = false;
+                button.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                button.classList.remove('bg-gray-400', 'cursor-not-allowed');
+            });
         }
 
-        /**
-         * Starts the game countdown.
-         */
-        function startTimer() {
-            clearInterval(timerInterval); // Clear any existing timer
-            timerInterval = setInterval(() => {
-                timeLeft -= 0.01; // Decrement by 0.01 seconds (10ms interval)
-                if (timeLeft <= 0) {
-                    timeLeft = 0; // Ensure it doesn't go negative
-                    clearInterval(timerInterval);
-                    endGame();
-                }
-                timeLeftSpan.textContent = timeLeft.toFixed(2); // Update the span inside timerDisplay
-            }, 10); // Update every 10 milliseconds
+        function disableAnswerButtons() {
+            Array.from(answerOptionsContainer.children).forEach(button => {
+                button.disabled = true;
+                button.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                button.classList.add('bg-gray-400', 'cursor-not-allowed');
+            });
         }
-
-        /**
-         * Initializes and starts the game.
-         */
+        function resetQuestionTimer() { questionTimer = 5; questionTimerBar.style.width = '100%'; if (questionTimerIntervalId) { clearInterval(questionTimerIntervalId); } questionTimerIntervalId = setInterval(() => { questionTimer -= 0.05; if (questionTimer <= 0.05) { clearInterval(questionTimerIntervalId); if (gameStarted && !gameOver) { endGame("時間到，你被敵軍打敗了！"); } questionTimer = 0; } questionTimerBar.style.width = `${(questionTimer / 5) * 100}%`; }, 50); }
+        function handleAnswerClick(event) { if (!gameStarted || gameOver) return; const selectedAnswer = parseInt(event.target.dataset.answer, 10); disableAnswerButtons(); if (selectedAnswer === currentQuestion.answer) { const availableEnemies = enemies.filter(e => !e.isHit && !bullets.some(b => b.target === e)); if (availableEnemies.length > 0) { const targetEnemy = availableEnemies.sort((a, b) => b.y - a.y)[0]; const bulletStartX = player.x + player.width / 2; const bulletStartY = player.y; bullets.push(new Bullet(bulletStartX, bulletStartY, targetEnemy)); } generateQuestion(); } else { feedbackDisplay.textContent = '答錯了！再試一次。'; enableAnswerButtons(); } }
+        function spawnEnemy() { if (enemies.length < maxEnemies) { const x = Math.random() * (canvas.width - 50); enemies.push(new Enemy(x, 0, 40, 40)); } }
+        function handleCollisions() { enemies = enemies.filter(enemy => !enemy.isHit); enemies.forEach(enemy => { if (enemy.y + enemy.height > canvas.height) { endGame("敵軍突破防線，你被擊敗了！"); } }); }
+        function update(deltaTime) { enemies.forEach(enemy => enemy.update()); bullets.forEach(bullet => bullet.update()); bullets = bullets.filter(bullet => !bullet.isDone); enemySpawnTimer += deltaTime; if (enemySpawnTimer > enemySpawnInterval) { spawnEnemy(); enemySpawnTimer = 0; } handleCollisions(); }
+        function draw() { ctx.clearRect(0, 0, canvas.width, canvas.height); if (player) { player.draw(ctx); } enemies.forEach(enemy => enemy.draw(ctx)); bullets.forEach(bullet => bullet.draw(ctx)); }
+        function gameLoop(currentTime) { if (!gameStarted || gameOver) return; const deltaTime = currentTime - lastFrameTime; lastFrameTime = currentTime; update(deltaTime); draw(); gameLoopId = requestAnimationFrame(gameLoop); }
+        
         function startGame() {
-            const userNameVal = userNameInput.value.trim();
-            if (!userNameVal) {
-                nameErrorMessage.classList.remove('hidden'); // Show error message
-                return;
-            }
-            nameErrorMessage.classList.add('hidden'); // Hide error message if name is valid
-
-            // Get selected time from the dropdown and store it as initialGameTime
-            initialGameTime = parseInt(timeSettingSelect.value, 10);
-            timeLeft = initialGameTime; // Set current time left to the selected initial time
-
-            // Reset game state
-            score = 0;
-            incorrectQuestions = [];
-            currentQuestion = {};
-            gameActive = true;
-
-            // Clear any existing timer before starting a new one
-            clearInterval(timerInterval);
-
-            // Update UI for game in progress
-            nameInputContainer.classList.add('hidden'); // Hide name input
-            timeSettingContainer.classList.add('hidden'); // Hide time setting dropdown
-            startButton.classList.add('hidden'); // Hide start button
-            instructionText.classList.add('hidden'); // Hide instruction text
-
-            gameArea.classList.remove('hidden'); // Make sure gameArea is visible
-            timerDisplay.classList.remove('hidden'); // Show timer container
-            questionDisplay.classList.remove('hidden'); // Show question
-            answerInput.classList.remove('hidden'); // Show answer input
-            numpad.classList.remove('hidden'); // Show numpad
-            submitButton.classList.remove('hidden'); // Show submit button
-            // homeButton.classList.add('hidden'); // REMOVED: Keep home button visible during game
-
-            timeLeftSpan.textContent = timeLeft.toFixed(2); // Display initial time with decimals in the span
-            answerInput.value = '';
-            feedbackArea.classList.add('hidden');
-            resultsArea.classList.add('hidden'); // Ensure results area is hidden
-            submitButton.disabled = false;
-            answerInput.disabled = true; // Keep keyboard input disabled to enforce numpad use
-            avgTimePerCorrectParagraph.textContent = ''; // Clear previous average time display
-
-            displayQuestion();
-            startTimer();
-        }
-
-        /**
-         * Resets the game to its initial setup state, allowing name and time selection.
-         */
-        function resetGameAndShowSetup() {
-            gameActive = false;
-            clearInterval(timerInterval); // Stop any running timer
-
-            // Reset game state
-            timeLeft = parseInt(timeSettingSelect.value, 10); // Reset time to selected value
-            score = 0;
-            incorrectQuestions = [];
+            if (!isImageLoaded) { feedbackDisplay.textContent = '圖片仍在載入中...'; return; }
+            gameStarted = true; gameOver = false; score = 0;
             
-            // Show setup elements
-            nameInputContainer.classList.remove('hidden'); // Show name input
-            timeSettingContainer.classList.remove('hidden'); // Show time setting dropdown
-            startButton.classList.remove('hidden'); // Show start button
-            instructionText.classList.remove('hidden'); // Show instruction text
-            homeButton.classList.remove('hidden'); // Show home button
+            enemySpeed = 0.5;
+            enemySpawnInterval = initialEnemySpawnInterval;
 
-            // Hide game play elements and results
-            timerDisplay.classList.add('hidden'); // Hide timer container
-            questionDisplay.classList.add('hidden'); // Hide question
-            answerInput.classList.add('hidden'); // Hide answer input
-            numpad.classList.add('hidden'); // Hide numpad
-            submitButton.classList.add('hidden'); // Hide submit button
-            feedbackArea.classList.add('hidden');
-            resultsArea.classList.add('hidden'); // Hide results area
-
-            // Reset input fields and button states
-            userNameInput.value = ''; // Clear name input
-            nameErrorMessage.classList.add('hidden'); // Hide error message
-            timeSettingSelect.disabled = false; // Enable time setting for selection
-            startButton.disabled = true; // Disable start button until name is entered
-            answerInput.value = '';
-            answerInput.disabled = true;
-            submitButton.disabled = true;
-
-            instructionText.textContent = '選擇時間並點擊「開始遊戲」按鈕來進行挑戰！'; // Set initial instruction
-            timeLeftSpan.textContent = timeLeft.toFixed(2); // Display selected initial time with decimals in the span
-        }
-
-        /**
-         * Ends the game and displays results.
-         */
-        async function endGame() {
-            gameActive = false;
-            submitButton.disabled = true;
-            answerInput.disabled = true;
+            scoreDisplay.textContent = `分數: ${score}`;
+            feedbackDisplay.textContent = '';
+            enemies = []; bullets = []; askedQuestions.clear(); enemySpawnTimer = 0;
+            player = new Player(canvas.width / 2 - 25, canvas.height - 60, 50, 50);
+            generateQuestion();
+            startGameButton.textContent = '重新開始';
+            startGameButton.disabled = true;
+            if (speedIncreaseIntervalId) clearInterval(speedIncreaseIntervalId);
             
-            // Hide game play elements
-            timerDisplay.classList.add('hidden'); // Hide timer container
-            questionDisplay.classList.add('hidden');
-            answerInput.classList.add('hidden');
-            numpad.classList.add('hidden');
-            submitButton.classList.add('hidden');
-            feedbackArea.classList.add('hidden');
-
-            resultsArea.classList.remove('hidden'); // Show results
-            homeButton.classList.remove('hidden'); // Show home button on results
-
-            correctCountSpan.textContent = score;
-
-            // Calculate and display average time per correct answer
-            const totalTimeSpent = initialGameTime - timeLeft; // Time elapsed during the game
-            if (score > 0) {
-                const avgTime = (totalTimeSpent / score).toFixed(2); // Calculate average and round to 2 decimal places
-                avgTimePerCorrectParagraph.textContent = `平均每題答對花費： ${avgTime} 秒`;
-            } else {
-                avgTimePerCorrectParagraph.textContent = `答對題數不足以計算平均時間。`;
-            }
-
-            // Display incorrect questions
-            incorrectList.innerHTML = '';
-            if (incorrectQuestions.length === 0) {
-                incorrectList.innerHTML = '<li class="text-gray-500">太棒了，你沒有答錯任何題目！</li>';
-            } else {
-                incorrectQuestions.forEach(item => {
-                    const listItem = document.createElement('li');
-                    listItem.textContent = `${item.question} = ${item.correctAnswer} (你的答案: ${item.userAnswer})`;
-                    incorrectList.appendChild(listItem);
-                });
-            }
-
-            // Provide positive feedback with humor
-            let feedbackText = '';
-            if (score === 0) {
-                feedbackText = '別灰心！乘法就像變魔術，多練習幾次，你也能變出正確答案的！再試一次，讓數字跳舞吧！';
-            } else if (score < 5) {
-                feedbackText = '初試啼聲，表現不錯喔！就像超級英雄剛開始學飛，多練習幾次，就能飛向九九乘法的宇宙了！';
-            } else if (score < 10) {
-                feedbackText = '你已經掌握了乘法的奧秘！現在，把你的腦袋當成計算機，再次加速衝刺吧！';
-            } else if (score < 20) {
-                feedbackText = '哇，你的乘法速度快得像閃電俠！再多一點點練習，你就能成為乘法界的傳奇了！';
-            } else if (score < 30) {
-                feedbackText = '太驚人了！你是不是偷偷藏了乘法秘笈？你簡直是九九乘法表的超級明星，繼續發光發熱吧！';
-            } else {
-                feedbackText = '我的天啊！你簡直是乘法界的神童！九九乘法表對你來說根本是小菜一碟！請收下我的膝蓋！';
-            }
-            positiveFeedbackParagraph.textContent = feedbackText;
-
-            // Save score to Firestore
-            if (userId && userNameInput.value.trim()) {
-                try {
-                    await addDoc(collection(db, `artifacts/${appId}/public/data/multiplicationScores`), {
-                        userId: userId,
-                        userName: userNameInput.value.trim(),
-                        score: score,
-                        timeTaken: totalTimeSpent,
-                        initialGameTime: initialGameTime,
-                        timestamp: serverTimestamp() // Use server timestamp
-                    });
-                    console.log("Score saved to Firestore!");
-                } catch (e) {
-                    console.error("Error adding document: ", e);
+            speedIncreaseIntervalId = setInterval(() => {
+                enemySpeed *= 1.75;
+                if (enemySpawnInterval > 800) {
+                    enemySpawnInterval *= 0.8;
                 }
-            } else {
-                console.warn("User ID or User Name not available, score not saved to Firestore.");
-            }
+                feedbackDisplay.textContent = '難度提升！';
+                setTimeout(() => { if (gameStarted && feedbackDisplay.textContent === '難度提升！') { feedbackDisplay.textContent = ''; } }, 1500);
+            }, 10000);
+
+            lastFrameTime = performance.now();
+            gameLoopId = requestAnimationFrame(gameLoop);
         }
 
-        // --- Numpad Logic ---
-        numpad.addEventListener('click', function(event) {
-            if (!gameActive) return;
+        async function endGame(reason) {
+            gameOver = true; gameStarted = false;
+            feedbackDisplay.textContent = reason + ` 最終分數: ${score}`;
+            if (gameLoopId) cancelAnimationFrame(gameLoopId);
+            if (questionTimerIntervalId) clearInterval(questionTimerIntervalId);
+            if (speedIncreaseIntervalId) clearInterval(speedIncreaseIntervalId);
+            bullets = [];
+            disableAnswerButtons();
+            startGameButton.disabled = false;
+            startGameButton.textContent = '重新開始';
+            questionDisplay.textContent = '遊戲結束';
+            questionTimerBar.style.width = '0%';
+            
+            await saveToLeaderboard(currentPlayerName, score);
+            setTimeout(displayLeaderboard, 1500);
+        }
 
-            const target = event.target;
-            if (target.classList.contains('numpad-button')) {
-                const value = target.dataset.value;
-                let currentAnswer = answerInput.value;
+        function resizeCanvas() {
+            const gameAreaElement = document.getElementById('game-area'); // 獲取 game-area 元素
+            if (gameAreaElement) {
+                canvas.width = gameAreaElement.clientWidth;
+                // 將 canvas 高度設定為 gameAreaElement 高度的一半，或者固定的視口高度一半
+                canvas.height = window.innerHeight / 2;
+            } else {
+                canvas.width = window.innerWidth * 0.8;
+                canvas.height = window.innerHeight / 2;
+            }
+            if (!gameStarted) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                const tempPlayer = new Player(canvas.width / 2 - 25, canvas.height - 60, 50, 50);
+                tempPlayer.draw(ctx);
+            } else if (player) {
+                player.x = canvas.width / 2 - player.width / 2;
+                player.y = canvas.height - 60;
+            }
+            draw();
+        }
 
-                if (value === 'clear') {
-                    answerInput.value = '';
-                } else if (value === 'backspace') {
-                    answerInput.value = currentAnswer.slice(0, -1);
-                } else {
-                    // Prevent leading zero if input is empty and 0 is pressed
-                    // Also prevent more than 3 digits for a two-digit multiplication (max 81)
-                    if (currentAnswer.length < 3) {
-                         if (currentAnswer === '' && value === '0') {
-                            answerInput.value = ''; // Do not add leading zero
-                        } else {
-                            answerInput.value += value;
-                        }
-                    }
-                }
+        // 事件監聽器
+        submitNameButton.addEventListener('click', () => {
+            const name = playerNameInput.value.trim();
+            if (name) {
+                currentPlayerName = name;
+                nameInputScreen.classList.add('hidden');
+                nameInputScreen.classList.remove('flex');
+                gameArea.classList.remove('hidden'); // 確保 gameArea 顯示
+                gameArea.classList.add('flex'); // 確保 gameArea 使用 flex 佈局
+                resizeCanvas();
+            } else {
+                alert('請輸入一個有效的名稱！');
             }
         });
 
-        // Event Listeners
-        startButton.addEventListener('click', startGame);
-        submitButton.addEventListener('click', checkAnswer);
-        rechallengeButton.addEventListener('click', resetGameAndShowSetup); // Goes back to setup screen
-        homeButton.addEventListener('click', function() {
-            // This will attempt to navigate to index.html.
-            // In a Canvas environment, this might reload the current page or result in an error.
-            // In a standard web server setup, this would correctly navigate to your root index.html.
-            window.location.href = 'index.html'; 
+        viewLeaderboardButton.addEventListener('click', displayLeaderboard);
+        closeLeaderboardButton.addEventListener('click', () => {
+            leaderboardScreen.classList.add('hidden');
+            leaderboardScreen.classList.remove('flex');
         });
-
-        // Enable/Disable start button based on name input
-        userNameInput.addEventListener('input', function() {
-            startButton.disabled = userNameInput.value.trim() === '';
-            // Hide error message when user starts typing
-            if (userNameInput.value.trim() !== '') {
-                nameErrorMessage.classList.add('hidden');
-            }
+        
+        homeButton.addEventListener('click', () => {
+            // 在 Canvas 環境中，window.location.reload() 是返回「首頁」的最佳方式
+            window.location.reload();
         });
-
-        // Prevent physical keyboard input for answer field
-        answerInput.addEventListener('keydown', function(event) {
-            event.preventDefault();
-        });
-
-        // Update timer display when time selection changes
-        timeSettingSelect.addEventListener('change', function() {
-            timeLeftSpan.textContent = parseInt(timeSettingSelect.value, 10).toFixed(2); // Update the span inside timerDisplay
-        });
-
-        // Initialize display on page load
-        window.onload = function() {
-            authenticateUser(); // Authenticate Firebase first
-            resetGameAndShowSetup(); // Then show the setup screen
-        };
-
-        // Cleanup on page unload (optional, but good practice)
-        window.onbeforeunload = () => {
-            if (unsubscribeAuth) unsubscribeAuth();
-            if (unsubscribeLeaderboard) unsubscribeLeaderboard();
-            if (timerInterval) clearInterval(timerInterval);
-        };
+        
+        startGameButton.addEventListener('click', startGame);
+        window.addEventListener('resize', resizeCanvas);
+        window.onload = () => { /* 初始畫面由名稱輸入畫面控制 */ };
     </script>
 </body>
 </html>
