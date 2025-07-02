@@ -738,11 +738,10 @@
         submitButton.addEventListener('click', checkAnswer);
         rechallengeButton.addEventListener('click', resetGameAndShowSetup); // Goes back to setup screen
         homeButton.addEventListener('click', function() {
-            // In a standard web environment, this would navigate to index.html.
-            // In this Canvas environment, it will likely reload the current page or cause an error.
-            // The closest equivalent to "return to home" here is resetting the game to setup.
-            // window.location.href = 'index.html'; // This line is commented out as it might not work as expected in Canvas.
-            resetGameAndShowSetup(); // Using resetGameAndShowSetup as a functional alternative for Canvas.
+            // This will attempt to navigate to index.html.
+            // In a Canvas environment, this might reload the current page or result in an error.
+            // In a standard web server setup, this would correctly navigate to your root index.html.
+            window.location.href = 'index.html'; 
         });
 
         // Enable/Disable start button based on name input
