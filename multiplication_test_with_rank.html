@@ -321,7 +321,15 @@
 
         // Ensure global Firebase variables are available
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const firebaseConfig = {
+            apiKey: "AIzaSyCBhUzLaW5gvEgx2WsaL_jQvYLUDNi8qew",
+            authDomain: "shootinggame-c7634.firebaseapp.com",
+            projectId: "shootinggame-c7634",
+            storageBucket: "shootinggame-c7634.firebasestorage.app",
+            messagingSenderId: "942695280947",
+            appId: "1:942695280947:web:6588adab2c5ad0a0478e46",
+            measurementId: "G-99Z8KE9J6F"
+        };
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null; 
 
         // Initialize Firebase App and Services
@@ -567,6 +575,7 @@
             startButton.classList.add('hidden'); // Hide start button
             instructionText.classList.add('hidden'); // Hide instruction text
 
+            gameArea.classList.remove('hidden'); // Make sure gameArea is visible
             timerDisplay.classList.remove('hidden'); // Show timer container
             questionDisplay.classList.remove('hidden'); // Show question
             answerInput.classList.remove('hidden'); // Show answer input

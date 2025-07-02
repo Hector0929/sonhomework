@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>九九乘法打擊敵機遊戲 V8 (按鈕縮小)</title>
+    <title>九九乘法打擊敵機遊戲 V9 (Firebase 整合版)</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -56,7 +56,7 @@
     <!-- 排行榜畫面 -->
     <div id="leaderboardScreen" class="modal-screen hidden">
          <div class="bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md">
-            <h2 class="text-4xl font-bold mb-6 text-yellow-400">� 線上排行榜 🏆</h2>
+            <h2 class="text-4xl font-bold mb-6 text-yellow-400">🏆 線上排行榜 🏆</h2>
             <ol id="leaderboardList" class="text-left text-2xl space-y-2">
                 <!-- 排行榜項目將由 JS 生成 -->
             </ol>
@@ -101,7 +101,7 @@
     <!-- Firebase 腳本 -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // DOM 元素
@@ -127,21 +127,27 @@
         let db;
         let leaderboardCol;
         try {
-            const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'multiplication-shooter-game';
+            // *** 使用您自己的 Firebase 設定檔 ***
+            const firebaseConfig = {
+              apiKey: "AIzaSyCBhUzLaW5gvEgx2WsaL_jQvYLUDNi8qew",
+              authDomain: "shootinggame-c7634.firebaseapp.com",
+              projectId: "shootinggame-c7634",
+              storageBucket: "shootinggame-c7634.appspot.com",
+              messagingSenderId: "942695280947",
+              appId: "1:942695280947:web:6588adab2c5ad0a0478e46",
+              measurementId: "G-99Z8KE9J6F"
+            };
             
             const app = initializeApp(firebaseConfig);
             db = getFirestore(app);
             const auth = getAuth(app);
 
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                await signInWithCustomToken(auth, __initial_auth_token);
-            } else {
-                await signInAnonymously(auth);
-            }
-            console.log("Firebase 已認證。");
+            // 在公開網站上，我們使用匿名登入
+            await signInAnonymously(auth);
+            console.log("Firebase 已匿名認證。");
 
-            leaderboardCol = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
+            // *** 使用簡化的資料庫路徑 ***
+            leaderboardCol = collection(db, 'leaderboard');
             listenToLeaderboard();
 
         } catch (e) {
@@ -167,7 +173,7 @@
             startGameButton.classList.add('bg-red-500', 'cursor-not-allowed');
             feedbackDisplay.textContent = '無法載入玩家圖片！';
         };
-        playerImage.src = 'pikachu.png';
+        playerImage.src = 'https://placehold.co/64x64/800080/FFFFFF?text=P';
 
         // 遊戲狀態變數
         let currentPlayerName = '';
@@ -291,9 +297,8 @@
             answers.forEach(ans => {
                 const button = document.createElement('button');
                 button.textContent = ans;
-                // *** V8: 縮小按鈕樣式 ***
                 button.classList.add(
-                    'px-6', 'py-3', 'text-2xl', // 縮小 padding 和文字大小
+                    'px-6', 'py-3', 'text-2xl',
                     'bg-blue-600', 'text-white', 'rounded-lg', 'shadow-md',
                     'hover:bg-blue-700', 'focus:outline-none', 'focus:ring-2', 'focus:ring-blue-500'
                 );
@@ -413,4 +418,3 @@
     </script>
 </body>
 </html>
-�
