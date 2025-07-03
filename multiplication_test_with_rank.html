@@ -213,16 +213,26 @@
         <p class="text-gray-600 mb-6 text-base">選擇倒數計時時間，並盡力回答更多的題目吧！</p>
 
         <div id="game-area" class="space-y-4">
-            <div class="mb-4" id="name-input-container">
+            <div class="flex flex-col md:flex-row gap-6 items-start justify-center mb-4">
+              <!-- 名字輸入區 -->
+              <div id="name-input-container" class="w-full md:w-1/2">
                 <label for="user-name" class="block text-gray-700 text-sm font-bold mb-2">你的名字：</label>
                 <input
-                    type="text"
-                    id="user-name"
-                    class="input-style w-full max-w-xs text-center text-xl mb-2"
-                    placeholder="請輸入名字"
-                    maxlength="15"
+                  type="text"
+                  id="user-name"
+                  class="input-style w-full max-w-xs text-center text-xl mb-2"
+                  placeholder="請輸入名字"
+                  maxlength="15"
                 />
-                <p id="name-error-message" class="text-red-500 text-sm hidden">請輸入你的名字！</p> <!-- New error message -->
+                <p id="name-error-message" class="text-red-500 text-sm hidden">請輸入你的名字！</p>
+              </div>
+              <!-- 排行榜區 -->
+              <div class="w-full md:w-1/2">
+                <h3 class="text-xl font-bold text-gray-800 mb-2">排行榜</h3>
+                <ul id="leaderboard-list" class="list-none p-0 leaderboard-list">
+                  <li class="text-gray-500">載入排行榜中...</li>
+                </ul>
+              </div>
             </div>
 
             <div class="mb-4" id="time-setting-container">
