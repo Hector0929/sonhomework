@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>九九乘法打擊敵機遊戲 V9 (Firebase 整合版)</title>
+    <title>九九乘法打擊敵機遊戲 V10 (邏輯優化)</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -94,17 +94,16 @@
     </div>
     
     <!-- 返回首頁按鈕 -->
-    <a href="index.html"></a>
-        <button id="homeButton" class="mt-6 px-8 py-4 bg-gray-600 text-white text-xl font-bold rounded-lg shadow-md hover:bg-gray-700">
-            返回首頁
-        </button>
-    </a>
+    <button id="homeButton" class="mt-6 px-8 py-4 bg-gray-600 text-white text-xl font-bold rounded-lg shadow-md hover:bg-gray-700">
+        返回首頁
+    </button>
 
     <!-- Firebase 腳本 -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // V10: 匯入更多 Firestore 功能
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, where, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // DOM 元素
         const nameInputScreen = document.getElementById('nameInputScreen');
@@ -129,7 +128,6 @@
         let db;
         let leaderboardCol;
         try {
-            // *** 使用您自己的 Firebase 設定檔 ***
             const firebaseConfig = {
               apiKey: "AIzaSyCBhUzLaW5gvEgx2WsaL_jQvYLUDNi8qew",
               authDomain: "shootinggame-c7634.firebaseapp.com",
@@ -144,11 +142,9 @@
             db = getFirestore(app);
             const auth = getAuth(app);
 
-            // 在公開網站上，我們使用匿名登入
             await signInAnonymously(auth);
             console.log("Firebase 已匿名認證。");
 
-            // *** 使用簡化的資料庫路徑 ***
             leaderboardCol = collection(db, 'leaderboard');
             listenToLeaderboard();
 
@@ -201,12 +197,37 @@
         const initialEnemySpawnInterval = 3000;
         let enemySpawnInterval = initialEnemySpawnInterval;
 
-        // 排行榜相關函數
+        // V10: 排行榜相關函數 (保留最佳成績)
         async function saveToLeaderboard(name, score) {
             if (!leaderboardCol) return;
             try {
+                // 檢查是否已有該玩家的紀錄
+                const q = query(leaderboardCol, where("name", "==", name));
+                const querySnapshot = await getDocs(q);
+                
+                const existingScores = [];
+                querySnapshot.forEach((doc) => {
+                    existingScores.push({ ref: doc.ref, score: doc.data().score });
+                });
+
+                if (existingScores.length > 0) {
+                    const maxScore = Math.max(...existingScores.map(s => s.score));
+                    if (score <= maxScore) {
+                        console.log("新分數未超過最高紀錄，不儲存。");
+                        return; // 新分數沒有比較高，直接結束
+                    } else {
+                        // 新分數是最高分，刪除所有舊紀錄
+                        console.log("新高分！刪除舊紀錄...");
+                        for (const oldScore of existingScores) {
+                            await deleteDoc(oldScore.ref);
+                        }
+                    }
+                }
+                
+                // 新增最高分紀錄
                 await addDoc(leaderboardCol, { name, score, createdAt: new Date() });
                 console.log("分數已儲存至線上排行榜！");
+
             } catch (e) {
                 console.error("儲存分數失敗:", e);
                 feedbackDisplay.textContent = "無法儲存分數！";
@@ -234,7 +255,7 @@
                 leaderboard.forEach((entry, index) => {
                     const li = document.createElement('li');
                     li.className = 'flex justify-between p-2 rounded';
-                    let medal = ['🥇', '🥈', '🥉'][index] || '';
+                    let medal = ['�', '🥈', '🥉'][index] || '';
                     li.innerHTML = `
                         <span class="font-bold w-1/3">${medal} ${index + 1}. ${entry.name}</span>
                         <span class="text-yellow-300 w-2/3 text-right">${entry.score} 分</span>
@@ -330,7 +351,25 @@
         function handleAnswerClick(event) { if (!gameStarted || gameOver) return; const selectedAnswer = parseInt(event.target.dataset.answer, 10); disableAnswerButtons(); if (selectedAnswer === currentQuestion.answer) { const availableEnemies = enemies.filter(e => !e.isHit && !bullets.some(b => b.target === e)); if (availableEnemies.length > 0) { const targetEnemy = availableEnemies.sort((a, b) => b.y - a.y)[0]; const bulletStartX = player.x + player.width / 2; const bulletStartY = player.y; bullets.push(new Bullet(bulletStartX, bulletStartY, targetEnemy)); } generateQuestion(); } else { feedbackDisplay.textContent = '答錯了！再試一次。'; enableAnswerButtons(); } }
         function spawnEnemy() { if (enemies.length < maxEnemies) { const x = Math.random() * (canvas.width - 50); enemies.push(new Enemy(x, 0, 40, 40)); } }
         function handleCollisions() { enemies = enemies.filter(enemy => !enemy.isHit); enemies.forEach(enemy => { if (enemy.y + enemy.height > canvas.height) { endGame("敵軍突破防線，你被擊敗了！"); } }); }
-        function update(deltaTime) { enemies.forEach(enemy => enemy.update()); bullets.forEach(bullet => bullet.update()); bullets = bullets.filter(bullet => !bullet.isDone); enemySpawnTimer += deltaTime; if (enemySpawnTimer > enemySpawnInterval) { spawnEnemy(); enemySpawnTimer = 0; } handleCollisions(); }
+        
+        function update(deltaTime) {
+            enemies.forEach(enemy => enemy.update());
+            bullets.forEach(bullet => bullet.update());
+            bullets = bullets.filter(bullet => !bullet.isDone);
+            enemySpawnTimer += deltaTime;
+            if (enemySpawnTimer > enemySpawnInterval) {
+                spawnEnemy();
+                enemySpawnTimer = 0;
+            }
+            handleCollisions();
+
+            // V10: 新增邏輯：如果畫面上沒有敵機，也沒有正在飛行的子彈，則立即生成一個新敵機
+            if (gameStarted && !gameOver && enemies.length === 0 && bullets.length === 0) {
+                spawnEnemy();
+                enemySpawnTimer = 0; // 重置計時器以避免立即再次生成
+            }
+        }
+
         function draw() { ctx.clearRect(0, 0, canvas.width, canvas.height); if (player) { player.draw(ctx); } enemies.forEach(enemy => enemy.draw(ctx)); bullets.forEach(bullet => bullet.draw(ctx)); }
         function gameLoop(currentTime) { if (!gameStarted || gameOver) return; const deltaTime = currentTime - lastFrameTime; lastFrameTime = currentTime; update(deltaTime); draw(); gameLoopId = requestAnimationFrame(gameLoop); }
         
@@ -420,3 +459,4 @@
     </script>
 </body>
 </html>
+�

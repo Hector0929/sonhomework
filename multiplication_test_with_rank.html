@@ -223,10 +223,6 @@
                     maxlength="15"
                 />
                 <p id="name-error-message" class="text-red-500 text-sm hidden">請輸入你的名字！</p> <!-- New error message -->
-                <h3 class="text-xl font-bold text-gray-800 mb-2">排行榜</h3>
-                    <ul id="leaderboard-list" class="list-none p-0 leaderboard-list">
-                    <li class="text-gray-500">載入排行榜中...</li>
-                    </ul>
             </div>
 
             <div class="mb-4" id="time-setting-container">
@@ -283,29 +279,30 @@
             </div>
         </div>
 
-        <div id="results-area" class="results-section hidden">
-            <h2 class="text-2xl font-bold text-gray-800 mb-3">遊戲結束！</h2>
-            <p class="text-xl font-semibold text-green-700 mb-2">你答對了 <span id="correct-count" class="font-extrabold">0</span> 題！</p>
-            <p id="avg-time-per-correct" class="text-xl font-semibold text-blue-700 mb-2">
+        <div id="results-area" class="results-section"> <!-- Removed 'hidden' class here -->
+            <!-- These elements will be hidden by default and shown only after game ends -->
+            <h2 id="game-over-title" class="text-2xl font-bold text-gray-800 mb-3 hidden">遊戲結束！</h2>
+            <p id="correct-count-display" class="text-xl font-semibold text-green-700 mb-2 hidden">你答對了 <span id="correct-count" class="font-extrabold">0</span> 題！</p>
+            <p id="avg-time-display" class="text-xl font-semibold text-blue-700 mb-2 hidden">
                 <!-- Average time per correct answer will be displayed here -->
             </p>
-            <div id="incorrect-questions" class="text-left mt-3">
+            <div id="incorrect-questions-section" class="text-left mt-3 hidden">
                 <h3 class="text-lg font-bold text-red-600 mb-2">答錯的題目：</h3>
                 <ul id="incorrect-list" class="list-disc list-inside text-gray-700 text-base">
                     <!-- Incorrect questions will be listed here -->
                 </ul>
             </div>
-            <p id="positive-feedback" class="text-lg font-semibold text-purple-700 mt-5">
+            <p id="positive-feedback-display" class="text-lg font-semibold text-purple-700 mt-5 hidden">
                 <!-- Positive feedback will be displayed here -->
             </p>
-            <button id="rechallenge-button" class="button-style rechallenge-button w-full max-w-xs block mx-auto mt-6">
+            <button id="rechallenge-button-display" class="button-style rechallenge-button w-full max-w-xs block mx-auto mt-6 hidden">
                 重新挑戰
             </button>
 
-            <!-- Leaderboard Section -->
+            <!-- Leaderboard Section - This will be visible on setup and results screens -->
             <div class="mt-8 pt-6 border-t border-dashed border-gray-300">
                 <h3 class="text-2xl font-bold text-gray-800 mb-4">排行榜</h3>
-                <ul id="leaderboard-list-results" class="list-none p-0 leaderboard-list">
+                <ul id="leaderboard-list" class="list-none p-0 leaderboard-list">
                     <!-- Leaderboard entries will be dynamically loaded here -->
                     <li class="text-gray-500">載入排行榜中...</li>
                 </ul>
@@ -323,19 +320,19 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, query, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Ensure global Firebase variables are available (for Canvas environment)
-        // Note: In a deployed web app, you would typically define appId directly from your Firebase project ID.
-        // Here, we use the projectId from the provided config as the appId for the artifacts path.
+        // Firebase Configuration (YOUR PROJECT'S CONFIG)
         const firebaseConfig = {
-        apiKey: "AIzaSyCt3xx1Qd3nGmO_caa4XEeGSZim9TLKPmY",
-        authDomain: "multiple-6bac8.firebaseapp.com",
-        projectId: "multiple-6bac8",
-        storageBucket: "multiple-6bac8.firebasestorage.app",
-        messagingSenderId: "395933766474",
-        appId: "1:395933766474:web:960b8c959dc6328e55e7b3",
-        measurementId: "G-16MBQ20TW0"
-        };        
+            apiKey: "AIzaSyCt3xx1Qd3nGmO_caa4XEeGSZim9TLKPmY",
+            authDomain: "multiple-6bac8.firebaseapp.com",
+            projectId: "multiple-6bac8",
+            storageBucket: "multiple-6bac8.firebasestorage.app",
+            messagingSenderId: "395933766474",
+            appId: "1:395933766474:web:960b8c959dc6328e55e7b3",
+            measurementId: "G-16MBQ20TW0"
+        };
+        
         // Use the __app_id provided by the Canvas environment, or fallback to firebaseConfig.projectId
+        // This is crucial for matching the collection path with Firebase Security Rules in Canvas.
         const appId = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.projectId;
 
         // initialAuthToken is provided by the Canvas environment for authentication
@@ -369,8 +366,16 @@
         const avgTimePerCorrectParagraph = document.getElementById('avg-time-per-correct');
         const homeButton = document.getElementById('home-button');
         const leaderboardList = document.getElementById('leaderboard-list');
-        const leaderboardListResults = document.getElementById('leaderboard-list-results');
         const nameErrorMessage = document.getElementById('name-error-message');
+
+        // New DOM elements for game results section
+        const gameOverTitle = document.getElementById('game-over-title');
+        const correctCountDisplay = document.getElementById('correct-count-display');
+        const avgTimeDisplay = document.getElementById('avg-time-display');
+        const incorrectQuestionsSection = document.getElementById('incorrect-questions-section');
+        const positiveFeedbackDisplay = document.getElementById('positive-feedback-display');
+        const rechallengeButtonDisplay = document.getElementById('rechallenge-button-display');
+
 
         // Game state variables
         let userId = null; // Firebase User ID
@@ -391,8 +396,10 @@
             try {
                 if (initialAuthToken) {
                     await signInWithCustomToken(auth, initialAuthToken);
+                    console.log("Firebase: Signed in with custom token.");
                 } else {
                     await signInAnonymously(auth);
+                    console.log("Firebase: Signed in anonymously.");
                 }
             } catch (error) {
                 console.error("Firebase authentication failed:", error);
@@ -403,12 +410,12 @@
         unsubscribeAuth = onAuthStateChanged(auth, (user) => {
             if (user) {
                 userId = user.uid;
-                console.log("User authenticated:", userId);
+                console.log("Firebase: User authenticated. UID:", userId);
                 // Start listening to leaderboard once authenticated
                 setupLeaderboardListener();
             } else {
                 userId = null;
-                console.log("No user authenticated.");
+                console.log("Firebase: No user authenticated.");
             }
         });
 
@@ -417,9 +424,9 @@
             if (unsubscribeLeaderboard) {
                 unsubscribeLeaderboard(); // Unsubscribe previous listener if exists
             }
-            // Use the projectId as appId in the collection path
+            // Construct the collection path using the determined appId
             const collectionPath = `artifacts/${appId}/public/data/multiplicationScores`;
-            console.log("Attempting to fetch leaderboard from path:", collectionPath); // Log the path for debugging
+            console.log("Firebase: Attempting to fetch leaderboard from path:", collectionPath); // Log the path for debugging
 
             const q = query(
                 collection(db, collectionPath)
@@ -427,8 +434,38 @@
             unsubscribeLeaderboard = onSnapshot(q, (snapshot) => {
                 let scores = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
+                // --- Filter for best score per user ---
+                const bestScoresMap = {};
+                scores.forEach(entry => {
+                    const userName = entry.userName || '匿名玩家'; // Handle anonymous users
+                    if (!bestScoresMap[userName]) {
+                        bestScoresMap[userName] = entry;
+                    } else {
+                        const existingBest = bestScoresMap[userName];
+                        // Compare scores: higher is better
+                        if (entry.score > existingBest.score) {
+                            bestScoresMap[userName] = entry;
+                        } else if (entry.score === existingBest.score) {
+                            // If scores are equal, compare timeTaken: lower is better
+                            if (entry.timeTaken < existingBest.timeTaken) {
+                                bestScoresMap[userName] = entry;
+                            } else if (entry.timeTaken === existingBest.timeTaken) {
+                                // If score and time are equal, compare timestamp: newer is better
+                                const timestampEntry = entry.timestamp && typeof entry.timestamp.toMillis === 'function' ? entry.timestamp.toMillis() : 0;
+                                const timestampExisting = existingBest.timestamp && typeof existingBest.timestamp.toMillis === 'function' ? existingBest.timestamp.toMillis() : 0;
+                                if (timestampEntry > timestampExisting) {
+                                    bestScoresMap[userName] = entry;
+                                }
+                            }
+                        }
+                    }
+                });
+
+                // Convert map back to array of unique best scores
+                let filteredScores = Object.values(bestScoresMap);
+
                 // Client-side sorting: Higher score first, then less time, then latest timestamp
-                scores.sort((a, b) => {
+                filteredScores.sort((a, b) => {
                     // Sort by score (descending)
                     if (a.score !== b.score) {
                         return b.score - a.score;
@@ -438,47 +475,42 @@
                         return a.timeTaken - b.timeTaken;
                     }
                     // Then by timestamp (descending) - ensure timestamp is a valid object
-                    // Use toMillis() for Firebase Timestamp objects for comparison
-                    if (a.timestamp && b.timestamp && typeof a.timestamp.toMillis === 'function' && typeof b.timestamp.toMillis === 'function') {
-                        return b.timestamp.toMillis() - a.timestamp.toMillis();
-                    }
-                    return 0;
+                    const timestampA = a.timestamp && typeof a.timestamp.toMillis === 'function' ? a.timestamp.toMillis() : 0;
+                    const timestampB = b.timestamp && typeof b.timestamp.toMillis === 'function' ? b.timestamp.toMillis() : 0;
+                    return timestampB - timestampA;
                 });
 
                 // Take top 10 after sorting
-                renderLeaderboard(scores.slice(0, 10));
+                renderLeaderboard(filteredScores.slice(0, 10));
+                console.log("Firebase: Leaderboard loaded successfully.");
             }, (error) => {
-                console.error("Error fetching leaderboard:", error);
+                console.error("Firebase: Error fetching leaderboard:", error);
                 leaderboardList.innerHTML = '<li class="text-red-500">載入排行榜失敗，請檢查網路或稍後再試。</li>';
             });
         }
 
+        // Render leaderboard function
         function renderLeaderboard(scores) {
-            // 同步更新兩個排行榜
-            [leaderboardList, leaderboardListResults].forEach(list => {
-                if (!list) return;
-                list.innerHTML = ''; // Clear previous list
-                if (scores.length === 0) {
-                    list.innerHTML = '<li class="text-gray-500">目前還沒有成績！快來挑戰吧！</li>';
-                } else {
-                    scores.forEach((entry, index) => {
-                        const listItem = document.createElement('li');
-                        listItem.className = `flex justify-between items-center py-2 px-4 rounded-lg mb-2 shadow-sm ${
-                            index === 0 ? 'bg-yellow-100 text-yellow-800 font-bold' :
-                            index === 1 ? 'bg-gray-100 text-gray-700' :
-                            index === 2 ? 'bg-amber-100 text-amber-700' : 'bg-white text-gray-800'
-                        }`;
-                        // Ensure timeTaken is a number before toFixed
-                        const displayTimeTaken = typeof entry.timeTaken === 'number' ? entry.timeTaken.toFixed(2) : 'N/A';
-                        listItem.innerHTML = `
-                            <span class="text-lg">#${index + 1} ${entry.userName || '匿名玩家'}</span>
-                            <span class="text-lg">${entry.score} 題 / ${displayTimeTaken} 秒</span>
-                        `;
-                        list.appendChild(listItem);
-                    });
-                }
-            });
-        }
+            leaderboardList.innerHTML = ''; // Clear previous list
+            if (scores.length === 0) {
+                leaderboardList.innerHTML = '<li class="text-gray-500">目前還沒有成績！快來挑戰吧！</li>';
+            } else {
+                scores.forEach((entry, index) => {
+                    const listItem = document.createElement('li');
+                    listItem.className = `flex justify-between items-center py-2 px-4 rounded-lg mb-2 shadow-sm ${
+                        index === 0 ? 'bg-yellow-100 text-yellow-800 font-bold' :
+                        index === 1 ? 'bg-gray-100 text-gray-700' :
+                        index === 2 ? 'bg-amber-100 text-amber-700' : 'bg-white text-gray-800'
+                    }`;
+                    // Ensure timeTaken is a number before toFixed
+                    const displayTimeTaken = typeof entry.timeTaken === 'number' ? entry.timeTaken.toFixed(2) : 'N/A';
+                    listItem.innerHTML = `
+                        <span class="text-lg">#${index + 1} ${entry.userName || '匿名玩家'}</span>
+                        <span class="text-lg">${entry.score} 題 / ${displayTimeTaken} 秒</span>
+                    `;
+                    leaderboardList.appendChild(listItem);
+                });
+            }
         }
 
         // --- Game Logic Functions ---
@@ -595,7 +627,8 @@
             startButton.classList.add('hidden'); // Hide start button
             instructionText.classList.add('hidden'); // Hide instruction text
 
-            gameArea.classList.remove('hidden'); // *** FIX: Ensure gameArea is visible ***
+            gameArea.classList.remove('hidden'); // Ensure gameArea is visible
+            resultsArea.classList.add('hidden'); // *** FIX: Hide results area (including leaderboard) during game ***
 
             timerDisplay.classList.remove('hidden'); // Show timer container
             questionDisplay.classList.remove('hidden'); // Show question
@@ -607,7 +640,6 @@
             timeLeftSpan.textContent = timeLeft.toFixed(2); // Display initial time with decimals in the span
             answerInput.value = '';
             feedbackArea.classList.add('hidden');
-            resultsArea.classList.add('hidden'); // Ensure results area is hidden
             submitButton.disabled = false;
             answerInput.disabled = true; // Keep keyboard input disabled to enforce numpad use
             avgTimePerCorrectParagraph.textContent = ''; // Clear previous average time display
@@ -635,14 +667,16 @@
             instructionText.classList.remove('hidden'); // Show instruction text
             homeButton.classList.remove('hidden'); // Show home button
 
-            // Hide game play elements and results
+            // Ensure game area is visible (contains setup elements)
+            gameArea.classList.remove('hidden'); 
+            
+            // Hide game play elements
             timerDisplay.classList.add('hidden'); // Hide timer container
             questionDisplay.classList.add('hidden'); // Hide question
             answerInput.classList.add('hidden'); // Hide answer input
             numpad.classList.add('hidden'); // Hide numpad
             submitButton.classList.add('hidden'); // Hide submit button
             feedbackArea.classList.add('hidden');
-            resultsArea.classList.add('hidden'); // Hide results area
 
             // Reset input fields and button states
             userNameInput.value = ''; // Clear name input
@@ -655,6 +689,17 @@
 
             instructionText.textContent = '選擇時間並點擊「開始遊戲」按鈕來進行挑戰！'; // Set initial instruction
             timeLeftSpan.textContent = timeLeft.toFixed(2); // Display selected initial time with decimals in the span
+
+            // Manually hide all game result related elements (but keep leaderboard visible)
+            gameOverTitle.classList.add('hidden');
+            correctCountDisplay.classList.add('hidden');
+            avgTimeDisplay.classList.add('hidden');
+            incorrectQuestionsSection.classList.add('hidden');
+            positiveFeedbackDisplay.classList.add('hidden');
+            rechallengeButtonDisplay.classList.add('hidden');
+
+            // Show the results area to make the leaderboard visible on setup
+            resultsArea.classList.remove('hidden'); 
         }
 
         /**
@@ -675,6 +720,14 @@
 
             resultsArea.classList.remove('hidden'); // Show results
             homeButton.classList.remove('hidden'); // Show home button on results
+
+            // Show all game result related elements
+            gameOverTitle.classList.remove('hidden');
+            correctCountDisplay.classList.remove('hidden');
+            avgTimeDisplay.classList.remove('hidden');
+            incorrectQuestionsSection.classList.remove('hidden');
+            positiveFeedbackDisplay.classList.remove('hidden');
+            rechallengeButtonDisplay.classList.remove('hidden');
 
             correctCountSpan.textContent = score;
 
