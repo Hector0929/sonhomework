@@ -213,14 +213,17 @@
         <p class="text-gray-600 mb-6 text-base">選擇倒數計時時間，並盡力回答更多的題目吧！</p>
 
         <div id="game-area" class="space-y-4">
-            <div class="flex flex-col md:flex-row gap-6 items-start justify-center mb-4">
-              <!-- 輸入名字階段（setup） -->
-              <!-- 名字輸入區塊 -->
-              <div id="name-input-container" class="w-full md:w-1/2 flex flex-col items-center mb-4">
-                <label for="user-name" class="block text-gray-700 text-sm font-bold mb-2">請輸入你的名字：</label>
-                <input type="text" id="user-name" class="input-style w-full max-w-xs text-center text-lg mb-2" maxlength="10" placeholder="你的名字">
-                <span id="name-error-message" class="text-red-600 text-sm font-semibold hidden">請輸入名字才能開始遊戲！</span>
-              </div>
+            <div class="mb-4" id="name-input-container">
+                <label for="user-name" class="block text-gray-700 text-sm font-bold mb-2">你的名字：</label>
+                <input
+                    type="text"
+                    id="user-name"
+                    class="input-style w-full max-w-xs text-center text-xl mb-2"
+                    placeholder="請輸入名字"
+                    maxlength="15"
+                />
+                <p id="name-error-message" class="text-red-500 text-sm hidden">請輸入你的名字！</p> <!-- New error message -->
+            </div>
 
             <div class="mb-4" id="time-setting-container">
                 <label for="time-setting" class="block text-gray-700 text-sm font-bold mb-2">選擇時間：</label>
@@ -303,13 +306,6 @@
                     <li class="text-gray-500">載入排行榜中...</li>
                 </ul>
             </div>
-        </div>
-
-        <div id="leaderboard-section-result" class="mt-8 pt-6 border-t border-dashed border-gray-300 hidden">
-            <h3 class="text-2xl font-bold text-gray-800 mb-4">排行榜</h3>
-            <ul id="leaderboard-list-result" class="list-none p-0 leaderboard-list">
-                <li class="text-gray-500">載入排行榜中...</li>
-            </ul>
         </div>
         <!-- Return to Homepage Button -->
         <button id="home-button" class="button-style home-button w-full max-w-xs block mx-auto mt-8">
