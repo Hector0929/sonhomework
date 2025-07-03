@@ -305,7 +305,7 @@
             <!-- Leaderboard Section -->
             <div class="mt-8 pt-6 border-t border-dashed border-gray-300">
                 <h3 class="text-2xl font-bold text-gray-800 mb-4">排行榜</h3>
-                <ul id="leaderboard-list" class="list-none p-0 leaderboard-list">
+                <ul id="leaderboard-list-results" class="list-none p-0 leaderboard-list">
                     <!-- Leaderboard entries will be dynamically loaded here -->
                     <li class="text-gray-500">載入排行榜中...</li>
                 </ul>
@@ -369,6 +369,7 @@
         const avgTimePerCorrectParagraph = document.getElementById('avg-time-per-correct');
         const homeButton = document.getElementById('home-button');
         const leaderboardList = document.getElementById('leaderboard-list');
+        const leaderboardListResults = document.getElementById('leaderboard-list-results');
         const nameErrorMessage = document.getElementById('name-error-message');
 
         // Game state variables
@@ -452,28 +453,32 @@
             });
         }
 
-        // Render leaderboard function
         function renderLeaderboard(scores) {
-            leaderboardList.innerHTML = ''; // Clear previous list
-            if (scores.length === 0) {
-                leaderboardList.innerHTML = '<li class="text-gray-500">目前還沒有成績！快來挑戰吧！</li>';
-            } else {
-                scores.forEach((entry, index) => {
-                    const listItem = document.createElement('li');
-                    listItem.className = `flex justify-between items-center py-2 px-4 rounded-lg mb-2 shadow-sm ${
-                        index === 0 ? 'bg-yellow-100 text-yellow-800 font-bold' :
-                        index === 1 ? 'bg-gray-100 text-gray-700' :
-                        index === 2 ? 'bg-amber-100 text-amber-700' : 'bg-white text-gray-800'
-                    }`;
-                    // Ensure timeTaken is a number before toFixed
-                    const displayTimeTaken = typeof entry.timeTaken === 'number' ? entry.timeTaken.toFixed(2) : 'N/A';
-                    listItem.innerHTML = `
-                        <span class="text-lg">#${index + 1} ${entry.userName || '匿名玩家'}</span>
-                        <span class="text-lg">${entry.score} 題 / ${displayTimeTaken} 秒</span>
-                    `;
-                    leaderboardList.appendChild(listItem);
-                });
-            }
+            // 同步更新兩個排行榜
+            [leaderboardList, leaderboardListResults].forEach(list => {
+                if (!list) return;
+                list.innerHTML = ''; // Clear previous list
+                if (scores.length === 0) {
+                    list.innerHTML = '<li class="text-gray-500">目前還沒有成績！快來挑戰吧！</li>';
+                } else {
+                    scores.forEach((entry, index) => {
+                        const listItem = document.createElement('li');
+                        listItem.className = `flex justify-between items-center py-2 px-4 rounded-lg mb-2 shadow-sm ${
+                            index === 0 ? 'bg-yellow-100 text-yellow-800 font-bold' :
+                            index === 1 ? 'bg-gray-100 text-gray-700' :
+                            index === 2 ? 'bg-amber-100 text-amber-700' : 'bg-white text-gray-800'
+                        }`;
+                        // Ensure timeTaken is a number before toFixed
+                        const displayTimeTaken = typeof entry.timeTaken === 'number' ? entry.timeTaken.toFixed(2) : 'N/A';
+                        listItem.innerHTML = `
+                            <span class="text-lg">#${index + 1} ${entry.userName || '匿名玩家'}</span>
+                            <span class="text-lg">${entry.score} 題 / ${displayTimeTaken} 秒</span>
+                        `;
+                        list.appendChild(listItem);
+                    });
+                }
+            });
+        }
         }
 
         // --- Game Logic Functions ---
