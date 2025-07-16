@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>爸！拉霸啦！- 創意背景版</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #E84D38;
+            overflow: hidden; /* 防止背景圖案造成滾動條 */
+        }
+
+        /* 背景圖案樣式 */
+        .background-svg {
+            position: fixed;
+            z-index: -10;
+            opacity: 0.08;
+            stroke: #4A1C15; /* 深灰色線條 */
+            stroke-width: 8;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .slot-machine-wrapper {
+            padding: 25px; 
+            background: #D83C2A;
+            border: 10px solid #C03425;
+            border-radius: 40px;
+            position: relative;
+            box-shadow: 0 0 25px 8px rgba(192, 52, 37, 0.7), 
+                        0 10px 20px rgba(0,0,0,0.3), 
+                        inset 0 0 15px rgba(0,0,0,0.4);
+        }
+
+        .lights-container {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            right: 8px;
+            bottom: 8px;
+            border-radius: 40px;
+            pointer-events: none;
+            display: grid;
+            grid-template-columns: repeat(17, 1fr);
+            grid-template-rows: repeat(10, 1fr);
+            gap: 5px;
+        }
+
+        .light {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            transition: background-color 0.1s, box-shadow 0.1s;
+            background-color: #FFC700;
+            box-shadow: inset 0 0 4px rgba(0,0,0,0.4);
+            border: 1px solid rgba(0,0,0,0.2);
+        }
+        
+        .light.on {
+            background-color: #FFFFFF; 
+            box-shadow: 0 0 8px #FFFFFF, 0 0 12px rgba(255, 255, 255, 0.7);
+        }
+
+        .reels-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            background: #222;
+            border-radius: 20px;
+            padding: 20px;
+            overflow: hidden;
+            border: 5px solid #444;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+            position: relative;
+            z-index: 10;
+            margin: 8px;
+        }
+
+        .reel {
+            width: 110px;
+            height: 120px;
+            background-color: #fff;
+            border: 2px solid #ccc;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 0 5px rgba(0,0,0,0.2);
+        }
+
+        .reel-symbols {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+        }
+        
+        .reel-symbols > div {
+            height: 120px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 34px;
+            font-weight: 900;
+            background: linear-gradient(145deg, #FFFF8C, #FDEE6A, #E2B600, #C99600);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 2px 2px 3px rgba(0, 0, 0, 0.35);
+            -webkit-text-stroke: 0.5px #444;
+            transition: filter 0.3s ease;
+            filter: blur(0px);
+        }
+
+        .reel-symbols.spinning > div {
+            filter: blur(3px);
+        }
+
+        .start-button {
+            background: linear-gradient(180deg, #FF7070, #E54040);
+            border: none;
+            border-radius: 20px;
+            color: white;
+            font-weight: 900;
+            font-size: 2rem;
+            padding: 15px 50px;
+            cursor: pointer;
+            box-shadow: 0 8px 0 #B22222, 0 12px 15px rgba(0,0,0,0.3);
+            transition: all 0.1s ease-in-out;
+            text-shadow: 0 2px 3px rgba(0,0,0,0.4);
+            user-select: none;
+        }
+
+        .start-button:active, .start-button.disabled {
+            transform: translateY(4px);
+            box-shadow: 0 4px 0 #B22222, 0 8px 10px rgba(0,0,0,0.3);
+            background: linear-gradient(180deg, #E54040, #D03030);
+            cursor: not-allowed;
+        }
+        
+        #result-text {
+            height: 40px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        .prize-table {
+            margin-top: 2rem;
+            background: rgba(0,0,0,0.2);
+            padding: 1rem;
+            border-radius: 15px;
+            width: 100%;
+            max-width: 450px;
+        }
+        .prize-table th, .prize-table td {
+            padding: 0.75rem;
+            text-align: center;
+            color: white;
+            font-size: 1.1rem;
+        }
+        .prize-table th {
+            text-shadow: 1px 1px 2px black;
+        }
+        .prize-table td {
+            font-weight: bold;
+            background: rgba(255,255,255,0.1);
+        }
+        .prize-table tr:first-child th:first-child { border-top-left-radius: 10px; }
+        .prize-table tr:first-child th:last-child { border-top-right-radius: 10px; }
+        .prize-table tr:last-child td:first-child { border-bottom-left-radius: 10px; }
+        .prize-table tr:last-child td:last-child { border-bottom-right-radius: 10px; }
+
+        #reset-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            background-color: #C03425;
+            border-radius: 50%;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        #reset-button:hover {
+            background-color: #A92B1A;
+            transform: scale(1.1);
+        }
+        
+        #reset-button::before,
+        #reset-button::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 2px;
+        }
+
+        #reset-button::before {
+            width: 20px;
+            height: 4px;
+            transform: translate(-50%, -50%);
+        }
+
+        #reset-button::after {
+            width: 4px;
+            height: 20px;
+            transform: translate(-50%, -50%);
+        }
+
+        #confirm-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            width: 90%;
+            max-width: 400px;
+        }
+        .modal-content p {
+            font-size: 1.25rem;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .modal-buttons button {
+            padding: 10px 25px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 0 10px;
+            transition: background-color 0.2s;
+        }
+        #confirm-yes {
+            background-color: #E54040;
+            color: white;
+        }
+        #confirm-yes:hover {
+            background-color: #C03425;
+        }
+        #confirm-no {
+            background-color: #ccc;
+            color: #333;
+        }
+        #confirm-no:hover {
+            background-color: #bbb;
+        }
+
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-4">
+
+    <!-- 背景 SVG 圖案 -->
+    <svg class="background-svg" style="top: 5%; left: 5%; width: 150px; transform: rotate(-15deg);" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="40"/>
+        <circle cx="35" cy="45" r="8"/>
+        <circle cx="65" cy="45" r="8"/>
+        <line x1="43" y1="45" x2="57" y2="45"/>
+        <path d="M 30 70 Q 50 80 70 70"/>
+    </svg>
+    <svg class="background-svg" style="bottom: 8%; right: 5%; width: 120px; transform: rotate(15deg);" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="40"/>
+        <path d="M 25 60 Q 50 50 75 60 Q 65 75 50 75 Q 35 75 25 60"/>
+        <circle cx="38" cy="42" r="3"/>
+        <circle cx="62" cy="42" r="3"/>
+    </svg>
+    <!-- 新增：打領帶的爸爸 -->
+    <svg class="background-svg" style="bottom: 5%; left: 8%; width: 130px; transform: rotate(-10deg);" viewBox="0 0 100 120">
+        <circle cx="50" cy="40" r="30"/>
+        <circle cx="40" cy="38" r="3"/>
+        <circle cx="60" cy="38" r="3"/>
+        <path d="M 40 55 Q 50 65 60 55"/>
+        <path d="M 48 70 L 52 70 L 55 95 L 45 95 Z" />
+    </svg>
+    <!-- 新增：愛心 -->
+     <svg class="background-svg" style="top: 8%; right: 10%; width: 80px; transform: rotate(20deg);" viewBox="0 0 100 100">
+        <path d="M50,30 C20,10 20,60 50,90 C80,60 80,10 50,30 Z"/>
+    </svg>
+
+
+    <h1 class="text-6xl md:text-8xl font-black text-white text-center mb-4" style="text-shadow: 4px 4px 6px rgba(0,0,0,0.3);">爸！拉霸啦！</h1>
+
+    <div class="slot-machine-wrapper">
+        <div class="lights-container" id="lights-container"></div>
+        <div class="reels-container">
+            <div class="reel" id="reel1"></div>
+            <div class="reel" id="reel2"></div>
+            <div class="reel" id="reel3"></div>
+        </div>
+    </div>
+
+    <div class="mt-8 text-center">
+        <p id="result-text" class="mb-4 h-10"></p>
+        <button id="start-button" class="start-button">啟動</button>
+    </div>
+
+    <table class="prize-table" id="prize-table">
+        <thead>
+            <tr>
+                <th>獎項</th>
+                <th>剩餘數量</th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+
+    <div id="reset-button"></div>
+
+    <div id="confirm-modal">
+        <div class="modal-content">
+            <p>是否要重新恢復獎品數量？</p>
+            <div class="modal-buttons">
+                <button id="confirm-yes">是</button>
+                <button id="confirm-no">否</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // DOM 元素
+            const reelElements = [
+                document.getElementById('reel1'),
+                document.getElementById('reel2'),
+                document.getElementById('reel3'),
+            ];
+            const startButton = document.getElementById('start-button');
+            const resultText = document.getElementById('result-text');
+            const lightsContainer = document.getElementById('lights-container');
+            const prizeTableBody = document.querySelector('#prize-table tbody');
+            const resetButton = document.getElementById('reset-button');
+            const confirmModal = document.getElementById('confirm-modal');
+            const confirmYes = document.getElementById('confirm-yes');
+            const confirmNo = document.getElementById('confirm-no');
+
+            // 遊戲設定
+            const initialPrizes = {
+                '500元': { name: '500元禮券', count: 8 },
+                '100元': { name: '100元禮券', count: 20 },
+                '50元': { name: '50元禮券', count: 25 },
+            };
+            
+            // 遊戲狀態
+            const gameState = {
+                prizes: JSON.parse(JSON.stringify(initialPrizes)), 
+                symbols: ['500元', '100元', '50元', '再', '一', '次'],
+                isSpinning: false,
+                lightInterval: null,
+                orderedLights: [],
+            };
+            const reelHeight = 120;
+            const spinDuration = 7000;
+
+            // 初始化遊戲
+            function initGame() {
+                confirmModal.style.display = 'none';
+                updatePrizeTable();
+                setupReels();
+                createLights();
+            }
+
+            // 更新獎項表格
+            function updatePrizeTable() {
+                prizeTableBody.innerHTML = '';
+                for (const key in gameState.prizes) {
+                    const prize = gameState.prizes[key];
+                    const row = `
+                        <tr>
+                            <td>${prize.name}</td>
+                            <td id="count-${key}">${prize.count}</td>
+                        </tr>
+                    `;
+                    prizeTableBody.innerHTML += row;
+                }
+            }
+
+            // 設定滾筒
+            function setupReels() {
+                reelElements.forEach(reel => {
+                    reel.innerHTML = '';
+                    const symbolContainer = document.createElement('div');
+                    symbolContainer.classList.add('reel-symbols');
+                    const extendedSymbols = [...gameState.symbols, ...gameState.symbols, ...gameState.symbols, ...gameState.symbols, ...gameState.symbols, ...gameState.symbols]
+                        .sort(() => Math.random() - 0.5);
+                    
+                    extendedSymbols.forEach(symbol => {
+                        const symbolDiv = document.createElement('div');
+                        symbolDiv.textContent = symbol;
+                        symbolContainer.appendChild(symbolDiv);
+                    });
+                    reel.appendChild(symbolContainer);
+                });
+            }
+
+            // 建立環繞的燈光並排序
+            function createLights() {
+                lightsContainer.innerHTML = '';
+                const rows = 10;
+                const cols = 17;
+                const tempGrid = Array(rows).fill(null).map(() => Array(cols).fill(null));
+
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        if (r === 0 || r === rows - 1 || c === 0 || c === cols - 1) {
+                            const light = document.createElement('div');
+                            light.classList.add('light');
+                            tempGrid[r][c] = light;
+                            lightsContainer.appendChild(light);
+                        } else {
+                            const placeholder = document.createElement('div');
+                            lightsContainer.appendChild(placeholder);
+                        }
+                    }
+                }
+
+                gameState.orderedLights = [];
+                for (let c = 0; c < cols; c++) gameState.orderedLights.push(tempGrid[0][c]);
+                for (let r = 1; r < rows; r++) gameState.orderedLights.push(tempGrid[r][cols - 1]);
+                for (let c = cols - 2; c >= 0; c--) gameState.orderedLights.push(tempGrid[rows - 1][c]);
+                for (let r = rows - 2; r > 0; r--) gameState.orderedLights.push(tempGrid[r][0]);
+            }
+            
+            // 繞圈跑馬燈動畫
+            let lightAnimationStep = 0;
+            function animateLights() {
+                const lights = gameState.orderedLights;
+                if (lights.length === 0) return;
+                
+                gameState.lightInterval = setInterval(() => {
+                    for (let i = 0; i < lights.length; i++) {
+                        lights[i].classList.toggle('on', i === lightAnimationStep);
+                    }
+                    lightAnimationStep = (lightAnimationStep + 1) % lights.length;
+                }, 50);
+            }
+            
+            function stopLightAnimation() {
+                clearInterval(gameState.lightInterval);
+                const lights = gameState.orderedLights;
+                 for (let i = 0; i < lights.length; i++) {
+                    lights[i].classList.remove('on');
+                }
+            }
+
+            // 決定本次轉動結果
+            function determineOutcome() {
+                const availablePrizes = Object.keys(gameState.prizes).filter(key => gameState.prizes[key].count > 0);
+                
+                if (availablePrizes.length === 0) {
+                    return 'NoPrizes';
+                }
+
+                const pool = [...availablePrizes, '再來一次', '再來一次'];
+                const randomIndex = Math.floor(Math.random() * pool.length);
+                return pool[randomIndex];
+            }
+
+            // 開始轉動
+            function spin() {
+                if (gameState.isSpinning) return;
+                
+                const outcome = determineOutcome();
+
+                if (outcome === 'NoPrizes') {
+                    resultText.textContent = '所有獎項已兌換完畢！';
+                    startButton.disabled = true;
+                    startButton.classList.add('disabled');
+                    return;
+                }
+
+                gameState.isSpinning = true;
+                startButton.disabled = true;
+                startButton.classList.add('disabled');
+                resultText.textContent = ''; 
+                animateLights();
+                
+                let finalResults = [];
+                if (outcome === '再來一次') {
+                    finalResults = ['再', '一', '次'];
+                } else {
+                    finalResults = [outcome, outcome, outcome];
+                }
+
+                reelElements.forEach((reel, i) => {
+                    const symbolContainer = reel.querySelector('.reel-symbols');
+                    symbolContainer.classList.add('spinning');
+                    
+                    setTimeout(() => {
+                        symbolContainer.classList.remove('spinning');
+                    }, 5000);
+
+                    const symbolCount = symbolContainer.children.length;
+                    const targetSymbol = finalResults[i];
+                    
+                    let targetSymbolIndex = -1;
+                    while(targetSymbolIndex < (symbolCount / 2)) {
+                        targetSymbolIndex = Array.from(symbolContainer.children).findIndex(
+                            (div, index) => div.textContent === targetSymbol && index > (symbolCount / 2)
+                        );
+                    }
+                    
+                    const finalPosition = -targetSymbolIndex * reelHeight;
+                    
+                    symbolContainer.style.transition = 'none';
+                    const randomStartPosition = -Math.floor(Math.random() * (symbolCount / 3)) * reelHeight;
+                    symbolContainer.style.top = `${randomStartPosition}px`;
+                    
+                    symbolContainer.offsetHeight; 
+                    
+                    const duration = spinDuration / 1000;
+                    const easing = 'cubic-bezier(0.15, 1, 0.3, 1)';
+                    symbolContainer.style.transition = `top ${duration}s ${easing}`;
+                    symbolContainer.style.top = `${finalPosition}px`;
+                });
+
+                const totalDuration = spinDuration;
+                setTimeout(() => {
+                    handleResult(outcome);
+                }, totalDuration);
+            }
+            
+            // 處理結果
+            function handleResult(outcome) {
+                stopLightAnimation();
+                const lights = gameState.orderedLights;
+
+                if (outcome === '再來一次') {
+                    resultText.textContent = '再來一次！';
+                    for(let i = 0; i < lights.length; i++) {
+                        lights[i].classList.add('on');
+                    }
+                    gameState.isSpinning = false;
+                    startButton.disabled = false;
+                    startButton.classList.remove('disabled');
+                } else {
+                    const prize = gameState.prizes[outcome];
+                    prize.count--;
+                    resultText.textContent = `🎉 恭喜！抽中 ${prize.name} 🎉`;
+                    updatePrizeTable();
+                    
+                    let flashCount = 0;
+                    const flashInterval = setInterval(() => {
+                        const allOn = flashCount % 2 === 0;
+                        for(let i = 0; i < lights.length; i++) {
+                            lights[i].classList.toggle('on', allOn);
+                        }
+                        flashCount++;
+                        if (flashCount > 5) {
+                            clearInterval(flashInterval);
+                            for(let i = 0; i < lights.length; i++) {
+                                lights[i].classList.remove('on');
+                            }
+                        }
+                    }, 200);
+
+                    if (prize.count === 0) {
+                        setupReels();
+                    }
+                    
+                    gameState.isSpinning = false;
+                    
+                    const remainingPrizes = Object.values(gameState.prizes).reduce((sum, p) => sum + p.count, 0);
+                    if (remainingPrizes > 0) {
+                        startButton.disabled = false;
+                        startButton.classList.remove('disabled');
+                    } else {
+                        resultText.textContent = '所有獎項已兌換完畢！';
+                        startButton.disabled = true;
+                        startButton.classList.add('disabled');
+                    }
+                }
+            }
+
+            // 重置功能邏輯
+            function resetPrizes() {
+                gameState.prizes = JSON.parse(JSON.stringify(initialPrizes));
+                updatePrizeTable();
+                setupReels();
+                resultText.textContent = '';
+                startButton.disabled = false;
+                startButton.classList.remove('disabled');
+                confirmModal.style.display = 'none';
+            }
+
+            // 綁定事件
+            startButton.addEventListener('click', spin);
+            resetButton.addEventListener('click', () => {
+                confirmModal.style.display = 'flex';
+            });
+            confirmYes.addEventListener('click', resetPrizes);
+            confirmNo.addEventListener('click', () => {
+                confirmModal.style.display = 'none';
+            });
+            
+            // 啟動遊戲
+            initGame();
+        });
+    </script>
+</body>
+</html>
