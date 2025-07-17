@@ -608,6 +608,7 @@
 
                 reelElements.forEach((reel, i) => {
                     const symbolContainer = reel.querySelector('.reel-symbols');
+                    // 【修改點】在這裡只加上 spinning class
                     symbolContainer.classList.add('spinning');
                     
                     const symbolCount = symbolContainer.children.length;
@@ -632,7 +633,14 @@
                     symbolContainer.style.top = `${finalPosition}px`;
                 });
 
-                setTimeout(() => handleResult(outcome), spinDuration);
+                // 【修改點】將移除 class 的邏輯移到這裡
+                setTimeout(() => {
+                    // 在處理結果前，移除所有滾輪的模糊效果
+                    reelElements.forEach(reel => {
+                        reel.querySelector('.reel-symbols').classList.remove('spinning');
+                    });
+                    handleResult(outcome);
+                }, spinDuration);
             }
             
             // 處理結果
@@ -666,7 +674,6 @@
                     } catch (e) {
                         console.error("交易失敗: ", e);
                         resultText.textContent = '哎呀！獎品剛被抽走了！';
-                        // 【優化】交易失敗時，也要恢復按鈕狀態
                         gameState.isSpinning = false;
                         updateButtonState();
                         return;
@@ -679,7 +686,9 @@
                             clearInterval(flashInterval);
                             gameState.orderedLights.forEach(light => light.classList.remove('on'));
                             gameState.isSpinning = false;
-                            updateButtonState();
+                            // 【修復點】在這裡手動呼叫 updateButtonState()
+                            // 這會確保在動畫結束後，按鈕狀態和獎品數量都立即刷新。
+                            updateButtonState(); 
                         }
                     }, 200);
                 }
