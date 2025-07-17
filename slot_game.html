@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>爸！拉霸啦！- Firebase 連動版</title>
+    <title>爸！拉霸啦！- Firebase 修正版</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@700;900&display=swap" rel="stylesheet">
@@ -413,7 +413,7 @@
             
             // 遊戲狀態
             const gameState = {
-                prizes: {}, // 從 Firebase 讀取
+                prizes: {}, 
                 symbols: ['500元', '100元', '50元', '再', '一', '次'],
                 isSpinning: false,
                 lightInterval: null,
@@ -425,7 +425,7 @@
             // 初始化遊戲
             function initGame() {
                 confirmModal.style.display = 'none';
-                listenToPrizes(); // 改為監聽 Firebase
+                listenToPrizes(); 
                 setupReels();
                 createLights();
             }
@@ -435,21 +435,21 @@
                 onSnapshot(prizesCollectionRef, (snapshot) => {
                     if (snapshot.empty) {
                         console.log("資料庫是空的，正在初始化...");
-                        resetPrizes(); // 如果資料庫是空的，就初始化
+                        resetPrizes(); 
                         return;
                     }
+                    gameState.prizes = {}; // Bug Fix: 清空舊狀態
                     snapshot.forEach((doc) => {
                         gameState.prizes[doc.id] = doc.data();
                     });
                     updatePrizeTable();
-                    checkIfPrizesLeft();
+                    updateButtonState(); // Bug Fix: 監聽到資料後更新按鈕狀態
                 });
             }
 
             // 更新獎項表格
             function updatePrizeTable() {
                 prizeTableBody.innerHTML = '';
-                // 根據固定的順序顯示
                 const prizeOrder = ['prize_500', 'prize_100', 'prize_50'];
                 prizeOrder.forEach(prizeId => {
                     const prize = gameState.prizes[prizeId];
@@ -464,10 +464,14 @@
                     }
                 });
             }
-
-            function checkIfPrizesLeft() {
+            
+            // Bug Fix: 獨立出更新按鈕狀態的函式
+            function updateButtonState() {
                 const remainingPrizes = Object.values(gameState.prizes).reduce((sum, p) => sum + p.count, 0);
-                if (remainingPrizes <= 0 && !gameState.isSpinning) {
+                if (remainingPrizes > 0 && !gameState.isSpinning) {
+                    startButton.disabled = false;
+                    startButton.classList.remove('disabled');
+                } else if (!gameState.isSpinning) { 
                     resultText.textContent = '所有獎項已兌換完畢！';
                     startButton.disabled = true;
                     startButton.classList.add('disabled');
@@ -598,7 +602,6 @@
                 if (outcome === '再來一次') {
                     finalResults = ['再', '一', '次'];
                 } else {
-                    // 從 prize_500 轉換成 500元
                     const prizeName = outcome.split('_')[1] + '元';
                     finalResults = [prizeName, prizeName, prizeName];
                 }
@@ -681,9 +684,11 @@
                             transaction.update(prizeRef, { count: newCount });
                         });
                         
-                        // 成功扣除庫存後才播放音效和顯示訊息
                         if(audioReady) {
                             const now = Tone.now();
+                            if (Tone.Transport.state !== "started") {
+                                Tone.Transport.start();
+                            }
                             if (outcome === 'prize_500') {
                                 const bigWinMelody = new Tone.Sequence((time, note) => {
                                     sounds.bigWin.triggerAttackRelease(note, "16n", time);
@@ -703,7 +708,6 @@
                         resultText.textContent = '哎呀！獎品剛被抽走了！';
                     }
 
-                    // 閃爍燈光
                     let flashCount = 0;
                     const flashInterval = setInterval(() => {
                         const allOn = flashCount % 2 === 0;
@@ -720,9 +724,7 @@
                     }, 200);
 
                     gameState.isSpinning = false;
-                    startButton.disabled = false;
-                    startButton.classList.remove('disabled');
-                    checkIfPrizesLeft();
+                    updateButtonState();
                 }
             }
 
