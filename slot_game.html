@@ -342,7 +342,7 @@
         // 匯入 Firebase SDK
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, getDocs, onSnapshot, runTransaction, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, onSnapshot, runTransaction, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         document.addEventListener('DOMContentLoaded', async () => {
             // DOM 元素
@@ -362,17 +362,31 @@
 
             // Firebase 設定
             const appId = typeof __app_id !== 'undefined' ? __app_id : 'slot-machine-cny';
-            const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+            // 修正：確保 firebaseConfig 是有效的物件
+            const firebaseConfig = typeof __firebase_config !== 'undefined' && __firebase_config ? JSON.parse(__firebase_config) : {
+                apiKey: "YOUR_API_KEY", // 請填入你的 Firebase 設定
+                authDomain: "YOUR_AUTH_DOMAIN",
+                projectId: "YOUR_PROJECT_ID",
+                storageBucket: "YOUR_STORAGE_BUCKET",
+                messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+                appId: "YOUR_APP_ID"
+            };
             
             const app = initializeApp(firebaseConfig);
             const auth = getAuth(app);
             const db = getFirestore(app);
 
             // 登入 Firebase
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                await signInWithCustomToken(auth, __initial_auth_token);
-            } else {
-                await signInAnonymously(auth);
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Firebase 登入失敗:", error);
+                resultText.textContent = '認證失敗，請重新整理！';
+                return; // 登入失敗則停止後續操作
             }
 
             // 資料庫路徑
@@ -384,24 +398,23 @@
 
             function initAudio() {
                 if (audioReady) return;
-                Tone.start();
-                sounds = {
-                    click: new Tone.MembraneSynth({ pitchDecay: 0.01, octaves: 2, envelope: { attack: 0.001, decay: 0.2, sustain: 0 } }).toDestination(),
-                    lightTick: new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.001, decay: 0.1, sustain: 0.01, release: 0.05 } }).toDestination(),
-                    win: new Tone.PolySynth(Tone.Synth, { oscillator: { type: "triangle" }, envelope: { attack: 0.005, decay: 0.1, sustain: 0.3, release: 1 } }).toDestination(),
-                    bigWin: new Tone.PolySynth(Tone.Synth, { oscillator: { type: "fatsawtooth", count: 3, spread: 30 }, envelope: { attack: 0.01, decay: 0.4, sustain: 0.6, release: 1.2 } }).toDestination(),
-                    tryAgain: new Tone.FMSynth({
-                        harmonicity: 3,
-                        modulationIndex: 10,
-                        envelope: { attack: 0.01, decay: 0.2, sustain: 0.01, release: 0.2 },
-                        modulationEnvelope: { attack: 0.01, decay: 0.1, sustain: 0.01, release: 0.2 }
-                    }).toDestination()
-                };
-                sounds.lightTick.volume.value = -12;
-                sounds.win.volume.value = -8;
-                sounds.bigWin.volume.value = -4; 
-                sounds.tryAgain.volume.value = -6;
-                audioReady = true;
+                try {
+                    Tone.start();
+                    sounds = {
+                        click: new Tone.MembraneSynth({ pitchDecay: 0.01, octaves: 2, envelope: { attack: 0.001, decay: 0.2, sustain: 0 } }).toDestination(),
+                        lightTick: new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.001, decay: 0.1, sustain: 0.01, release: 0.05 } }).toDestination(),
+                        win: new Tone.PolySynth(Tone.Synth, { oscillator: { type: "triangle" }, envelope: { attack: 0.005, decay: 0.1, sustain: 0.3, release: 1 } }).toDestination(),
+                        bigWin: new Tone.PolySynth(Tone.Synth, { oscillator: { type: "fatsawtooth", count: 3, spread: 30 }, envelope: { attack: 0.01, decay: 0.4, sustain: 0.6, release: 1.2 } }).toDestination(),
+                        tryAgain: new Tone.FMSynth({ harmonicity: 3, modulationIndex: 10, envelope: { attack: 0.01, decay: 0.2 }, modulationEnvelope: { attack: 0.01, decay: 0.1 } }).toDestination()
+                    };
+                    sounds.lightTick.volume.value = -12;
+                    sounds.win.volume.value = -8;
+                    sounds.bigWin.volume.value = -4; 
+                    sounds.tryAgain.volume.value = -6;
+                    audioReady = true;
+                } catch (e) {
+                    console.error("音效初始化失敗:", e);
+                }
             }
 
             // 遊戲設定
@@ -422,43 +435,39 @@
             const reelHeight = 120;
             const spinDuration = 7000;
 
-            // 初始化遊戲
-            async function initGame() {
+            // 【重構】初始化遊戲
+            function initGame() {
                 confirmModal.style.display = 'none';
-                setupReels();
-                createLights();
-                await initializeFirebaseData(); // Bug Fix: 等待 Firebase 初始化完成
-                listenToPrizeUpdates(); // 建立持續監聽
-            }
-
-            // Bug Fix: 分離初次讀取和持續監聽
-            async function initializeFirebaseData() {
                 resultText.textContent = '讀取獎品中...';
                 startButton.disabled = true;
                 startButton.classList.add('disabled');
-
-                try {
-                    const initialSnapshot = await getDocs(prizesCollectionRef);
-                    if (initialSnapshot.empty) {
-                        console.log("資料庫是空的，正在初始化...");
-                        await resetPrizes(false); // 首次初始化，不顯示彈窗
-                    }
-                } catch (error) {
-                    console.error("Firebase 初始化失敗:", error);
-                    resultText.textContent = '資料庫連線失敗！';
-                }
+                
+                setupReels();
+                createLights();
+                setupPrizeListener(); // 直接設定監聽器
             }
-            
-            function listenToPrizeUpdates() {
+
+            // 【重構】使用單一監聽器處理所有資料邏輯
+            function setupPrizeListener() {
                 onSnapshot(prizesCollectionRef, (snapshot) => {
+                    if (snapshot.empty) {
+                        console.log("資料庫是空的，正在初始化...");
+                        resetPrizes(false); // 首次初始化，不顯示彈窗
+                        return; // 等待重置後觸發下一次 snapshot
+                    }
+
                     gameState.prizes = {};
                     snapshot.forEach((doc) => {
                         gameState.prizes[doc.id] = doc.data();
                     });
+                    
                     updatePrizeTable();
                     if (!gameState.isSpinning) {
                         updateButtonState();
                     }
+                }, (error) => {
+                    console.error("Firebase 監聽失敗:", error);
+                    resultText.textContent = '資料庫連線失敗！';
                 });
             }
 
@@ -480,11 +489,13 @@
                 });
             }
             
+            // 更新按鈕狀態
             function updateButtonState() {
                 const remainingPrizes = Object.values(gameState.prizes).reduce((sum, p) => sum + p.count, 0);
                 if (remainingPrizes > 0) {
                     startButton.disabled = false;
                     startButton.classList.remove('disabled');
+                    // 清除"讀取中"或"已兌換完畢"的訊息
                     if(resultText.textContent === '所有獎項已兌換完畢！' || resultText.textContent === '讀取獎品中...') {
                        resultText.textContent = '';
                     }
@@ -501,8 +512,7 @@
                     reel.innerHTML = '';
                     const symbolContainer = document.createElement('div');
                     symbolContainer.classList.add('reel-symbols');
-                    const extendedSymbols = [...gameState.symbols, ...gameState.symbols, ...gameState.symbols, ...gameState.symbols, ...gameState.symbols, ...gameState.symbols]
-                        .sort(() => Math.random() - 0.5);
+                    const extendedSymbols = Array(6).fill(gameState.symbols).flat().sort(() => Math.random() - 0.5);
                     
                     extendedSymbols.forEach(symbol => {
                         const symbolDiv = document.createElement('div');
@@ -528,8 +538,7 @@
                             tempGrid[r][c] = light;
                             lightsContainer.appendChild(light);
                         } else {
-                            const placeholder = document.createElement('div');
-                            lightsContainer.appendChild(placeholder);
+                            lightsContainer.appendChild(document.createElement('div'));
                         }
                     }
                 }
@@ -541,59 +550,39 @@
                 for (let r = rows - 2; r > 0; r--) gameState.orderedLights.push(tempGrid[r][0]);
             }
             
-            // 繞圈跑馬燈動畫
+            // 跑馬燈動畫
             let lightAnimationStep = 0;
             function animateLights() {
-                const lights = gameState.orderedLights;
-                if (lights.length === 0) return;
-                
+                if (!gameState.orderedLights.length) return;
                 const notes = ["C5", "D5", "E5", "F5", "G5", "A5", "B5", "C6"].reverse();
                 
                 gameState.lightInterval = setInterval(() => {
-                    for (let i = 0; i < lights.length; i++) {
-                        lights[i].classList.toggle('on', i === lightAnimationStep);
-                    }
+                    gameState.orderedLights.forEach((light, i) => light.classList.toggle('on', i === lightAnimationStep));
                     if(audioReady) {
-                        const note = notes[lightAnimationStep % notes.length];
-                        sounds.lightTick.triggerAttackRelease(note, "32n");
+                        sounds.lightTick.triggerAttackRelease(notes[lightAnimationStep % notes.length], "32n");
                     }
-                    lightAnimationStep = (lightAnimationStep + 1) % lights.length;
+                    lightAnimationStep = (lightAnimationStep + 1) % gameState.orderedLights.length;
                 }, 60);
             }
             
             function stopLightAnimation() {
                 clearInterval(gameState.lightInterval);
                 gameState.lightInterval = null;
-                const lights = gameState.orderedLights;
-                 for (let i = 0; i < lights.length; i++) {
-                    lights[i].classList.remove('on');
-                }
+                gameState.orderedLights.forEach(light => light.classList.remove('on'));
             }
 
-            // 建立帶有權重的獎池
+            // 決定結果
             function determineOutcome() {
                 const pool = [];
                 const weights = { 'prize_500': 2, 'prize_100': 10, 'prize_50': 15, '再來一次': 8 };
 
-                for (const prizeId in weights) {
-                    if (gameState.prizes[prizeId] && gameState.prizes[prizeId].count > 0) {
-                        for (let i = 0; i < weights[prizeId]; i++) {
-                            pool.push(prizeId);
-                        }
-                    } 
-                    else if (prizeId === '再來一次') {
-                         for (let i = 0; i < weights[prizeId]; i++) {
-                            pool.push(prizeId);
-                        }
+                Object.entries(weights).forEach(([prizeId, weight]) => {
+                    if (prizeId === '再來一次' || (gameState.prizes[prizeId] && gameState.prizes[prizeId].count > 0)) {
+                        for (let i = 0; i < weight; i++) pool.push(prizeId);
                     }
-                }
+                });
                 
-                if (pool.length === 0) {
-                    return 'NoPrizes';
-                }
-
-                const randomIndex = Math.floor(Math.random() * pool.length);
-                return pool[randomIndex];
+                return pool.length > 0 ? pool[Math.floor(Math.random() * pool.length)] : 'NoPrizes';
             }
 
             // 開始轉動
@@ -601,11 +590,8 @@
                 if (gameState.isSpinning) return;
                 
                 const outcome = determineOutcome();
-
                 if (outcome === 'NoPrizes') {
-                    resultText.textContent = '所有獎項已兌換完畢！';
-                    startButton.disabled = true;
-                    startButton.classList.add('disabled');
+                    updateButtonState(); // 確保顯示正確訊息
                     return;
                 }
 
@@ -615,148 +601,107 @@
                 resultText.textContent = ''; 
                 animateLights();
                 
-                let finalResults = [];
-                if (outcome === '再來一次') {
-                    finalResults = ['再', '一', '次'];
-                } else {
-                    const prizeName = outcome.split('_')[1] + '元';
-                    finalResults = [prizeName, prizeName, prizeName];
-                }
+                const finalResults = (outcome === '再來一次')
+                    ? ['再', '一', '次']
+                    : Array(3).fill(outcome.split('_')[1] + '元');
 
                 reelElements.forEach((reel, i) => {
                     const symbolContainer = reel.querySelector('.reel-symbols');
                     symbolContainer.classList.add('spinning');
                     
-                    setTimeout(() => {
-                        symbolContainer.classList.remove('spinning');
-                    }, 5000);
-
                     const symbolCount = symbolContainer.children.length;
-                    const targetSymbol = finalResults[i];
-                    
                     const possibleIndexes = [];
                     symbolContainer.querySelectorAll('div').forEach((el, index) => {
-                        if (el.textContent === targetSymbol) {
-                            possibleIndexes.push(index);
-                        }
+                        if (el.textContent === finalResults[i]) possibleIndexes.push(index);
                     });
                     
                     const validIndexes = possibleIndexes.filter(index => index > symbolCount / 2);
-                    let targetSymbolIndex = 0;
-                    if (validIndexes.length > 0) {
-                        targetSymbolIndex = validIndexes[Math.floor(Math.random() * validIndexes.length)];
-                    } else if (possibleIndexes.length > 0) {
-                        targetSymbolIndex = possibleIndexes[Math.floor(Math.random() * possibleIndexes.length)];
-                    }
+                    const targetIndex = validIndexes.length > 0 
+                        ? validIndexes[Math.floor(Math.random() * validIndexes.length)]
+                        : possibleIndexes[Math.floor(Math.random() * possibleIndexes.length)];
                     
-                    const finalPosition = -targetSymbolIndex * reelHeight;
+                    const finalPosition = -targetIndex * reelHeight;
                     
                     symbolContainer.style.transition = 'none';
-                    const randomStartPosition = -Math.floor(Math.random() * (symbolCount / 3)) * reelHeight;
-                    symbolContainer.style.top = `${randomStartPosition}px`;
+                    symbolContainer.style.top = `${-Math.floor(Math.random() * (symbolCount / 3)) * reelHeight}px`;
                     
-                    symbolContainer.offsetHeight; 
+                    symbolContainer.offsetHeight; // 強制瀏覽器重繪
                     
-                    const duration = spinDuration / 1000;
-                    const easing = 'cubic-bezier(0.15, 1, 0.3, 1)';
-                    symbolContainer.style.transition = `top ${duration}s ${easing}`;
+                    symbolContainer.style.transition = `top ${spinDuration / 1000}s cubic-bezier(0.15, 1, 0.3, 1)`;
                     symbolContainer.style.top = `${finalPosition}px`;
                 });
 
-                const totalDuration = spinDuration;
-                setTimeout(() => {
-                    handleResult(outcome);
-                }, totalDuration);
+                setTimeout(() => handleResult(outcome), spinDuration);
             }
             
             // 處理結果
             async function handleResult(outcome) {
                 stopLightAnimation();
-                const lights = gameState.orderedLights;
 
                 if (outcome === '再來一次') {
-                    if(audioReady) {
-                        const now = Tone.now();
-                        sounds.tryAgain.triggerAttackRelease("G4", "16n", now);
-                        sounds.tryAgain.triggerAttackRelease("D4", "16n", now + 0.15);
-                    }
+                    if(audioReady) sounds.tryAgain.triggerAttackRelease("G4", "8n", Tone.now());
                     resultText.textContent = '再來一次！';
-                    for(let i = 0; i < lights.length; i++) {
-                        lights[i].classList.add('on');
-                    }
-                    gameState.isSpinning = false;
-                    startButton.disabled = false;
-                    startButton.classList.remove('disabled');
+                    gameState.orderedLights.forEach(light => light.classList.add('on'));
+                    setTimeout(() => {
+                        gameState.isSpinning = false;
+                        updateButtonState();
+                        gameState.orderedLights.forEach(light => light.classList.remove('on'));
+                    }, 1500);
                 } else {
-                    const prizeId = outcome;
-                    const prizeRef = doc(db, 'artifacts', appId, 'public', 'data', 'prizes', prizeId);
-
                     try {
+                        const prizeRef = doc(prizesCollectionRef, outcome);
                         await runTransaction(db, async (transaction) => {
                             const prizeDoc = await transaction.get(prizeRef);
-                            if (!prizeDoc.exists() || prizeDoc.data().count <= 0) {
-                                throw "Sorry, this prize is out of stock!";
-                            }
-                            const newCount = prizeDoc.data().count - 1;
-                            transaction.update(prizeRef, { count: newCount });
+                            if (!prizeDoc.exists() || prizeDoc.data().count <= 0) throw "獎品已被抽完";
+                            transaction.update(prizeRef, { count: prizeDoc.data().count - 1 });
                         });
                         
                         if(audioReady) {
-                            const now = Tone.now();
-                            if (Tone.Transport.state !== "started") {
-                                Tone.Transport.start();
-                            }
-                            if (outcome === 'prize_500') {
-                                const bigWinMelody = new Tone.Sequence((time, note) => {
-                                    sounds.bigWin.triggerAttackRelease(note, "16n", time);
-                                }, ["C4", "E4", "G4", "C5", "E5", "G5", "C6"], "16n").start(now);
-                                bigWinMelody.loop = false;
-                                Tone.Transport.scheduleOnce((time) => {
-                                    sounds.bigWin.triggerAttackRelease(["C5", "E5", "G5", "C6"], "2n", time);
-                                }, now + 0.75);
-                            } else {
-                                sounds.win.triggerAttackRelease(["C4", "E4", "G4"], "8n", now);
-                            }
+                            if (outcome === 'prize_500') sounds.bigWin.triggerAttackRelease(["C5", "E5", "G5", "C6"], "2n");
+                            else sounds.win.triggerAttackRelease(["C4", "E4", "G4"], "8n");
                         }
-                        resultText.textContent = `🎉 恭喜！抽中 ${gameState.prizes[prizeId].name} 🎉`;
+                        resultText.textContent = `🎉 恭喜！抽中 ${gameState.prizes[outcome].name} 🎉`;
 
                     } catch (e) {
-                        console.error("Transaction failed: ", e);
+                        console.error("交易失敗: ", e);
                         resultText.textContent = '哎呀！獎品剛被抽走了！';
+                        // 【優化】交易失敗時，也要恢復按鈕狀態
+                        gameState.isSpinning = false;
+                        updateButtonState();
+                        return;
                     }
 
                     let flashCount = 0;
                     const flashInterval = setInterval(() => {
-                        const allOn = flashCount % 2 === 0;
-                        for(let i = 0; i < lights.length; i++) {
-                            lights[i].classList.toggle('on', allOn);
-                        }
-                        flashCount++;
-                        if (flashCount > 5) {
+                        gameState.orderedLights.forEach(light => light.classList.toggle('on', flashCount % 2 === 0));
+                        if (++flashCount > 5) {
                             clearInterval(flashInterval);
-                            for(let i = 0; i < lights.length; i++) {
-                                lights[i].classList.remove('on');
-                            }
+                            gameState.orderedLights.forEach(light => light.classList.remove('on'));
+                            gameState.isSpinning = false;
+                            updateButtonState();
                         }
                     }, 200);
-
-                    gameState.isSpinning = false;
-                    updateButtonState();
                 }
             }
 
-            // 重置功能邏輯
+            // 【優化】重置功能邏輯
             async function resetPrizes(showModal = true) {
                 if(audioReady) sounds.click.triggerAttackRelease("C3", "8n");
                 
                 const batch = writeBatch(db);
-                for (const prizeId in initialPrizes) {
-                    const prizeRef = doc(db, 'artifacts', appId, 'public', 'data', 'prizes', prizeId);
-                    batch.set(prizeRef, initialPrizes[prizeId]);
+                Object.entries(initialPrizes).forEach(([prizeId, data]) => {
+                    const prizeRef = doc(prizesCollectionRef, prizeId);
+                    batch.set(prizeRef, data);
+                });
+                
+                try {
+                    await batch.commit();
+                    resultText.textContent = '獎項已成功重置！';
+                } catch (error) {
+                    console.error("重置失敗:", error);
+                    resultText.textContent = '重置失敗，請檢查網路！';
                 }
-                await batch.commit();
 
-                resultText.textContent = '獎項已重置！';
                 if(showModal) {
                     confirmModal.style.display = 'none';
                 }
