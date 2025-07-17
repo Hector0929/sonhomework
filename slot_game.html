@@ -3,24 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>爸！拉霸啦！- 創意背景版</title>
+    <title>爸！拉霸啦！- Firebase 連動版</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@700;900&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     <style>
         body {
             font-family: 'Noto Sans TC', sans-serif;
             background-color: #E84D38;
-            overflow: hidden; /* 防止背景圖案造成滾動條 */
+            overflow: hidden; 
         }
 
-        /* 背景圖案樣式 */
         .background-svg {
             position: fixed;
             z-index: -10;
             opacity: 0.08;
-            stroke: #4A1C15; /* 深灰色線條 */
+            stroke: #4A1C15; 
             stroke-width: 8;
             fill: none;
             stroke-linecap: round;
@@ -273,7 +273,6 @@
 </head>
 <body class="flex flex-col items-center justify-center min-h-screen p-4">
 
-    <!-- 背景 SVG 圖案 -->
     <svg class="background-svg" style="top: 5%; left: 5%; width: 150px; transform: rotate(-15deg);" viewBox="0 0 100 100">
         <circle cx="50" cy="50" r="40"/>
         <circle cx="35" cy="45" r="8"/>
@@ -287,7 +286,6 @@
         <circle cx="38" cy="42" r="3"/>
         <circle cx="62" cy="42" r="3"/>
     </svg>
-    <!-- 新增：打領帶的爸爸 -->
     <svg class="background-svg" style="bottom: 5%; left: 8%; width: 130px; transform: rotate(-10deg);" viewBox="0 0 100 120">
         <circle cx="50" cy="40" r="30"/>
         <circle cx="40" cy="38" r="3"/>
@@ -295,7 +293,6 @@
         <path d="M 40 55 Q 50 65 60 55"/>
         <path d="M 48 70 L 52 70 L 55 95 L 45 95 Z" />
     </svg>
-    <!-- 新增：愛心 -->
      <svg class="background-svg" style="top: 8%; right: 10%; width: 80px; transform: rotate(20deg);" viewBox="0 0 100 100">
         <path d="M50,30 C20,10 20,60 50,90 C80,60 80,10 50,30 Z"/>
     </svg>
@@ -340,8 +337,14 @@
         </div>
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
+    <!-- Firebase SDK -->
+    <script type="module">
+        // 匯入 Firebase SDK
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, getDoc, getDocs, onSnapshot, runTransaction, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        document.addEventListener('DOMContentLoaded', async () => {
             // DOM 元素
             const reelElements = [
                 document.getElementById('reel1'),
@@ -357,16 +360,60 @@
             const confirmYes = document.getElementById('confirm-yes');
             const confirmNo = document.getElementById('confirm-no');
 
+            // Firebase 設定
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'slot-machine-cny';
+            const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+            
+            const app = initializeApp(firebaseConfig);
+            const auth = getAuth(app);
+            const db = getFirestore(app);
+
+            // 登入 Firebase
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                await signInWithCustomToken(auth, __initial_auth_token);
+            } else {
+                await signInAnonymously(auth);
+            }
+
+            // 資料庫路徑
+            const prizesCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'prizes');
+
+            // 音效設定
+            let sounds;
+            let audioReady = false;
+
+            function initAudio() {
+                if (audioReady) return;
+                Tone.start();
+                sounds = {
+                    click: new Tone.MembraneSynth({ pitchDecay: 0.01, octaves: 2, envelope: { attack: 0.001, decay: 0.2, sustain: 0 } }).toDestination(),
+                    lightTick: new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.001, decay: 0.1, sustain: 0.01, release: 0.05 } }).toDestination(),
+                    win: new Tone.PolySynth(Tone.Synth, { oscillator: { type: "triangle" }, envelope: { attack: 0.005, decay: 0.1, sustain: 0.3, release: 1 } }).toDestination(),
+                    bigWin: new Tone.PolySynth(Tone.Synth, { oscillator: { type: "fatsawtooth", count: 3, spread: 30 }, envelope: { attack: 0.01, decay: 0.4, sustain: 0.6, release: 1.2 } }).toDestination(),
+                    tryAgain: new Tone.FMSynth({
+                        harmonicity: 3,
+                        modulationIndex: 10,
+                        envelope: { attack: 0.01, decay: 0.2, sustain: 0.01, release: 0.2 },
+                        modulationEnvelope: { attack: 0.01, decay: 0.1, sustain: 0.01, release: 0.2 }
+                    }).toDestination()
+                };
+                sounds.lightTick.volume.value = -12;
+                sounds.win.volume.value = -8;
+                sounds.bigWin.volume.value = -4; 
+                sounds.tryAgain.volume.value = -6;
+                audioReady = true;
+            }
+
             // 遊戲設定
             const initialPrizes = {
-                '500元': { name: '500元禮券', count: 8 },
-                '100元': { name: '100元禮券', count: 20 },
-                '50元': { name: '50元禮券', count: 25 },
+                'prize_500': { name: '500元全聯禮券', count: 8 },
+                'prize_100': { name: '100元全聯禮券', count: 20 },
+                'prize_50': { name: '50元教會櫃台禮券', count: 25 },
             };
             
             // 遊戲狀態
             const gameState = {
-                prizes: JSON.parse(JSON.stringify(initialPrizes)), 
+                prizes: {}, // 從 Firebase 讀取
                 symbols: ['500元', '100元', '50元', '再', '一', '次'],
                 isSpinning: false,
                 lightInterval: null,
@@ -378,23 +425,52 @@
             // 初始化遊戲
             function initGame() {
                 confirmModal.style.display = 'none';
-                updatePrizeTable();
+                listenToPrizes(); // 改為監聽 Firebase
                 setupReels();
                 createLights();
+            }
+
+            // 監聽 Firebase 獎品資料
+            function listenToPrizes() {
+                onSnapshot(prizesCollectionRef, (snapshot) => {
+                    if (snapshot.empty) {
+                        console.log("資料庫是空的，正在初始化...");
+                        resetPrizes(); // 如果資料庫是空的，就初始化
+                        return;
+                    }
+                    snapshot.forEach((doc) => {
+                        gameState.prizes[doc.id] = doc.data();
+                    });
+                    updatePrizeTable();
+                    checkIfPrizesLeft();
+                });
             }
 
             // 更新獎項表格
             function updatePrizeTable() {
                 prizeTableBody.innerHTML = '';
-                for (const key in gameState.prizes) {
-                    const prize = gameState.prizes[key];
-                    const row = `
-                        <tr>
-                            <td>${prize.name}</td>
-                            <td id="count-${key}">${prize.count}</td>
-                        </tr>
-                    `;
-                    prizeTableBody.innerHTML += row;
+                // 根據固定的順序顯示
+                const prizeOrder = ['prize_500', 'prize_100', 'prize_50'];
+                prizeOrder.forEach(prizeId => {
+                    const prize = gameState.prizes[prizeId];
+                    if (prize) {
+                         const row = `
+                            <tr>
+                                <td>${prize.name}</td>
+                                <td id="count-${prizeId}">${prize.count}</td>
+                            </tr>
+                        `;
+                        prizeTableBody.innerHTML += row;
+                    }
+                });
+            }
+
+            function checkIfPrizesLeft() {
+                const remainingPrizes = Object.values(gameState.prizes).reduce((sum, p) => sum + p.count, 0);
+                if (remainingPrizes <= 0 && !gameState.isSpinning) {
+                    resultText.textContent = '所有獎項已兌換完畢！';
+                    startButton.disabled = true;
+                    startButton.classList.add('disabled');
                 }
             }
 
@@ -450,31 +526,51 @@
                 const lights = gameState.orderedLights;
                 if (lights.length === 0) return;
                 
+                const notes = ["C5", "D5", "E5", "F5", "G5", "A5", "B5", "C6"].reverse();
+                
                 gameState.lightInterval = setInterval(() => {
                     for (let i = 0; i < lights.length; i++) {
                         lights[i].classList.toggle('on', i === lightAnimationStep);
                     }
+                    if(audioReady) {
+                        const note = notes[lightAnimationStep % notes.length];
+                        sounds.lightTick.triggerAttackRelease(note, "32n");
+                    }
                     lightAnimationStep = (lightAnimationStep + 1) % lights.length;
-                }, 50);
+                }, 60);
             }
             
             function stopLightAnimation() {
                 clearInterval(gameState.lightInterval);
+                gameState.lightInterval = null;
                 const lights = gameState.orderedLights;
                  for (let i = 0; i < lights.length; i++) {
                     lights[i].classList.remove('on');
                 }
             }
 
-            // 決定本次轉動結果
+            // 建立帶有權重的獎池
             function determineOutcome() {
-                const availablePrizes = Object.keys(gameState.prizes).filter(key => gameState.prizes[key].count > 0);
+                const pool = [];
+                const weights = { 'prize_500': 2, 'prize_100': 10, 'prize_50': 15, '再來一次': 8 };
+
+                for (const prizeId in weights) {
+                    if (gameState.prizes[prizeId] && gameState.prizes[prizeId].count > 0) {
+                        for (let i = 0; i < weights[prizeId]; i++) {
+                            pool.push(prizeId);
+                        }
+                    } 
+                    else if (prizeId === '再來一次') {
+                         for (let i = 0; i < weights[prizeId]; i++) {
+                            pool.push(prizeId);
+                        }
+                    }
+                }
                 
-                if (availablePrizes.length === 0) {
+                if (pool.length === 0) {
                     return 'NoPrizes';
                 }
 
-                const pool = [...availablePrizes, '再來一次', '再來一次'];
                 const randomIndex = Math.floor(Math.random() * pool.length);
                 return pool[randomIndex];
             }
@@ -502,7 +598,9 @@
                 if (outcome === '再來一次') {
                     finalResults = ['再', '一', '次'];
                 } else {
-                    finalResults = [outcome, outcome, outcome];
+                    // 從 prize_500 轉換成 500元
+                    const prizeName = outcome.split('_')[1] + '元';
+                    finalResults = [prizeName, prizeName, prizeName];
                 }
 
                 reelElements.forEach((reel, i) => {
@@ -516,11 +614,19 @@
                     const symbolCount = symbolContainer.children.length;
                     const targetSymbol = finalResults[i];
                     
-                    let targetSymbolIndex = -1;
-                    while(targetSymbolIndex < (symbolCount / 2)) {
-                        targetSymbolIndex = Array.from(symbolContainer.children).findIndex(
-                            (div, index) => div.textContent === targetSymbol && index > (symbolCount / 2)
-                        );
+                    const possibleIndexes = [];
+                    symbolContainer.querySelectorAll('div').forEach((el, index) => {
+                        if (el.textContent === targetSymbol) {
+                            possibleIndexes.push(index);
+                        }
+                    });
+                    
+                    const validIndexes = possibleIndexes.filter(index => index > symbolCount / 2);
+                    let targetSymbolIndex = 0;
+                    if (validIndexes.length > 0) {
+                        targetSymbolIndex = validIndexes[Math.floor(Math.random() * validIndexes.length)];
+                    } else if (possibleIndexes.length > 0) {
+                        targetSymbolIndex = possibleIndexes[Math.floor(Math.random() * possibleIndexes.length)];
                     }
                     
                     const finalPosition = -targetSymbolIndex * reelHeight;
@@ -544,11 +650,16 @@
             }
             
             // 處理結果
-            function handleResult(outcome) {
+            async function handleResult(outcome) {
                 stopLightAnimation();
                 const lights = gameState.orderedLights;
 
                 if (outcome === '再來一次') {
+                    if(audioReady) {
+                        const now = Tone.now();
+                        sounds.tryAgain.triggerAttackRelease("G4", "16n", now);
+                        sounds.tryAgain.triggerAttackRelease("D4", "16n", now + 0.15);
+                    }
                     resultText.textContent = '再來一次！';
                     for(let i = 0; i < lights.length; i++) {
                         lights[i].classList.add('on');
@@ -557,11 +668,42 @@
                     startButton.disabled = false;
                     startButton.classList.remove('disabled');
                 } else {
-                    const prize = gameState.prizes[outcome];
-                    prize.count--;
-                    resultText.textContent = `🎉 恭喜！抽中 ${prize.name} 🎉`;
-                    updatePrizeTable();
-                    
+                    const prizeId = outcome;
+                    const prizeRef = doc(db, 'artifacts', appId, 'public', 'data', 'prizes', prizeId);
+
+                    try {
+                        await runTransaction(db, async (transaction) => {
+                            const prizeDoc = await transaction.get(prizeRef);
+                            if (!prizeDoc.exists() || prizeDoc.data().count <= 0) {
+                                throw "Sorry, this prize is out of stock!";
+                            }
+                            const newCount = prizeDoc.data().count - 1;
+                            transaction.update(prizeRef, { count: newCount });
+                        });
+                        
+                        // 成功扣除庫存後才播放音效和顯示訊息
+                        if(audioReady) {
+                            const now = Tone.now();
+                            if (outcome === 'prize_500') {
+                                const bigWinMelody = new Tone.Sequence((time, note) => {
+                                    sounds.bigWin.triggerAttackRelease(note, "16n", time);
+                                }, ["C4", "E4", "G4", "C5", "E5", "G5", "C6"], "16n").start(now);
+                                bigWinMelody.loop = false;
+                                Tone.Transport.scheduleOnce((time) => {
+                                    sounds.bigWin.triggerAttackRelease(["C5", "E5", "G5", "C6"], "2n", time);
+                                }, now + 0.75);
+                            } else {
+                                sounds.win.triggerAttackRelease(["C4", "E4", "G4"], "8n", now);
+                            }
+                        }
+                        resultText.textContent = `🎉 恭喜！抽中 ${gameState.prizes[prizeId].name} 🎉`;
+
+                    } catch (e) {
+                        console.error("Transaction failed: ", e);
+                        resultText.textContent = '哎呀！獎品剛被抽走了！';
+                    }
+
+                    // 閃爍燈光
                     let flashCount = 0;
                     const flashInterval = setInterval(() => {
                         const allOn = flashCount % 2 === 0;
@@ -577,42 +719,42 @@
                         }
                     }, 200);
 
-                    if (prize.count === 0) {
-                        setupReels();
-                    }
-                    
                     gameState.isSpinning = false;
-                    
-                    const remainingPrizes = Object.values(gameState.prizes).reduce((sum, p) => sum + p.count, 0);
-                    if (remainingPrizes > 0) {
-                        startButton.disabled = false;
-                        startButton.classList.remove('disabled');
-                    } else {
-                        resultText.textContent = '所有獎項已兌換完畢！';
-                        startButton.disabled = true;
-                        startButton.classList.add('disabled');
-                    }
+                    startButton.disabled = false;
+                    startButton.classList.remove('disabled');
+                    checkIfPrizesLeft();
                 }
             }
 
             // 重置功能邏輯
-            function resetPrizes() {
-                gameState.prizes = JSON.parse(JSON.stringify(initialPrizes));
-                updatePrizeTable();
-                setupReels();
-                resultText.textContent = '';
-                startButton.disabled = false;
-                startButton.classList.remove('disabled');
+            async function resetPrizes() {
+                if(audioReady) sounds.click.triggerAttackRelease("C3", "8n");
+                
+                const batch = writeBatch(db);
+                for (const prizeId in initialPrizes) {
+                    const prizeRef = doc(db, 'artifacts', appId, 'public', 'data', 'prizes', prizeId);
+                    batch.set(prizeRef, initialPrizes[prizeId]);
+                }
+                await batch.commit();
+
+                resultText.textContent = '獎項已重置！';
                 confirmModal.style.display = 'none';
             }
 
             // 綁定事件
-            startButton.addEventListener('click', spin);
+            startButton.addEventListener('click', () => {
+                initAudio();
+                if(audioReady) sounds.click.triggerAttackRelease("C4", "8n");
+                spin();
+            });
             resetButton.addEventListener('click', () => {
+                initAudio();
+                if(audioReady) sounds.click.triggerAttackRelease("C3", "8n");
                 confirmModal.style.display = 'flex';
             });
             confirmYes.addEventListener('click', resetPrizes);
             confirmNo.addEventListener('click', () => {
+                if(audioReady) sounds.click.triggerAttackRelease("C3", "8n");
                 confirmModal.style.display = 'none';
             });
             
