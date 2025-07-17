@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>爸！拉霸啦！- Firebase 修正版</title>
+    <title>爸！拉霸啦！- 穩定修正版</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@700;900&display=swap" rel="stylesheet">
@@ -225,7 +225,7 @@
             width: 100%;
             height: 100%;
             background-color: rgba(0,0,0,0.6);
-            display: none; /* 將 flex 改為 none */
+            display: flex;
             justify-content: center;
             align-items: center;
             z-index: 100;
@@ -327,7 +327,7 @@
 
     <div id="reset-button"></div>
 
-    <div id="confirm-modal">
+    <div id="confirm-modal" style="display: none;">
         <div class="modal-content">
             <p>是否要重新恢復獎品數量？</p>
             <div class="modal-buttons">
@@ -342,7 +342,7 @@
         // 匯入 Firebase SDK
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, getDoc, getDocs, onSnapshot, runTransaction, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, getDocs, onSnapshot, runTransaction, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         document.addEventListener('DOMContentLoaded', async () => {
             // DOM 元素
@@ -423,27 +423,42 @@
             const spinDuration = 7000;
 
             // 初始化遊戲
-            function initGame() {
+            async function initGame() {
                 confirmModal.style.display = 'none';
-                listenToPrizes(); 
                 setupReels();
                 createLights();
+                await initializeFirebaseData(); // Bug Fix: 等待 Firebase 初始化完成
+                listenToPrizeUpdates(); // 建立持續監聽
             }
 
-            // 監聽 Firebase 獎品資料
-            function listenToPrizes() {
-                onSnapshot(prizesCollectionRef, (snapshot) => {
-                    if (snapshot.empty) {
+            // Bug Fix: 分離初次讀取和持續監聽
+            async function initializeFirebaseData() {
+                resultText.textContent = '讀取獎品中...';
+                startButton.disabled = true;
+                startButton.classList.add('disabled');
+
+                try {
+                    const initialSnapshot = await getDocs(prizesCollectionRef);
+                    if (initialSnapshot.empty) {
                         console.log("資料庫是空的，正在初始化...");
-                        resetPrizes(); 
-                        return;
+                        await resetPrizes(false); // 首次初始化，不顯示彈窗
                     }
-                    gameState.prizes = {}; // Bug Fix: 清空舊狀態
+                } catch (error) {
+                    console.error("Firebase 初始化失敗:", error);
+                    resultText.textContent = '資料庫連線失敗！';
+                }
+            }
+            
+            function listenToPrizeUpdates() {
+                onSnapshot(prizesCollectionRef, (snapshot) => {
+                    gameState.prizes = {};
                     snapshot.forEach((doc) => {
                         gameState.prizes[doc.id] = doc.data();
                     });
                     updatePrizeTable();
-                    updateButtonState(); // Bug Fix: 監聽到資料後更新按鈕狀態
+                    if (!gameState.isSpinning) {
+                        updateButtonState();
+                    }
                 });
             }
 
@@ -465,13 +480,15 @@
                 });
             }
             
-            // Bug Fix: 獨立出更新按鈕狀態的函式
             function updateButtonState() {
                 const remainingPrizes = Object.values(gameState.prizes).reduce((sum, p) => sum + p.count, 0);
-                if (remainingPrizes > 0 && !gameState.isSpinning) {
+                if (remainingPrizes > 0) {
                     startButton.disabled = false;
                     startButton.classList.remove('disabled');
-                } else if (!gameState.isSpinning) { 
+                    if(resultText.textContent === '所有獎項已兌換完畢！' || resultText.textContent === '讀取獎品中...') {
+                       resultText.textContent = '';
+                    }
+                } else {
                     resultText.textContent = '所有獎項已兌換完畢！';
                     startButton.disabled = true;
                     startButton.classList.add('disabled');
@@ -729,7 +746,7 @@
             }
 
             // 重置功能邏輯
-            async function resetPrizes() {
+            async function resetPrizes(showModal = true) {
                 if(audioReady) sounds.click.triggerAttackRelease("C3", "8n");
                 
                 const batch = writeBatch(db);
@@ -740,7 +757,9 @@
                 await batch.commit();
 
                 resultText.textContent = '獎項已重置！';
-                confirmModal.style.display = 'none';
+                if(showModal) {
+                    confirmModal.style.display = 'none';
+                }
             }
 
             // 綁定事件
@@ -754,7 +773,7 @@
                 if(audioReady) sounds.click.triggerAttackRelease("C3", "8n");
                 confirmModal.style.display = 'flex';
             });
-            confirmYes.addEventListener('click', resetPrizes);
+            confirmYes.addEventListener('click', () => resetPrizes(true));
             confirmNo.addEventListener('click', () => {
                 if(audioReady) sounds.click.triggerAttackRelease("C3", "8n");
                 confirmModal.style.display = 'none';
