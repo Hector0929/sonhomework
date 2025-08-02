@@ -576,7 +576,7 @@
             // 決定結果
             function determineOutcome() {
                 const pool = [];
-                const weights = { 'prize_500': 2, 'prize_100': 10, 'prize_50': 15, '再來一次': 8 };
+                const weights = { 'prize_500': 10, 'prize_100': 10, 'prize_50': 10, '再來一次': 8 };
 
                 Object.entries(weights).forEach(([prizeId, weight]) => {
                     if (prizeId === '再來一次' || (gameState.prizes[prizeId] && gameState.prizes[prizeId].count > 0)) {
