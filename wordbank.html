@@ -240,7 +240,6 @@
         // Component for adding new words
         function AddWordModule({ db, userId }) {
             const [word, setWord] = useState('');
-            // 1. 將 result 改為 results 陣列
             const [results, setResults] = useState([]);
             const [isLoading, setIsLoading] = useState(false);
             const [error, setError] = useState('');
@@ -248,7 +247,6 @@
 
             const handleSearch = async (e) => {
                 e.preventDefault();
-                // 2. 解析多個單字
                 const wordsToSearch = word.split(/[,/]/).map(w => w.trim()).filter(Boolean);
 
                 if (wordsToSearch.length === 0) {
@@ -256,10 +254,16 @@
                     return;
                 }
 
+                // 【修復點 1】在清除舊結果前，先給予提示
+                if (results.length > 0) {
+                    setMessage('新的查詢將會清除目前的結果。');
+                } else {
+                    setMessage('');
+                }
+
                 setIsLoading(true);
                 setError('');
                 setResults([]); // 清空舊結果
-                setMessage('');
 
                 const apiKey = "AIzaSyBGDKOlI81nr15rJpftYbPgO9pVkygZucQ"; 
 
@@ -315,9 +319,10 @@
                 const allResults = await Promise.all(searchPromises);
                 setResults(allResults);
                 setIsLoading(false);
+                // 【修復點 2】查詢完成後，清除提示訊息
+                setMessage('');
             };
 
-            // 5. 修改儲存邏輯以處理單一結果
             const handleSave = async (resultToSave) => {
                 if (!resultToSave || !db || !userId) return;
                 
@@ -332,14 +337,19 @@
                         createdAt: new Date()
                     });
                     
-                    // 更新 UI，將已儲存的卡片標示為 saved
+                    setMessage(`單字 "${resultToSave.word}" 已成功儲存！`);
+                    
                     setResults(prevResults => prevResults.map(r => 
                         r.word === resultToSave.word ? { ...r, saved: true } : r
                     ));
+                    
+                    // 【修復點 3】移除 setWord('') 和 setResult(null)，避免清空輸入框和結果
+                    // setWord(''); // <-- 刪除這一行
+                    // setResult(null); // <-- 刪除這一行
 
                 } catch (err) {
                     console.error("Error saving word:", err);
-                    // 您可以在此處為特定卡片設置錯誤訊息
+                    setError(`儲存 "${resultToSave.word}" 失敗，請稍後再試。`);
                 }
             };
 
