@@ -240,24 +240,27 @@
         // Component for adding new words
         function AddWordModule({ db, userId }) {
             const [word, setWord] = useState('');
-            const [result, setResult] = useState(null);
+            // 1. 將 result 改為 results 陣列
+            const [results, setResults] = useState([]);
             const [isLoading, setIsLoading] = useState(false);
             const [error, setError] = useState('');
             const [message, setMessage] = useState('');
 
             const handleSearch = async (e) => {
                 e.preventDefault();
-                if (!word.trim()) {
-                    setError('請輸入一個英文單字。');
+                // 2. 解析多個單字
+                const wordsToSearch = word.split(/[,/]/).map(w => w.trim()).filter(Boolean);
+
+                if (wordsToSearch.length === 0) {
+                    setError('請輸入至少一個英文單字。');
                     return;
                 }
+
                 setIsLoading(true);
                 setError('');
-                setResult(null);
+                setResults([]); // 清空舊結果
                 setMessage('');
 
-                // --- 重要！請在這裡貼上您的 Google AI API 金鑰 ---
-                // 前往 https://aistudio.google.com/app/apikey 取得
                 const apiKey = "AIzaSyBGDKOlI81nr15rJpftYbPgO9pVkygZucQ"; 
 
                 if (apiKey === "在這裡貼上您的API金鑰") {
@@ -268,67 +271,75 @@
 
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
-                const prompt = `請提供英文單字 "${word}" 的中文翻譯和一個適合初學者的英文例句。請用 JSON 格式回傳，包含 "translation" (字串) 和 "sentence" (字串) 兩個鍵。`;
-                
-                const payload = {
-                    contents: [{ role: "user", parts: [{ text: prompt }] }],
-                    generationConfig: {
-                        responseMimeType: "application/json",
-                        responseSchema: {
-                            type: "OBJECT",
-                            properties: {
-                                translation: { type: "STRING" },
-                                sentence: { type: "STRING" }
-                            },
-                            required: ["translation", "sentence"]
+                // 3. 為每個單字建立一個查詢 promise
+                const searchPromises = wordsToSearch.map(async (singleWord) => {
+                    const prompt = `請提供英文單字 "${singleWord}" 的中文翻譯和一個適合初學者的英文例句。請用 JSON 格式回傳，包含 "translation" (字串) 和 "sentence" (字串) 兩個鍵。`;
+                    const payload = {
+                        contents: [{ role: "user", parts: [{ text: prompt }] }],
+                        generationConfig: {
+                            responseMimeType: "application/json",
+                            responseSchema: {
+                                type: "OBJECT",
+                                properties: {
+                                    translation: { type: "STRING" },
+                                    sentence: { type: "STRING" }
+                                },
+                                required: ["translation", "sentence"]
+                            }
                         }
-                    }
-                };
+                    };
 
-                try {
-                    const response = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    if (!response.ok) {
-                        throw new Error(`API request failed with status ${response.status}`);
+                    try {
+                        const response = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        if (!response.ok) {
+                            throw new Error(`API request failed for ${singleWord}`);
+                        }
+                        const data = await response.json();
+                        if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+                            const parsedJson = JSON.parse(data.candidates[0].content.parts[0].text);
+                            return { word: singleWord, status: 'success', ...parsedJson };
+                        } else {
+                            throw new Error("API 回應格式不符");
+                        }
+                    } catch (err) {
+                        console.error(`Error fetching ${singleWord}:`, err);
+                        return { word: singleWord, status: 'error', error: '查詢失敗' };
                     }
-                    const data = await response.json();
-                     if (data.candidates && data.candidates.length > 0 && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts.length > 0) {
-                        const text = data.candidates[0].content.parts[0].text;
-                        const parsedJson = JSON.parse(text);
-                        setResult(parsedJson);
-                    } else {
-                        throw new Error("從API收到的回應格式不符。");
-                    }
-                } catch (err) {
-                    console.error(err);
-                    setError('查詢失敗，請稍後再試。可能是單字拼寫錯誤或網路問題。');
-                } finally {
-                    setIsLoading(false);
-                }
+                });
+
+                // 4. 等待所有查詢完成
+                const allResults = await Promise.all(searchPromises);
+                setResults(allResults);
+                setIsLoading(false);
             };
 
-            const handleSave = async () => {
-                if (!result || !db || !userId) return;
+            // 5. 修改儲存邏輯以處理單一結果
+            const handleSave = async (resultToSave) => {
+                if (!resultToSave || !db || !userId) return;
                 
                 const wordsCollectionPath = `users/${userId}/words`;
 
                 try {
                     await addDoc(collection(db, wordsCollectionPath), {
-                        word: word.trim().toLowerCase(),
-                        translation: result.translation,
-                        sentence: result.sentence,
+                        word: resultToSave.word.trim().toLowerCase(),
+                        translation: resultToSave.translation,
+                        sentence: resultToSave.sentence,
                         learned: false,
                         createdAt: new Date()
                     });
-                    setMessage(`單字 "${word}" 已成功儲存！`);
-                    setWord('');
-                    setResult(null);
+                    
+                    // 更新 UI，將已儲存的卡片標示為 saved
+                    setResults(prevResults => prevResults.map(r => 
+                        r.word === resultToSave.word ? { ...r, saved: true } : r
+                    ));
+
                 } catch (err) {
                     console.error("Error saving word:", err);
-                    setError('儲存失敗，請稍後再試。');
+                    // 您可以在此處為特定卡片設置錯誤訊息
                 }
             };
 
@@ -349,7 +360,7 @@
                             type="text"
                             value={word}
                             onChange={(e) => setWord(e.target.value)}
-                            placeholder="輸入新的英文單字..."
+                            placeholder="輸入單字，可用 / 或 , 分隔..."
                             className="flex-grow p-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                         <button type="submit" disabled={isLoading} className="bg-blue-500 text-white font-bold p-3 rounded-lg hover:bg-blue-600 disabled:bg-blue-300 flex justify-center items-center">
@@ -360,29 +371,47 @@
                     {error && <p className="text-red-500 mt-4 text-center">{error}</p>}
                     {message && <p className="text-green-500 mt-4 text-center">{message}</p>}
 
-                    {result && (
-                        <div className="mt-6 p-6 bg-blue-50 border-l-4 border-blue-400 rounded-r-lg">
-                            <h3 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
-                                {word}
-                                <button onClick={() => speak(word)} className="text-gray-500 hover:text-blue-600">
-                                    <Volume2Icon />
-                                </button>
-                            </h3>
-                            <p className="text-xl text-gray-600 mt-2">{result.translation}</p>
-                            <div className="mt-4">
-                                <p className="font-semibold text-gray-700">例句：</p>
-                                <p className="text-lg text-gray-800 flex items-center gap-3">
-                                    "{result.sentence}"
-                                    <button onClick={() => speak(result.sentence)} className="text-gray-500 hover:text-blue-600">
-                                        <Volume2Icon />
-                                    </button>
-                                </p>
+                    {/* 6. 渲染多個結果卡片 */}
+                    <div className="mt-6 space-y-4">
+                        {results.map((result, index) => (
+                            <div key={index} className={`p-6 rounded-lg border-l-4 ${
+                                result.status === 'success' ? 'bg-blue-50 border-blue-400' : 'bg-red-50 border-red-400'
+                            }`}>
+                                {result.status === 'success' ? (
+                                    <div>
+                                        <h3 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
+                                            {result.word}
+                                            <button onClick={() => speak(result.word)} className="text-gray-500 hover:text-blue-600">
+                                                <Volume2Icon />
+                                            </button>
+                                        </h3>
+                                        <p className="text-xl text-gray-600 mt-2">{result.translation}</p>
+                                        <div className="mt-4">
+                                            <p className="font-semibold text-gray-700">例句：</p>
+                                            <p className="text-lg text-gray-800 flex items-center gap-3">
+                                                "{result.sentence}"
+                                                <button onClick={() => speak(result.sentence)} className="text-gray-500 hover:text-blue-600">
+                                                    <Volume2Icon />
+                                                </button>
+                                            </p>
+                                        </div>
+                                        <button 
+                                            onClick={() => handleSave(result)} 
+                                            disabled={result.saved}
+                                            className="mt-6 w-full bg-green-500 text-white font-bold p-3 rounded-lg hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                        >
+                                            {result.saved ? '已儲存' : '儲存這個單字'}
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <h3 className="text-2xl font-bold text-red-800">{result.word}</h3>
+                                        <p className="text-red-600 mt-2">{result.error}</p>
+                                    </div>
+                                )}
                             </div>
-                            <button onClick={handleSave} className="mt-6 w-full bg-green-500 text-white font-bold p-3 rounded-lg hover:bg-green-600">
-                                儲存這個單字
-                            </button>
-                        </div>
-                    )}
+                        ))}
+                    </div>
                 </div>
             );
         }
