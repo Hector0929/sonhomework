@@ -124,15 +124,10 @@
                         if (user) {
                             setUserId(user.uid);
                         } else {
-                            // If running in an environment with a token, use it. Otherwise, sign in anonymously.
                             try {
-                                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                                    await signInWithCustomToken(authInstance, __initial_auth_token);
-                                } else {
-                                    await signInAnonymously(authInstance);
-                                }
+                                await signInAnonymously(authInstance);
                             } catch (error) {
-                                console.error("Authentication error:", error);
+                                console.error("Anonymous sign-in error:", error);
                             }
                         }
                         setIsAuthReady(true);
@@ -154,9 +149,8 @@
                 }
 
                 setIsLoading(true);
-                // The database path structure for this specific application environment
-                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-                const wordsCollectionPath = `artifacts/${appId}/users/${userId}/words`;
+                // Using a simpler path for self-hosting. You can adjust this if needed.
+                const wordsCollectionPath = `users/${userId}/words`;
                 const q = query(collection(db, wordsCollectionPath));
 
                 const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -166,7 +160,6 @@
                         wordsData.push({ 
                             id: doc.id, 
                             ...data,
-                            // Ensure createdAt is a Date object for sorting
                             createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date()
                         });
                     });
@@ -263,6 +256,18 @@
                 setResult(null);
                 setMessage('');
 
+                // --- 重要！請在這裡貼上您的 Google AI API 金鑰 ---
+                // 前往 https://aistudio.google.com/app/apikey 取得
+                const apiKey = "AIzaSyBGDKOlI81nr15rJpftYbPgO9pVkygZucQ"; 
+
+                if (apiKey === "在這裡貼上您的API金鑰") {
+                    setError("請先設定您的 Google AI API 金鑰才能查詢單字。");
+                    setIsLoading(false);
+                    return;
+                }
+
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
                 const prompt = `請提供英文單字 "${word}" 的中文翻譯和一個適合初學者的英文例句。請用 JSON 格式回傳，包含 "translation" (字串) 和 "sentence" (字串) 兩個鍵。`;
                 
                 const payload = {
@@ -279,9 +284,6 @@
                         }
                     }
                 };
-
-                const apiKey = ""; // The API key for Gemini is handled by the environment.
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=`;
 
                 try {
                     const response = await fetch(apiUrl, {
@@ -311,8 +313,7 @@
             const handleSave = async () => {
                 if (!result || !db || !userId) return;
                 
-                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-                const wordsCollectionPath = `artifacts/${appId}/users/${userId}/words`;
+                const wordsCollectionPath = `users/${userId}/words`;
 
                 try {
                     await addDoc(collection(db, wordsCollectionPath), {
@@ -408,8 +409,8 @@
 
             const handleLearnedChange = async (e) => {
                 const newLearnedStatus = e.target.checked;
-                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-                const wordDocRef = doc(db, `artifacts/${appId}/users/${userId}/words`, wordData.id);
+                const wordsCollectionPath = `users/${userId}/words`;
+                const wordDocRef = doc(db, wordsCollectionPath, wordData.id);
                 try {
                     await setDoc(wordDocRef, { learned: newLearnedStatus }, { merge: true });
                 } catch (error) {
@@ -425,8 +426,8 @@
                     return;
                 }
 
-                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-                const wordDocRef = doc(db, `artifacts/${appId}/users/${userId}/words`, wordData.id);
+                const wordsCollectionPath = `users/${userId}/words`;
+                const wordDocRef = doc(db, wordsCollectionPath, wordData.id);
                 try {
                     await deleteDoc(wordDocRef);
                 } catch (error) {
