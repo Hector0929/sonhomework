@@ -497,7 +497,12 @@
                                     <Volume2Icon />
                                 </button>
                             </h3>
-                            <p className="text-gray-600 mt-4 text-base italic">"{wordData.sentence}"</p>
+                            <p className="text-gray-600 mt-4 text-base italic flex items-center justify-between">
+                                <span>"{wordData.sentence}"</span>
+                                <button onClick={(e) => speak(e, wordData.sentence)} className="text-gray-400 hover:text-blue-600 flex-shrink-0 ml-2 p-1">
+                                    <Volume2Icon />
+                                </button>
+                            </p>
                         </div>
                         
                         <div className="mt-4 pt-4 border-t border-gray-200 text-center">
