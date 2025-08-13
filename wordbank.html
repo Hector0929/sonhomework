@@ -128,33 +128,36 @@
         // --- 主應用程式元件 ---
         function App() {
             const [db, setDb] = useState(null);
-            const [auth, setAuth] = useState(null);
             const [user, setUser] = useState(null);
             const [functions, setFunctions] = useState(null);
             const [profiles, setProfiles] = useState([]);
             const [currentProfileId, setCurrentProfileId] = useState('');
             const [mode, setMode] = useState('add');
             const [words, setWords] = useState([]);
-            const [isAppLoading, setIsAppLoading] = useState(true);
+            const [isLoading, setIsLoading] = useState(true);
+            const [authError, setAuthError] = useState(null);
             
-            // Firebase 初始化與認證 (新增：建立預設學習者)
             useEffect(() => {
                 const firebaseConfig = { apiKey: "AIzaSyDpWl8Ie0e38vmtK0zYS09PxuVoHKTDG_c", authDomain: "wordbank-5ff4f.firebaseapp.com", projectId: "wordbank-5ff4f", storageBucket: "wordbank-5ff4f.firebasestorage.app", messagingSenderId: "514230924466", appId: "1:514230924466:web:55aec014ab6c20746005ab", measurementId: "G-HGGYRFYK2G" };
                 try {
                     const app = initializeApp(firebaseConfig);
                     const firebaseAuth = getAuth(app);
                     const firestoreDb = getFirestore(app);
-                    setAuth(firebaseAuth);
                     setDb(firestoreDb);
                     setFunctions(getFunctions(app, 'asia-east1'));
 
                     const handleAuthError = (error) => {
-                        if (error.code === 'auth/operation-not-allowed' || error.code === 'auth/invalid-credential') {
-                            console.error("登入/建立帳號失敗！請務必前往 Firebase 控制台，啟用『電子郵件/密碼』登入。");
-                            alert("登入設定錯誤！請確認已在 Firebase 後台啟用『電子郵件/密碼』登入方式。");
+                        // 優化：印出詳細錯誤資訊
+                        console.error("Firebase Auth Error:", error);
+                        console.error("Firebase Auth Error Code:", error.code);
+                        console.error("Firebase Auth Error Message:", error.message);
+                        
+                        if (error.code === 'auth/operation-not-allowed') {
+                            setAuthError("登入設定錯誤！請確認已在 Firebase 後台為 wordbank-5ff4f 專案啟用『電子郵件/密碼』登入方式。");
                         } else {
-                            console.error("認證時發生未知錯誤:", error);
+                            setAuthError(`發生未知的認證錯誤: ${error.code}`);
                         }
+                        setIsLoading(false);
                     };
 
                     setPersistence(firebaseAuth, browserSessionPersistence).then(() => {
@@ -189,26 +192,24 @@
                                             
                                             await batch.commit();
                                         } catch (creationError) {
-                                            // 捕捉建立帳號時的錯誤
                                             handleAuthError(creationError);
                                         }
                                     } else {
-                                        // 捕捉登入時的錯誤
                                         handleAuthError(error);
                                     }
                                 }
                             }
                         });
                         return () => unsubscribe();
-                    }).catch((error) => {
-                        console.error("設定認證持續性失敗:", error);
-                    });
+                    }).catch(handleAuthError);
                 } catch (error) {
                     console.error("Firebase 初始化失敗:", error);
+                    setAuthError("Firebase 初始化失敗，請檢查您的網路連線或設定。");
+                    setIsLoading(false);
                 }
             }, []);
 
-            // 監聽器 #1：載入 Profile (學習者) 列表
+            // 監聽器 #1：載入學習者列表
             useEffect(() => {
                 if (!db || !user) {
                     setProfiles([]);
@@ -223,48 +224,50 @@
                 return () => unsubscribe();
             }, [db, user]);
 
-            // 監聽器 #2：載入並同步「當前選擇」的 Profile
+            // 監聽器 #2：載入並同步「當前選擇」的學習者
             useEffect(() => {
-                if (!db || !user) return;
+                if (!db || !user || profiles.length === 0) return;
                 const userDocRef = doc(db, `users/${user.uid}`);
                 const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
                     if (!docSnap.exists()) return;
                     const lastSelectedId = docSnap.data()?.lastSelectedProfileId;
-                    if (profiles.length > 0) {
-                        const isValid = profiles.some(p => p.id === lastSelectedId);
-                        const newProfileId = isValid ? lastSelectedId : profiles[0].id;
-                        setCurrentProfileId(newProfileId);
-                        if (!isValid && profiles.length > 0) {
-                            handleSelectProfile(profiles[0].id);
-                        }
-                    } else {
-                        setCurrentProfileId('');
+                    const isValid = profiles.some(p => p.id === lastSelectedId);
+                    const newProfileId = isValid ? lastSelectedId : profiles[0].id;
+                    setCurrentProfileId(newProfileId);
+                    if (!isValid) {
+                        handleSelectProfile(newProfileId);
                     }
                 }, (error) => { console.error("監聽使用者文件失敗:", error); });
                 return () => unsubscribe();
             }, [db, user, profiles]);
 
-            // 監聽器 #3：載入單字資料，並管理整體讀取狀態
+            // 監聽器 #3：載入單字資料
             useEffect(() => {
-                if (user) {
-                    setIsAppLoading(true);
-                    if (!db || !currentProfileId) {
-                        setWords([]);
-                        setIsAppLoading(false);
-                        return;
-                    }
-                    const wordsCollectionPath = `users/${user.uid}/profiles/${currentProfileId}/words`;
-                    const q = query(collection(db, wordsCollectionPath));
-                    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-                        const wordsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), createdAt: doc.data().createdAt?.toDate ? doc.data().createdAt.toDate() : new Date() }));
-                        setWords(wordsData);
-                        setIsAppLoading(false);
-                    }, (error) => { console.error("讀取單字失敗: ", error); setIsAppLoading(false); });
-                    return () => unsubscribe();
-                } else {
-                    setIsAppLoading(true);
+                if (!db || !user || !currentProfileId) {
+                    setWords([]);
+                    return;
                 }
+                const wordsCollectionPath = `users/${user.uid}/profiles/${currentProfileId}/words`;
+                const q = query(collection(db, wordsCollectionPath));
+                const unsubscribe = onSnapshot(q, (querySnapshot) => {
+                    const wordsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), createdAt: doc.data().createdAt?.toDate ? doc.data().createdAt.toDate() : new Date() }));
+                    setWords(wordsData);
+                }, (error) => { console.error("讀取單字失敗: ", error); });
+                return () => unsubscribe();
             }, [db, user, currentProfileId]);
+
+            // 優化：更穩健的讀取狀態管理
+            useEffect(() => {
+                if (authError) {
+                    setIsLoading(false);
+                    return;
+                }
+                if (user && profiles.length > 0 && currentProfileId) {
+                    setIsLoading(false);
+                } else {
+                    setIsLoading(true);
+                }
+            }, [user, profiles, currentProfileId, authError]);
 
             const handleCreateProfile = async (name) => {
                 if (!db || !user) return;
@@ -306,10 +309,20 @@
                 return [...words].sort((a, b) => { if (a.learned === b.learned) return (b.createdAt || 0) - (a.createdAt || 0); return a.learned ? 1 : -1; });
             }, [words]);
 
-            if (isAppLoading && !user) {
+            if (isLoading) {
                 return (
                     <div className="flex justify-center items-center min-h-screen">
                         <LoadingSpinner />
+                    </div>
+                );
+            }
+
+            if (authError) {
+                return (
+                    <div className="flex flex-col justify-center items-center min-h-screen bg-red-50 text-red-700 p-4">
+                        <h2 className="text-2xl font-bold mb-4">應用程式無法載入</h2>
+                        <p className="text-center">{authError}</p>
+                        <p className="text-center mt-2 text-sm text-red-500">請檢查瀏覽器開發者工具 (F12) 的 Console (主控台) 標籤以獲取詳細錯誤資訊。</p>
                     </div>
                 );
             }
@@ -322,15 +335,13 @@
                             <p className="text-gray-500 mt-2">建立你的個人化單字庫</p>
                         </header>
                         
-                        {user && (
-                            <LearnerManagement 
-                                profiles={profiles} 
-                                currentProfileId={currentProfileId} 
-                                onCreateProfile={handleCreateProfile} 
-                                onSelectProfile={handleSelectProfile} 
-                                onDeleteProfile={handleDeleteProfile} 
-                            />
-                        )}
+                        <LearnerManagement 
+                            profiles={profiles} 
+                            currentProfileId={currentProfileId} 
+                            onCreateProfile={handleCreateProfile} 
+                            onSelectProfile={handleSelectProfile} 
+                            onDeleteProfile={handleDeleteProfile} 
+                        />
 
                         <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6">
                             <nav className="flex justify-center border-b-2 border-gray-200 mb-6 overflow-x-auto">
@@ -339,19 +350,17 @@
                                 <button onClick={() => setMode('test')} className={`flex-shrink-0 flex items-center gap-2 px-4 py-3 text-lg font-medium border-b-4 ${mode === 'test' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-blue-500'}`}><EditIcon /> 考試模式</button>
                             </nav>
                             <main>
-                                { isAppLoading ? <LoadingSpinner /> : (
-                                    (() => {
-                                        if (!user || !currentProfileId) return <LoadingSpinner />;
-                                        const userId = user.uid;
-                                        const profileId = currentProfileId;
-                                        switch (mode) {
-                                            case 'add': return <AddWordModule db={db} userId={userId} profileId={profileId} functions={functions} />;
-                                            case 'review': return <ReviewModule db={db} userId={userId} profileId={profileId} words={sortedWords} />;
-                                            case 'test': return <TestModule words={words} />;
-                                            default: return <AddWordModule db={db} userId={userId} profileId={profileId} functions={functions} />;
-                                        }
-                                    })()
-                                )}
+                                {(() => {
+                                    if (!user || !currentProfileId) return <LoadingSpinner />;
+                                    const userId = user.uid;
+                                    const profileId = currentProfileId;
+                                    switch (mode) {
+                                        case 'add': return <AddWordModule db={db} userId={userId} profileId={profileId} functions={functions} />;
+                                        case 'review': return <ReviewModule db={db} userId={userId} profileId={profileId} words={sortedWords} />;
+                                        case 'test': return <TestModule words={words} />;
+                                        default: return <AddWordModule db={db} userId={userId} profileId={profileId} functions={functions} />;
+                                    }
+                                })()}
                             </main>
                         </div>
                     </div>
