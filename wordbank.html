@@ -49,7 +49,7 @@
             deleteDoc,
             serverTimestamp,
             getDoc,
-            writeBatch, // 新增：匯入批次寫入功能
+            writeBatch,
             getFunctions,
             httpsCallable
         };
@@ -148,24 +148,29 @@
                     setDb(firestoreDb);
                     setFunctions(getFunctions(app, 'asia-east1'));
 
+                    const handleAuthError = (error) => {
+                        if (error.code === 'auth/operation-not-allowed' || error.code === 'auth/invalid-credential') {
+                            console.error("登入/建立帳號失敗！請務必前往 Firebase 控制台，啟用『電子郵件/密碼』登入。");
+                            alert("登入設定錯誤！請確認已在 Firebase 後台啟用『電子郵件/密碼』登入方式。");
+                        } else {
+                            console.error("認證時發生未知錯誤:", error);
+                        }
+                    };
+
                     setPersistence(firebaseAuth, browserSessionPersistence).then(() => {
                         const unsubscribe = onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
                             if (firebaseUser) {
-                                console.log("共享帳號已登入:", firebaseUser.uid);
                                 setUser(firebaseUser);
                             } else {
-                                console.log("沒有使用者，正在嘗試登入或建立共享帳號...");
                                 try {
                                     await signInWithEmailAndPassword(firebaseAuth, SHARED_USER_EMAIL, SHARED_USER_PASSWORD);
                                 } catch (error) {
                                     if (error.code === 'auth/user-not-found') {
-                                        console.log("找不到共享帳號，正在建立...");
                                         try {
                                             const userCredential = await createUserWithEmailAndPassword(firebaseAuth, SHARED_USER_EMAIL, SHARED_USER_PASSWORD);
                                             const newUserId = userCredential.user.uid;
                                             const userDocRef = doc(firestoreDb, "users", newUserId);
                                             
-                                            // --- 新增：建立預設學習者 ---
                                             const batch = writeBatch(firestoreDb);
                                             const defaultProfiles = [
                                                 { name: "國小低年級", isDefault: true },
@@ -174,27 +179,22 @@
                                             ];
                                             
                                             const profilesCollectionRef = collection(userDocRef, "profiles");
-                                            const firstProfileRef = doc(profilesCollectionRef); // 預先產生第一個 profile 的 ID
+                                            const firstProfileRef = doc(profilesCollectionRef);
                                             
                                             batch.set(firstProfileRef, defaultProfiles[0]);
                                             batch.set(doc(profilesCollectionRef), defaultProfiles[1]);
                                             batch.set(doc(profilesCollectionRef), defaultProfiles[2]);
                                             
-                                            // 將第一個預設學習者設為當前選中
                                             batch.set(userDocRef, { lastSelectedProfileId: firstProfileRef.id });
                                             
                                             await batch.commit();
-                                            console.log("共享帳號、使用者文件及三個預設學習者建立完成。");
-                                            // --- 結束 ---
-
                                         } catch (creationError) {
-                                            console.error("建立共享帳號或初始資料失敗:", creationError);
+                                            // 捕捉建立帳號時的錯誤
+                                            handleAuthError(creationError);
                                         }
-                                    } else if (error.code === 'auth/operation-not-allowed' || error.code === 'auth/invalid-credential') {
-                                        console.error("登入失敗！請務必前往 Firebase 控制台，啟用『電子郵件/密碼』登入。");
-                                        alert("登入設定錯誤！請確認已在 Firebase 後台啟用『電子郵件/密碼』登入方式。");
                                     } else {
-                                        console.error("登入共享帳號時發生其他錯誤:", error);
+                                        // 捕捉登入時的錯誤
+                                        handleAuthError(error);
                                     }
                                 }
                             }
@@ -234,8 +234,8 @@
                         const isValid = profiles.some(p => p.id === lastSelectedId);
                         const newProfileId = isValid ? lastSelectedId : profiles[0].id;
                         setCurrentProfileId(newProfileId);
-                        if (!isValid) {
-                            handleSelectProfile(newProfileId);
+                        if (!isValid && profiles.length > 0) {
+                            handleSelectProfile(profiles[0].id);
                         }
                     } else {
                         setCurrentProfileId('');
@@ -268,7 +268,6 @@
 
             const handleCreateProfile = async (name) => {
                 if (!db || !user) return;
-                // 新增：確保新建立的 profile 沒有 isDefault 標記
                 const newProfile = { name: name.trim(), isDefault: false };
                 const profilesCollectionPath = `users/${user.uid}/profiles`;
                 try {
@@ -340,9 +339,7 @@
                                 <button onClick={() => setMode('test')} className={`flex-shrink-0 flex items-center gap-2 px-4 py-3 text-lg font-medium border-b-4 ${mode === 'test' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-blue-500'}`}><EditIcon /> 考試模式</button>
                             </nav>
                             <main>
-                                { isAppLoading ? <LoadingSpinner /> : !currentProfileId && profiles.length === 0 ? (
-                                    <div className="text-center p-8 text-gray-500">正在初始化學習者列表...</div>
-                                ) : (
+                                { isAppLoading ? <LoadingSpinner /> : (
                                     (() => {
                                         if (!user || !currentProfileId) return <LoadingSpinner />;
                                         const userId = user.uid;
