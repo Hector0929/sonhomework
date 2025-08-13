@@ -27,7 +27,7 @@
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, addDoc, setDoc, onSnapshot, query, deleteDoc, serverTimestamp, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js"; // <-- 1. 引入 Functions SDK
         
@@ -35,9 +35,9 @@
         window.firebase = {
             initializeApp,
             getAuth,
-            signInAnonymously,
             onAuthStateChanged,
-            signInWithCustomToken,
+            signInWithEmailAndPassword, // <-- 新增：匯出 signIn
+            createUserWithEmailAndPassword, // <-- 新增：匯出 createUser
             getFirestore,
             collection,
             doc,
@@ -56,7 +56,11 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
         // Firebase functions from the global window object
-        const { initializeApp, getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, getFirestore, collection, doc, addDoc, setDoc, onSnapshot, query, deleteDoc, serverTimestamp, getDoc, getFunctions, httpsCallable } = window.firebase;
+        const { initializeApp, getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, getFirestore, collection, doc, addDoc, setDoc, onSnapshot, query, deleteDoc, serverTimestamp, getDoc, getFunctions, httpsCallable } = window.firebase;
+
+        // --- 修正：為預設使用者定義一個固定的帳號密碼 ---
+        const DEFAULT_USER_EMAIL = "default-user@wordbank-app.com";
+        const DEFAULT_USER_PASSWORD = "DefaultPassword123!"; // 建議使用更安全的密碼
 
         // --- HELPER FUNCTIONS & ICONS ---
         const generateId = () => `id_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -161,7 +165,7 @@
             const [isLoading, setIsLoading] = useState(true);
             const [isProfilesLoading, setIsProfilesLoading] = useState(true); // <-- 新增 Profile 讀取狀態
             
-            // Firebase Initialization and Anonymous Auth
+            // Firebase Initialization and Auth
             useEffect(() => {
                 const firebaseConfig = {
                   apiKey: "AIzaSyDpWl8Ie0e38vmtK0zYS09PxuVoHKTDG_c",
@@ -180,11 +184,35 @@
                     setDb(getFirestore(app));
                     setFunctions(getFunctions(app, 'asia-east1')); // <-- 初始化 Functions，可指定區域
 
+                    // --- 修正：實作「讀取或建立」的穩定使用者邏輯 ---
                     onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
                         if (firebaseUser) {
+                            // 情況一：使用者已登入，設定使用者狀態
+                            console.log("使用者已登入:", firebaseUser.uid);
                             setUser(firebaseUser);
                         } else {
-                            await signInAnonymously(firebaseAuth).catch(err => console.error("Anon sign-in error:", err));
+                            // 情況二：沒有使用者登入，嘗試登入預設使用者
+                            console.log("沒有使用者登入，正在嘗試登入預設使用者...");
+                            try {
+                                await signInWithEmailAndPassword(firebaseAuth, DEFAULT_USER_EMAIL, DEFAULT_USER_PASSWORD);
+                                console.log("預設使用者登入成功。");
+                                // 登入成功後，onAuthStateChanged 會再次觸發並進入上面的 if 區塊
+                            } catch (error) {
+                                if (error.code === 'auth/user-not-found') {
+                                    // 如果使用者不存在，這表示是第一次執行，則建立該使用者
+                                    console.log("找不到預設使用者，正在建立新帳號...");
+                                    try {
+                                        await createUserWithEmailAndPassword(firebaseAuth, DEFAULT_USER_EMAIL, DEFAULT_USER_PASSWORD);
+                                        console.log("預設使用者帳號建立成功。");
+                                        // 建立成功後，onAuthStateChanged 也會再次觸發
+                                    } catch (creationError) {
+                                        console.error("建立預設使用者失敗:", creationError);
+                                    }
+                                } else {
+                                    // 其他登入錯誤 (例如密碼錯誤、網路問題)
+                                    console.error("登入預設使用者時發生其他錯誤:", error);
+                                }
+                            }
                         }
                     });
                 } catch (error) {
