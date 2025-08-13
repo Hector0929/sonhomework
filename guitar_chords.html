@@ -3,162 +3,108 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>吉他和弦查詢</title>
+    <title>吉他和弦查詢工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --primary-bg: #f4f4f9;
-            --secondary-bg: #ffffff;
-            --text-color: #333;
-            --accent-color: #007bff;
-            --border-color: #ddd;
-            --muted-color: #888;
-            --root-note-color: #e74c3c;
-        }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: var(--primary-bg);
-            color: var(--text-color);
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            min-height: 100vh;
+            font-family: 'Noto Sans TC', 'Inter', sans-serif;
         }
-        .container {
-            width: 100%;
-            max-width: 500px;
-            background-color: var(--secondary-bg);
-            border-radius: 10px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            padding: 20px;
+        .fretboard-bg {
+            background-color: #f3eadd;
         }
-        h1 {
-            text-align: center;
-            margin-top: 0;
-            color: var(--accent-color);
+        /* 左手模式翻轉 */
+        .lefty-mode .fretboard-svg {
+            transform: scaleX(-1);
         }
-        .controls {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 25px;
+        /* 將翻轉的文字轉正 */
+        .lefty-mode .finger-text {
+            transform: scaleX(-1);
         }
-        .controls select {
-            flex: 1;
-            padding: 10px;
-            font-size: 16px;
-            border: 1px solid var(--border-color);
-            border-radius: 5px;
-            background-color: #fff;
+        .note-dot {
+            transition: all 0.2s ease-in-out;
         }
-        .chord-display {
-            text-align: center;
+        .root-note-dot {
+            stroke-width: 3px;
+            stroke: #c0392b;
         }
-        #chord-name {
-            font-size: 2.5em;
-            font-weight: bold;
-            margin-bottom: 20px;
+        .control-button {
+            transition: all 0.2s ease-in-out;
         }
-        .diagram-container {
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            gap: 20px;
+        .control-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
-        #chord-diagram {
-            width: 180px;
-            height: 220px;
-        }
-        .info-panel {
-            text-align: left;
-            padding-top: 20px;
-        }
-        .info-panel h3 {
-            margin-top: 0;
-            border-bottom: 2px solid var(--border-color);
-            padding-bottom: 5px;
-        }
-        #constituent-notes ul {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-        #constituent-notes li {
-            font-size: 1.1em;
-            margin-bottom: 8px;
-        }
-        #constituent-notes .interval {
-            color: var(--muted-color);
-            font-size: 0.9em;
-            margin-left: 8px;
-        }
-
-        /* 響應式設計 */
-        @media (max-width: 480px) {
-            body {
-                padding: 10px;
-            }
-            .container {
-                padding: 15px;
-            }
-            .controls {
-                flex-direction: column;
-            }
-            .diagram-container {
-                flex-direction: column;
-                align-items: center;
-            }
-            #chord-diagram {
-                width: 200px;
-                height: 240px;
-                margin-bottom: 20px;
-            }
-            .info-panel {
-                width: 100%;
-                text-align: center;
-            }
-             .info-panel h3 {
-                text-align: left;
-            }
+        .control-button.active {
+            background-color: #3b82f6;
+            color: white;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
         }
     </style>
 </head>
-<body>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 min-h-screen flex items-center justify-center p-4">
+    <div id="app-container" class="w-full max-w-4xl mx-auto bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-4 sm:p-8">
+        
+        <!-- Header -->
+        <header class="text-center mb-6">
+            <h1 class="text-3xl sm:text-4xl font-bold text-blue-600 dark:text-blue-400">吉他和弦查詢工具</h1>
+            <p class="text-gray-500 dark:text-gray-400 mt-2">快速查詢、學習與探索吉他和弦</p>
+        </header>
 
-    <div class="container">
-        <h1>吉他和弦查詢</h1>
-        <div class="controls">
-            <select id="root-note-select">
-                <option value="C">C</option>
-                <option value="C#">C# / Db</option>
-                <option value="D">D</option>
-                <option value="D#">D# / Eb</option>
-                <option value="E">E</option>
-                <option value="F">F</option>
-                <option value="F#">F# / Gb</option>
-                <option value="G">G</option>
-                <option value="G#">G# / Ab</option>
-                <option value="A">A</option>
-                <option value="A#">A# / Bb</option>
-                <option value="B">B</option>
-            </select>
-            <select id="chord-type-select">
-                <option value="major">Major</option>
-                <option value="minor">minor</option>
-                <option value="7">7</option>
-                <option value="maj7">maj7</option>
-                <option value="m7">m7</option>
-            </select>
+        <!-- Controls -->
+        <div class="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                <!-- Root Note Selector -->
+                <div class="flex flex-col items-center">
+                    <label class="font-semibold mb-2">1. 選擇根音 (Root)</label>
+                    <div id="root-selector" class="grid grid-cols-6 gap-2 w-full max-w-xs"></div>
+                </div>
+                <!-- Chord Type Selector -->
+                <div class="flex flex-col items-center">
+                    <label class="font-semibold mb-2">2. 選擇類型 (Type)</label>
+                    <div id="type-selector" class="grid grid-cols-3 sm:grid-cols-4 gap-2 w-full max-w-xs"></div>
+                </div>
+                <!-- Other Controls -->
+                <div class="flex flex-col items-center space-y-4 mt-4 md:mt-0">
+                    <div class="flex items-center">
+                        <label for="lefty-toggle" class="font-semibold mr-3">左手模式</label>
+                        <button id="lefty-toggle" class="relative inline-flex items-center h-6 rounded-full w-11 transition-colors bg-gray-200 dark:bg-gray-600 focus:outline-none">
+                            <span class="sr-only">左手模式</span>
+                            <span class="inline-block w-4 h-4 transform bg-white rounded-full transition-transform translate-x-1"></span>
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div class="chord-display">
-            <div id="chord-name">C Major</div>
-            <div class="diagram-container">
-                <svg id="chord-diagram"></svg>
-                <div class="info-panel">
-                    <div id="constituent-notes">
-                        <h3>組成音</h3>
-                        <ul></ul>
+        <!-- Main Display Area -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+            <!-- Fretboard Display -->
+            <div class="w-full flex flex-col items-center">
+                <h2 id="chord-name-display" class="text-2xl font-bold mb-4">C Major</h2>
+                <div id="fretboard" class="w-full max-w-xs aspect-[3/4] p-2 rounded-lg fretboard-bg shadow-inner">
+                    <svg id="fretboard-svg" class="w-full h-full" viewBox="0 0 150 200"></svg>
+                </div>
+                <div class="flex items-center space-x-4 mt-4">
+                    <button id="play-button" class="control-button bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-full flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><path d="M4.018 15.138A1.001 1.001 0 005 16h10a1 1 0 00.982-.862l1.98-8.24A1 1 0 0017 6H3a1 1 0 00-.982.758l-1.98 8.242a1.002 1.002 0 001.98.438zM5 14h10V8H5v6z"></path><path d="M15 5H5a1 1 0 00-1 1v.5a.5.5 0 001 0V6h10v.5a.5.5 0 001 0V6a1 1 0 00-1-1z"></path></svg>
+                        播放聲音
+                    </button>
+                    <button id="voicing-toggle" class="control-button bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 font-bold py-2 px-4 rounded-full">
+                        切換把位 (<span id="voicing-current">1</span>/<span id="voicing-total">1</span>)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Information Display -->
+            <div class="bg-gray-50 dark:bg-gray-700 p-6 rounded-lg shadow-md w-full mt-8 lg:mt-0">
+                <h3 class="text-xl font-semibold border-b-2 border-blue-400 pb-2 mb-4">和弦資訊</h3>
+                <div>
+                    <h4 class="font-bold text-lg mb-2">組成音 (Constituent Notes)</h4>
+                    <div id="notes-display" class="space-y-1 text-gray-600 dark:text-gray-300">
+                        <!-- Notes will be populated here -->
                     </div>
                 </div>
             </div>
@@ -166,251 +112,336 @@
     </div>
 
     <script>
-        // --- 和弦資料庫 (Chord Database) ---
-        // 根據 PRD 建議，MVP 階段先使用靜態資料庫
-        // -1: 啞音 (Muted), 0: 空弦 (Open)
-        // positions: [第6弦, 第5弦, 第4弦, 第3弦, 第2弦, 第1弦]
-        // fingers: 對應的指法 (0 代表不按)
-        // baseFret: 和弦圖開始的琴格
-        // root: 標示根音在哪幾條弦上 (從6到1)
-        const chordData = {
-            'C_major': {
-                positions: [-1, 3, 2, 0, 1, 0],
-                fingers: [0, 3, 2, 0, 1, 0],
-                baseFret: 1,
-                root: [5],
-                notes: [
-                    { note: 'C', interval: '根音' },
-                    { note: 'E', interval: '大三度' },
-                    { note: 'G', interval: '完全五度' }
-                ]
-            },
-            'A_minor': {
-                positions: [-1, 0, 2, 2, 1, 0],
-                fingers: [0, 0, 2, 3, 1, 0],
-                baseFret: 1,
-                root: [5],
-                notes: [
-                    { note: 'A', interval: '根音' },
-                    { note: 'C', interval: '小三度' },
-                    { note: 'E', interval: '完全五度' }
-                ]
-            },
-            'G_major': {
-                positions: [3, 2, 0, 0, 0, 3],
-                fingers: [2, 1, 0, 0, 0, 3],
-                baseFret: 1,
-                root: [6, 1],
-                notes: [
-                    { note: 'G', interval: '根音' },
-                    { note: 'B', interval: '大三度' },
-                    { note: 'D', interval: '完全五度' }
-                ]
-            },
-            'E_major': {
-                positions: [0, 2, 2, 1, 0, 0],
-                fingers: [0, 2, 3, 1, 0, 0],
-                baseFret: 1,
-                root: [6, 4, 1],
-                notes: [
-                    { note: 'E', interval: '根音' },
-                    { note: 'G#', interval: '大三度' },
-                    { note: 'B', interval: '完全五度' }
-                ]
-            },
-            'F_major': { // 封閉和弦範例
-                positions: [1, 3, 3, 2, 1, 1],
-                fingers: [1, 3, 4, 2, 1, 1],
-                baseFret: 1,
-                root: [6, 1],
-                notes: [
-                    { note: 'F', interval: '根音' },
-                    { note: 'A', interval: '大三度' },
-                    { note: 'C', interval: '完全五度' }
-                ]
-            },
-            // 為了展示，我們只先建立幾個和弦
-            // 之後可以擴充這個資料庫
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- DOM Elements ---
+        const rootSelector = document.getElementById('root-selector');
+        const typeSelector = document.getElementById('type-selector');
+        const fretboardSvg = document.getElementById('fretboard-svg');
+        const chordNameDisplay = document.getElementById('chord-name-display');
+        const notesDisplay = document.getElementById('notes-display');
+        const playButton = document.getElementById('play-button');
+        const voicingToggle = document.getElementById('voicing-toggle');
+        const voicingCurrentSpan = document.getElementById('voicing-current');
+        const voicingTotalSpan = document.getElementById('voicing-total');
+        const leftyToggle = document.getElementById('lefty-toggle');
+        const appContainer = document.getElementById('app-container');
+
+        // --- State Management ---
+        let currentRoot = 'C';
+        let currentType = 'Major';
+        let currentVoicingIndex = 0;
+        let isLefty = false;
+
+        // --- Music Theory Data ---
+        const roots = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        const types = {
+            'Major': { name: 'Major', suffix: '', intervals: [0, 4, 7], intervalNames: ['根音', '大三度', '完全五度'] },
+            'minor': { name: 'minor', suffix: 'm', intervals: [0, 3, 7], intervalNames: ['根音', '小三度', '完全五度'] },
+            '7': { name: '7', suffix: '7', intervals: [0, 4, 7, 10], intervalNames: ['根音', '大三度', '完全五度', '小七度'] },
+            'maj7': { name: 'maj7', suffix: 'maj7', intervals: [0, 4, 7, 11], intervalNames: ['根音', '大三度', '完全五度', '大七度'] },
+            'm7': { name: 'm7', suffix: 'm7', intervals: [0, 3, 7, 10], intervalNames: ['根音', '小三度', '完全五度', '小七度'] },
+            'dim': { name: 'dim', suffix: 'dim', intervals: [0, 3, 6], intervalNames: ['根音', '小三度', '減五度'] },
+            'aug': { name: 'aug', suffix: 'aug', intervals: [0, 4, 8], intervalNames: ['根音', '大三度', '增五度'] },
         };
+        const standardTuning = [4, 9, 14, 19, 23, 28]; // EADGBe in MIDI-like numbers relative to C0
 
-        // --- DOM 元素 ---
-        const rootNoteSelect = document.getElementById('root-note-select');
-        const chordTypeSelect = document.getElementById('chord-type-select');
-        const chordNameEl = document.getElementById('chord-name');
-        const svgEl = document.getElementById('chord-diagram');
-        const notesListEl = document.querySelector('#constituent-notes ul');
-
-        // --- 繪圖常數 ---
-        const FRET_COUNT = 5;
-        const STRING_COUNT = 6;
-
-        function drawChordDiagram(data) {
-            if (!data) {
-                svgEl.innerHTML = `<text x="50%" y="50%" text-anchor="middle" fill="var(--muted-color)">暫無資料</text>`;
-                return;
+        // --- Chord Voicing Database ---
+        // Format: frets: [E, A, D, G, B, e], -1 = muted, 0 = open
+        // fingers: [0=none, 1=index, 2=middle, 3=ring, 4=pinky]
+        // baseFret: which fret the diagram starts on
+        const chordData = {
+            'C': {
+                'Major': [{ frets: [-1, 3, 2, 0, 1, 0], fingers: [0, 3, 2, 0, 1, 0], baseFret: 1 }, { frets: [-1, 3, 5, 5, 5, 3], fingers: [0, 1, 3, 4, 2, 1], baseFret: 3, barres: [{ fret: 3, from: 5, to: 1 }] }, { frets: [8, 10, 10, 9, 8, 8], fingers: [1, 3, 4, 2, 1, 1], baseFret: 8, barres: [{ fret: 8, from: 6, to: 1 }] }],
+                'm7': [{ frets: [-1, 3, 5, 3, 4, 3], fingers: [0, 1, 3, 1, 2, 1], baseFret: 3, barres: [{ fret: 3, from: 5, to: 2 }] }, { frets: [8, 10, 8, 8, 8, 8], fingers: [2, 4, 1, 1, 1, 1], baseFret: 8, barres: [{ fret: 8, from: 6, to: 1 }] }]
+            },
+            'G': {
+                'Major': [{ frets: [3, 2, 0, 0, 0, 3], fingers: [2, 1, 0, 0, 0, 3], baseFret: 1 }, { frets: [3, 5, 5, 4, 3, 3], fingers: [1, 3, 4, 2, 1, 1], baseFret: 3, barres: [{ fret: 3, from: 6, to: 1 }] }, { frets: [-1, 10, 12, 12, 12, 10], fingers: [0, 1, 3, 4, 2, 1], baseFret: 10, barres: [{ fret: 10, from: 5, to: 1 }] }],
+                '7': [{ frets: [3, 2, 0, 0, 0, 1], fingers: [3, 2, 0, 0, 0, 1], baseFret: 1 }, { frets: [3, 5, 3, 4, 3, 3], fingers: [1, 3, 1, 2, 1, 1], baseFret: 3, barres: [{ fret: 3, from: 6, to: 1 }] }]
+            },
+            'A': {
+                'Major': [{ frets: [-1, 0, 2, 2, 2, 0], fingers: [0, 0, 1, 2, 3, 0], baseFret: 1 }, { frets: [5, 7, 7, 6, 5, 5], fingers: [1, 3, 4, 2, 1, 1], baseFret: 5, barres: [{ fret: 5, from: 6, to: 1 }] }],
+                'minor': [{ frets: [-1, 0, 2, 2, 1, 0], fingers: [0, 0, 2, 3, 1, 0], baseFret: 1 }, { frets: [5, 7, 7, 5, 5, 5], fingers: [1, 3, 4, 1, 1, 1], baseFret: 5, barres: [{ fret: 5, from: 6, to: 1 }] }],
+                 'm7': [{ frets: [5, 7, 5, 5, 5, 5], fingers: [1, 3, 1, 1, 1, 1], baseFret: 5, barres: [{ fret: 5, from: 6, to: 1 }] }]
+            },
+            'E': {
+                'Major': [{ frets: [0, 2, 2, 1, 0, 0], fingers: [0, 2, 3, 1, 0, 0], baseFret: 1 }, { frets: [-1, 7, 9, 9, 9, 7], fingers: [0, 1, 3, 4, 2, 1], baseFret: 7, barres: [{ fret: 7, from: 5, to: 1 }] }],
+                'minor': [{ frets: [0, 2, 2, 0, 0, 0], fingers: [0, 2, 3, 0, 0, 0], baseFret: 1 }, { frets: [-1, 7, 9, 7, 8, 7], fingers: [0, 1, 3, 1, 2, 1], baseFret: 7, barres: [{ fret: 7, from: 5, to: 2 }] }]
+            },
+             'D': {
+                'Major': [{ frets: [-1, -1, 0, 2, 3, 2], fingers: [0, 0, 0, 1, 3, 2], baseFret: 1 }, { frets: [-1, 5, 7, 7, 7, 5], fingers: [0, 1, 3, 4, 2, 1], baseFret: 5, barres: [{ fret: 5, from: 5, to: 1 }] }],
+                'minor': [{ frets: [-1, -1, 0, 2, 3, 1], fingers: [0, 0, 0, 2, 3, 1], baseFret: 1 }, { frets: [-1, 5, 7, 7, 6, 5], fingers: [0, 1, 3, 4, 2, 1], baseFret: 5, barres: [{ fret: 5, from: 5, to: 1 }] }]
+            },
+            'B': {
+                'm7': [{ frets: [-1, 2, 4, 2, 3, 2], fingers: [0, 1, 3, 1, 2, 1], baseFret: 2, barres: [{ fret: 2, from: 5, to: 1 }] }, { frets: [7, 9, 7, 7, 7, 7], fingers: [1, 3, 1, 1, 1, 1], baseFret: 7, barres: [{ fret: 7, from: 6, to: 1 }] }]
             }
+        };
+        
+        // --- Initialization ---
+        function init() {
+            populateSelectors();
+            addEventListeners();
+            updateDisplay();
+        }
 
-            svgEl.innerHTML = ''; // 清空舊圖
+        function populateSelectors() {
+            roots.forEach(root => {
+                const btn = document.createElement('button');
+                btn.textContent = root;
+                btn.dataset.root = root;
+                btn.className = `control-button p-2 rounded-md border border-gray-300 dark:border-gray-600 ${root === currentRoot ? 'active' : 'bg-white dark:bg-gray-800'}`;
+                rootSelector.appendChild(btn);
+            });
 
-            const viewWidth = svgEl.clientWidth;
-            const viewHeight = svgEl.clientHeight;
-            
-            const PADDING = { top: 40, right: 10, bottom: 10, left: 30 };
-            const chartWidth = viewWidth - PADDING.left - PADDING.right;
-            const chartHeight = viewHeight - PADDING.top - PADDING.bottom;
+            Object.keys(types).forEach(typeKey => {
+                const btn = document.createElement('button');
+                btn.textContent = types[typeKey].name;
+                btn.dataset.type = typeKey;
+                btn.className = `control-button p-2 rounded-md border border-gray-300 dark:border-gray-600 ${typeKey === currentType ? 'active' : 'bg-white dark:bg-gray-800'}`;
+                typeSelector.appendChild(btn);
+            });
+        }
 
-            const stringSpacing = chartWidth / (STRING_COUNT - 1);
-            const fretSpacing = chartHeight / FRET_COUNT;
-
-            // 繪製琴格編號
-            if (data.baseFret > 1) {
-                const fretNumber = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                fretNumber.setAttribute('x', PADDING.left - 15);
-                fretNumber.setAttribute('y', PADDING.top + fretSpacing * 0.5);
-                fretNumber.setAttribute('font-size', '14');
-                fretNumber.setAttribute('fill', 'var(--text-color)');
-                fretNumber.textContent = `${data.baseFret}fr`;
-                svgEl.appendChild(fretNumber);
-            }
-
-            // 繪製琴弦 (垂直線)
-            for (let i = 0; i < STRING_COUNT; i++) {
-                const x = PADDING.left + i * stringSpacing;
-                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                line.setAttribute('x1', x);
-                line.setAttribute('y1', PADDING.top);
-                line.setAttribute('x2', x);
-                line.setAttribute('y2', PADDING.top + chartHeight);
-                line.setAttribute('stroke', 'var(--border-color)');
-                line.setAttribute('stroke-width', '1');
-                svgEl.appendChild(line);
-            }
-
-            // 繪製琴衍 (水平線)
-            for (let i = 0; i <= FRET_COUNT; i++) {
-                const y = PADDING.top + i * fretSpacing;
-                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                line.setAttribute('x1', PADDING.left);
-                line.setAttribute('y1', y);
-                line.setAttribute('x2', PADDING.left + chartWidth);
-                line.setAttribute('y2', y);
-                line.setAttribute('stroke', 'var(--text-color)');
-                // 上方弦枕加粗
-                line.setAttribute('stroke-width', i === 0 ? '4' : '1');
-                svgEl.appendChild(line);
-            }
-
-            // 繪製按法標示
-            for (let i = 0; i < STRING_COUNT; i++) {
-                const stringIndex = i; // 0-5
-                const stringNum = STRING_COUNT - i; // 6-1
-                const fret = data.positions[stringIndex];
-                const finger = data.fingers[stringIndex];
-                const x = PADDING.left + i * stringSpacing;
-
-                if (fret === -1) { // 啞音 X
-                    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                    text.setAttribute('x', x);
-                    text.setAttribute('y', PADDING.top - 10);
-                    text.setAttribute('text-anchor', 'middle');
-                    text.setAttribute('font-size', '16');
-                    text.setAttribute('font-weight', 'bold');
-                    text.setAttribute('fill', 'var(--muted-color)');
-                    text.textContent = 'X';
-                    svgEl.appendChild(text);
-                } else if (fret === 0) { // 空弦 O
-                    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                    circle.setAttribute('cx', x);
-                    circle.setAttribute('cy', PADDING.top - 12);
-                    circle.setAttribute('r', 6);
-                    circle.setAttribute('stroke', 'var(--text-color)');
-                    circle.setAttribute('stroke-width', '1.5');
-                    circle.setAttribute('fill', 'none');
-                    svgEl.appendChild(circle);
-                } else { // 按壓點
-                    const y = PADDING.top + (fret - data.baseFret + 0.5) * fretSpacing;
-                    
-                    // 處理封閉和弦橫槓
-                    if (finger === 1 && data.positions.filter(p => p === fret).length > 1 && i === data.positions.indexOf(fret)) {
-                        const first = data.positions.indexOf(fret);
-                        const last = data.positions.lastIndexOf(fret);
-                        const barX1 = PADDING.left + first * stringSpacing;
-                        const barX2 = PADDING.left + last * stringSpacing;
-                        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-                        rect.setAttribute('x', barX1 - 6);
-                        rect.setAttribute('y', y - 6);
-                        rect.setAttribute('width', barX2 - barX1 + 12);
-                        rect.setAttribute('height', 12);
-                        rect.setAttribute('rx', 6);
-                        rect.setAttribute('ry', 6);
-                        rect.setAttribute('fill', 'var(--text-color)');
-                        svgEl.appendChild(rect);
-                    }
-
-                    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                    circle.setAttribute('cx', x);
-                    circle.setAttribute('cy', y);
-                    circle.setAttribute('r', 8);
-                    
-                    // 高亮根音
-                    const isRoot = data.root.includes(stringNum);
-                    circle.setAttribute('fill', isRoot ? 'var(--root-note-color)' : 'var(--text-color)');
-                    svgEl.appendChild(circle);
-
-                    // 指法數字
-                    if (finger > 0) {
-                        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                        text.setAttribute('x', x);
-                        text.setAttribute('y', y + 5);
-                        text.setAttribute('text-anchor', 'middle');
-                        text.setAttribute('font-size', '14');
-                        text.setAttribute('fill', '#fff');
-                        text.textContent = finger;
-                        svgEl.appendChild(text);
-                    }
+        function addEventListeners() {
+            rootSelector.addEventListener('click', e => {
+                if (e.target.tagName === 'BUTTON') {
+                    currentRoot = e.target.dataset.root;
+                    currentVoicingIndex = 0;
+                    updateActiveButtons(rootSelector, currentRoot, 'root');
+                    updateDisplay();
                 }
-            }
+            });
+
+            typeSelector.addEventListener('click', e => {
+                if (e.target.tagName === 'BUTTON') {
+                    currentType = e.target.dataset.type;
+                    currentVoicingIndex = 0;
+                    updateActiveButtons(typeSelector, currentType, 'type');
+                    updateDisplay();
+                }
+            });
+
+            voicingToggle.addEventListener('click', () => {
+                const voicings = getVoicings();
+                if (voicings.length > 1) {
+                    currentVoicingIndex = (currentVoicingIndex + 1) % voicings.length;
+                    updateDisplay();
+                }
+            });
+
+            playButton.addEventListener('click', () => {
+                const voicings = getVoicings();
+                if (voicings && voicings.length > 0) {
+                    playChord(voicings[currentVoicingIndex]);
+                }
+            });
+            
+            leftyToggle.addEventListener('click', () => {
+                isLefty = !isLefty;
+                appContainer.classList.toggle('lefty-mode', isLefty);
+                leftyToggle.classList.toggle('bg-blue-500', isLefty);
+                leftyToggle.classList.toggle('bg-gray-200', !isLefty);
+                leftyToggle.querySelector('span').classList.toggle('translate-x-5', isLefty);
+            });
+        }
+        
+        function updateActiveButtons(container, activeValue, dataType) {
+            container.querySelectorAll('button').forEach(btn => {
+                if (btn.dataset[dataType] === activeValue) {
+                    btn.classList.add('active');
+                    btn.classList.remove('bg-white', 'dark:bg-gray-800');
+                } else {
+                    btn.classList.remove('active');
+                    btn.classList.add('bg-white', 'dark:bg-gray-800');
+                }
+            });
+        }
+
+        // --- Core Display Logic ---
+        function getVoicings() {
+            return chordData[currentRoot]?.[currentType] || [];
         }
 
         function updateDisplay() {
-            const rootNote = rootNoteSelect.value;
-            const chordType = chordTypeSelect.value;
+            const voicings = getVoicings();
             
-            // 格式化顯示名稱
-            let typeText = chordType.replace('major', '').replace('minor', 'm');
-            chordNameEl.textContent = `${rootNote.replace('#', '♯')} ${typeText}`;
-
-            // 尋找和弦資料
-            const chordKey = `${rootNote}_${chordType}`;
-            const data = chordData[chordKey];
-
-            // 更新和弦圖
-            drawChordDiagram(data);
-
-            // 更新組成音
-            notesListEl.innerHTML = '';
-            if (data && data.notes) {
-                data.notes.forEach(item => {
-                    const li = document.createElement('li');
-                    li.innerHTML = `${item.note.replace('#', '♯')} <span class="interval">(${item.interval})</span>`;
-                    notesListEl.appendChild(li);
-                });
-            } else {
-                const li = document.createElement('li');
-                li.textContent = '暫無資料';
-                notesListEl.appendChild(li);
+            if (voicings.length === 0) {
+                showChordNotFound();
+                return;
             }
+
+            if (currentVoicingIndex >= voicings.length) {
+                currentVoicingIndex = 0;
+            }
+            
+            const chord = voicings[currentVoicingIndex];
+            const typeInfo = types[currentType];
+            
+            chordNameDisplay.textContent = `${currentRoot}${typeInfo.suffix} (${typeInfo.name})`;
+            drawChordDiagram(chord);
+            displayConstituentNotes();
+            updateVoicingInfo(voicings.length);
+        }
+        
+        function showChordNotFound() {
+            fretboardSvg.innerHTML = `<text x="75" y="100" text-anchor="middle" font-size="16" fill="currentColor">找不到和弦資料</text>`;
+            chordNameDisplay.textContent = "查無此和弦";
+            notesDisplay.innerHTML = `<p>請嘗試其他組合。</p>`;
+            voicingCurrentSpan.textContent = '0';
+            voicingTotalSpan.textContent = '0';
         }
 
-        // --- 事件監聽 ---
-        rootNoteSelect.addEventListener('change', updateDisplay);
-        chordTypeSelect.addEventListener('change', updateDisplay);
+        function updateVoicingInfo(total) {
+            voicingCurrentSpan.textContent = total > 0 ? currentVoicingIndex + 1 : 0;
+            voicingTotalSpan.textContent = total;
+            voicingToggle.disabled = total <= 1;
+            voicingToggle.classList.toggle('opacity-50', total <= 1);
+            voicingToggle.classList.toggle('cursor-not-allowed', total <= 1);
+        }
 
-        // --- 初始載入 ---
-        // 為了讓 A minor 預設被選中
-        rootNoteSelect.value = 'A';
-        chordTypeSelect.value = 'minor';
-        updateDisplay();
+        function displayConstituentNotes() {
+            const rootIndex = roots.indexOf(currentRoot);
+            const typeInfo = types[currentType];
+            
+            notesDisplay.innerHTML = '';
+            
+            typeInfo.intervals.forEach((interval, i) => {
+                const noteIndex = (rootIndex + interval) % 12;
+                const noteName = roots[noteIndex];
+                const intervalName = typeInfo.intervalNames[i];
+                
+                const p = document.createElement('p');
+                p.innerHTML = `<span class="font-bold inline-block w-16">${noteName}</span> <span class="text-sm text-gray-500 dark:text-gray-400">${intervalName}</span>`;
+                if (i === 0) {
+                    p.querySelector('span:first-child').classList.add('text-blue-600', 'dark:text-blue-400');
+                }
+                notesDisplay.appendChild(p);
+            });
+        }
+
+        // --- SVG Drawing ---
+        function drawChordDiagram(chord) {
+            fretboardSvg.innerHTML = ''; // Clear previous diagram
+            const { frets, fingers, baseFret, barres } = chord;
+            
+            const NUM_STRINGS = 6;
+            const NUM_FRETS_DISPLAY = 5;
+            const PADDING = 15; // Increased padding to give more space
+            const FRET_WIDTH = (150 - 2 * PADDING) / (NUM_STRINGS - 1);
+            const FRET_HEIGHT = (200 - 2 * PADDING - 20) / NUM_FRETS_DISPLAY;
+            const diagramLineColor = '#374151'; // A dark gray color for high contrast
+
+            let linesHtml = '';
+            let shapesHtml = '';
+            let textHtml = '';
+
+            // 1. Draw Frets and strings (Lines layer)
+            for (let i = 0; i < NUM_STRINGS; i++) {
+                linesHtml += `<line x1="${PADDING + i * FRET_WIDTH}" y1="${PADDING + 20}" x2="${PADDING + i * FRET_WIDTH}" y2="${PADDING + 20 + NUM_FRETS_DISPLAY * FRET_HEIGHT}" stroke="${diagramLineColor}" stroke-width="0.5"/>`;
+            }
+            for (let i = 0; i <= NUM_FRETS_DISPLAY; i++) {
+                const y = PADDING + 20 + i * FRET_HEIGHT;
+                const strokeWidth = (i === 0 && baseFret === 1) ? 3 : 0.5; // Thicker nut
+                linesHtml += `<line x1="${PADDING}" y1="${y}" x2="${PADDING + (NUM_STRINGS - 1) * FRET_WIDTH}" y2="${y}" stroke="${diagramLineColor}" stroke-width="${strokeWidth}"/>`;
+            }
+
+            // 2. Draw Barre chords (Shapes layer)
+            if (barres) {
+                barres.forEach(barre => {
+                    const y = PADDING + 20 + (barre.fret - baseFret + 0.5) * FRET_HEIGHT;
+                    const x1 = PADDING + (NUM_STRINGS - barre.from) * FRET_WIDTH;
+                    const x2 = PADDING + (NUM_STRINGS - barre.to) * FRET_WIDTH;
+                    shapesHtml += `<rect x="${Math.min(x1,x2)}" y="${y - 5}" width="${Math.abs(x2-x1)}" height="10" rx="5" ry="5" fill="#333" opacity="0.8"/>`;
+                });
+            }
+            
+            // 3. Draw Fingering dots (Shapes) and Open/Muted/Finger text (Text)
+            frets.forEach((fret, stringIndex) => {
+                const x = PADDING + stringIndex * FRET_WIDTH;
+                // Open/Muted strings
+                if (fret === -1) { // Muted
+                    textHtml += `<text x="${x}" y="${PADDING + 10}" text-anchor="middle" font-size="12" fill="${diagramLineColor}">X</text>`;
+                } else if (fret === 0) { // Open
+                    shapesHtml += `<circle cx="${x}" cy="${PADDING + 10}" r="5" stroke="${diagramLineColor}" stroke-width="1" fill="none"/>`;
+                }
+
+                // Fingering dots
+                if (fret > 0) {
+                    const relativeFret = fret - baseFret + 1;
+                    if (relativeFret > 0 && relativeFret <= NUM_FRETS_DISPLAY) {
+                        const y = PADDING + 20 + (relativeFret - 0.5) * FRET_HEIGHT;
+                        const finger = fingers[stringIndex];
+                        
+                        const rootIndex = roots.indexOf(currentRoot);
+                        const noteIndex = (standardTuning[stringIndex] + fret) % 12;
+                        const isRoot = (noteIndex === rootIndex);
+
+                        let dotClasses = "note-dot ";
+                        if (isRoot) {
+                           dotClasses += "root-note-dot";
+                        }
+                        
+                        shapesHtml += `<circle cx="${x}" cy="${y}" r="7" class="${dotClasses}" fill="#333" dark:fill="#eee"/>`;
+                        if (finger > 0) {
+                            textHtml += `<text x="${x}" y="${y}" class="finger-text" text-anchor="middle" alignment-baseline="central" font-size="10" font-weight="bold" fill="#fff" dark:fill="#333">${finger}</text>`;
+                        }
+                    }
+                }
+            });
+
+            // 4. Draw Fret numbers (Text layer)
+            if (baseFret > 1) {
+                textHtml += `<text x="${PADDING - 8}" y="${PADDING + 20 + FRET_HEIGHT/2}" text-anchor="end" alignment-baseline="middle" font-size="12" fill="${diagramLineColor}">${baseFret}</text>`;
+            }
+            
+            // 5. Combine and render in correct order
+            fretboardSvg.innerHTML = linesHtml + shapesHtml + textHtml;
+        }
+
+
+        // --- Web Audio API ---
+        let audioCtx;
+        function getAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            return audioCtx;
+        }
+
+        function playChord(chord) {
+            const ctx = getAudioContext();
+            const now = ctx.currentTime;
+            const { frets } = chord;
+
+            frets.forEach((fret, stringIndex) => {
+                if (fret !== -1) {
+                    const baseNote = standardTuning[stringIndex];
+                    const finalNote = baseNote + fret;
+                    // Formula to convert MIDI-like note number to frequency
+                    const freq = 440 * Math.pow(2, (finalNote - 21 - 24) / 12);
+
+                    const oscillator = ctx.createOscillator();
+                    const gainNode = ctx.createGain();
+
+                    oscillator.type = 'triangle'; // A softer tone
+                    oscillator.frequency.setValueAtTime(freq, now);
+                    
+                    gainNode.connect(ctx.destination);
+                    oscillator.connect(gainNode);
+
+                    // Simple attack/decay envelope
+                    gainNode.gain.setValueAtTime(0, now);
+                    gainNode.gain.linearRampToValueAtTime(0.3, now + 0.05); // Attack
+                    gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 1.5); // Decay
+
+                    oscillator.start(now);
+                    oscillator.stop(now + 2);
+                }
+            });
+        }
+
+        // --- Run App ---
+        init();
+    });
     </script>
 </body>
 </html>
