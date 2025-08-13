@@ -132,16 +132,18 @@
         // --- Main App Component ---
         function App() {
             const [db, setDb] = useState(null);
-            const [isFirebaseReady, setIsFirebaseReady] = useState(false);
+            const [auth, setAuth] = useState(null); // <-- 新增 auth state
+            const [user, setUser] = useState(null); // <-- 新增 user state
             
             // User profiles state
             const [profiles, setProfiles] = useState([]);
-            const [currentProfileId, setCurrentProfileId] = useState(''); // 將 null 改成空字串 ''
+            const [currentProfileId, setCurrentProfileId] = useState('');
 
             // App content state
             const [mode, setMode] = useState('add');
             const [words, setWords] = useState([]);
             const [isLoading, setIsLoading] = useState(true);
+            const [isProfilesLoading, setIsProfilesLoading] = useState(true); // <-- 新增 Profile 讀取狀態
             
             // Firebase Initialization and Anonymous Auth
             useEffect(() => {
@@ -157,49 +159,76 @@
 
                 try {
                     const app = initializeApp(firebaseConfig);
-                    const auth = getAuth(app);
+                    const firebaseAuth = getAuth(app);
+                    setAuth(firebaseAuth);
                     setDb(getFirestore(app));
 
-                    onAuthStateChanged(auth, async (user) => {
-                        if (!user) {
-                            await signInAnonymously(auth).catch(err => console.error("Anon sign-in error:", err));
+                    onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
+                        if (firebaseUser) {
+                            setUser(firebaseUser);
+                        } else {
+                            await signInAnonymously(firebaseAuth).catch(err => console.error("Anon sign-in error:", err));
                         }
-                        setIsFirebaseReady(true);
                     });
                 } catch (error) {
                     console.error("Firebase init failed:", error);
                 }
             }, []);
 
-            // Load profiles from localStorage once Firebase is ready
+            // Load profiles from Firestore once user is authenticated
             useEffect(() => {
-                if (!isFirebaseReady) return;
+                if (!db || !user) return;
 
-                let storedProfiles = JSON.parse(localStorage.getItem('wordbank_profiles') || '[]');
-                if (storedProfiles.length === 0) {
-                    const defaultProfile = { id: generateId(), name: '預設使用者' };
-                    storedProfiles = [defaultProfile];
-                    localStorage.setItem('wordbank_profiles', JSON.stringify(storedProfiles));
-                }
-                setProfiles(storedProfiles);
+                setIsProfilesLoading(true);
+                const profilesCollectionPath = `users/${user.uid}/profiles`;
+                const q = query(collection(db, profilesCollectionPath));
 
-                let storedProfileId = localStorage.getItem('wordbank_currentProfileId');
-                if (!storedProfileId || !storedProfiles.some(p => p.id === storedProfileId)) {
-                    storedProfileId = storedProfiles[0].id;
+                const unsubscribe = onSnapshot(q, async (querySnapshot) => {
+                    let profilesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                    if (profilesData.length === 0) {
+                        // If no profiles, create a default one
+                        const defaultProfile = { name: '預設使用者' };
+                        try {
+                            const docRef = await addDoc(collection(db, profilesCollectionPath), defaultProfile);
+                            profilesData = [{ id: docRef.id, ...defaultProfile }];
+                            console.log("Created default profile.");
+                        } catch (e) {
+                            console.error("Error creating default profile:", e);
+                            setIsProfilesLoading(false);
+                            return;
+                        }
+                    }
+                    
+                    setProfiles(profilesData);
+
+                    let storedProfileId = localStorage.getItem('wordbank_currentProfileId');
+                    if (!storedProfileId || !profilesData.some(p => p.id === storedProfileId)) {
+                        storedProfileId = profilesData[0].id;
+                    }
+                    setCurrentProfileId(storedProfileId);
                     localStorage.setItem('wordbank_currentProfileId', storedProfileId);
-                }
-                setCurrentProfileId(storedProfileId);
-            }, [isFirebaseReady]);
+                    setIsProfilesLoading(false);
+                }, (error) => {
+                    console.error("Error fetching profiles:", error);
+                    setIsProfilesLoading(false);
+                });
 
-            // Firestore data listener, depends on currentProfileId
+                return () => unsubscribe();
+            }, [db, user]);
+
+
+            // Firestore data listener for words, depends on currentProfileId
             useEffect(() => {
-                if (!db || !currentProfileId) {
+                if (!db || !user || !currentProfileId) {
+                    setWords([]);
                     setIsLoading(false);
                     return;
                 }
 
                 setIsLoading(true);
-                const wordsCollectionPath = `users/${currentProfileId}/words`;
+                // 使用新的路徑結構
+                const wordsCollectionPath = `users/${user.uid}/profiles/${currentProfileId}/words`;
                 const q = query(collection(db, wordsCollectionPath));
 
                 const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -216,14 +245,19 @@
                 });
 
                 return () => unsubscribe();
-            }, [db, currentProfileId]);
+            }, [db, user, currentProfileId]);
 
-            const handleCreateProfile = (name) => {
-                const newProfile = { id: generateId(), name };
-                const updatedProfiles = [...profiles, newProfile];
-                setProfiles(updatedProfiles);
-                localStorage.setItem('wordbank_profiles', JSON.stringify(updatedProfiles));
-                handleSelectProfile(newProfile.id);
+            const handleCreateProfile = async (name) => {
+                if (!db || !user) return;
+                const newProfile = { name };
+                const profilesCollectionPath = `users/${user.uid}/profiles`;
+                try {
+                    const docRef = await addDoc(collection(db, profilesCollectionPath), newProfile);
+                    // 新增後直接切換到該 profile
+                    handleSelectProfile(docRef.id);
+                } catch (e) {
+                    console.error("Error creating profile:", e);
+                }
             };
 
             const handleSelectProfile = (profileId) => {
@@ -239,18 +273,22 @@
             }, [words]);
 
             const renderContent = () => {
-                if (isLoading || !currentProfileId) {
+                if (isLoading || isProfilesLoading || !currentProfileId || !user) {
                     return <div className="mt-10"><LoadingSpinner /></div>;
                 }
+                // 將 user.uid 和 profileId 傳遞下去
+                const userId = user.uid;
+                const profileId = currentProfileId;
+
                 switch (mode) {
                     case 'add':
-                        return <AddWordModule db={db} userId={currentProfileId} />;
+                        return <AddWordModule db={db} userId={userId} profileId={profileId} />;
                     case 'review':
-                        return <ReviewModule db={db} userId={currentProfileId} words={sortedWords} />;
+                        return <ReviewModule db={db} userId={userId} profileId={profileId} words={sortedWords} />;
                     case 'test':
                         return <TestModule words={words} />;
                     default:
-                        return <AddWordModule db={db} userId={currentProfileId} />;
+                        return <AddWordModule db={db} userId={userId} profileId={profileId} />;
                 }
             };
 
@@ -289,7 +327,7 @@
         }
 
         // --- AddWordModule (No major changes needed) ---
-        function AddWordModule({ db, userId }) {
+        function AddWordModule({ db, userId, profileId }) { // <-- 接收 profileId
             const [word, setWord] = useState('');
             const [results, setResults] = useState([]);
             const [isLoading, setIsLoading] = useState(false);
@@ -344,8 +382,9 @@
             };
 
             const handleSave = async (resultToSave) => {
-                if (!resultToSave || !db || !userId) return;
-                const wordsCollectionPath = `users/${userId}/words`;
+                if (!resultToSave || !db || !userId || !profileId) return;
+                // 使用新的路徑結構
+                const wordsCollectionPath = `users/${userId}/profiles/${profileId}/words`;
                 try {
                     await addDoc(collection(db, wordsCollectionPath), {
                         word: resultToSave.word.trim().toLowerCase(),
@@ -401,7 +440,7 @@
         }
 
         // --- MODIFIED: ReviewModule with Pagination ---
-        function ReviewModule({ db, userId, words }) {
+        function ReviewModule({ db, userId, profileId, words }) { // <-- 接收 profileId
             const [currentPage, setCurrentPage] = useState(1);
             const wordsPerPage = 9;
 
@@ -420,7 +459,7 @@
                 <div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-4">
                         {currentWords.map(word => (
-                            <Flashcard key={word.id} wordData={word} db={db} userId={userId} />
+                            <Flashcard key={word.id} wordData={word} db={db} userId={userId} profileId={profileId} />
                         ))}
                     </div>
                     {totalPages > 1 && (
@@ -435,13 +474,13 @@
         }
 
         // --- Flashcard Component (No changes needed) ---
-        function Flashcard({ wordData, db, userId }) {
+        function Flashcard({ wordData, db, userId, profileId }) { // <-- 接收 profileId
             const [showTranslation, setShowTranslation] = useState(false);
             const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
             const handleLearnedChange = async (e) => {
                 const newLearnedStatus = e.target.checked;
-                const wordDocRef = doc(db, `users/${userId}/words`, wordData.id);
+                const wordDocRef = doc(db, `users/${userId}/profiles/${profileId}/words`, wordData.id);
                 try { await setDoc(wordDocRef, { learned: newLearnedStatus }, { merge: true }); }
                 catch (error) { console.error("Error updating word status: ", error); }
             };
@@ -453,7 +492,7 @@
                     setTimeout(() => setIsConfirmingDelete(false), 3000);
                     return;
                 }
-                const wordDocRef = doc(db, `users/${userId}/words`, wordData.id);
+                const wordDocRef = doc(db, `users/${userId}/profiles/${profileId}/words`, wordData.id);
                 try { await deleteDoc(wordDocRef); }
                 catch (error) { console.error("Error deleting word: ", error); setIsConfirmingDelete(false); }
             };
