@@ -131,6 +131,7 @@
         let currentType = 'Major';
         let currentVoicingIndex = 0;
         let isLefty = false;
+        let generatedVoicings = [];
 
         // --- Music Theory Data ---
         const roots = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -143,39 +144,11 @@
             'dim': { name: 'dim', suffix: 'dim', intervals: [0, 3, 6], intervalNames: ['根音', '小三度', '減五度'] },
             'aug': { name: 'aug', suffix: 'aug', intervals: [0, 4, 8], intervalNames: ['根音', '大三度', '增五度'] },
         };
-        const standardTuning = [4, 9, 14, 19, 23, 28]; // EADGBe in MIDI-like numbers relative to C0
+        // For note calculation (0-11 index)
+        const standardTuning = [4, 9, 2, 7, 11, 4]; // EADGBe
+        // For audio playback (MIDI note numbers)
+        const standardTuningMidi = [40, 45, 50, 55, 59, 64]; // E2, A2, D3, G3, B3, E4
 
-        // --- Chord Voicing Database ---
-        // Format: frets: [E, A, D, G, B, e], -1 = muted, 0 = open
-        // fingers: [0=none, 1=index, 2=middle, 3=ring, 4=pinky]
-        // baseFret: which fret the diagram starts on
-        const chordData = {
-            'C': {
-                'Major': [{ frets: [-1, 3, 2, 0, 1, 0], fingers: [0, 3, 2, 0, 1, 0], baseFret: 1 }, { frets: [-1, 3, 5, 5, 5, 3], fingers: [0, 1, 3, 4, 2, 1], baseFret: 3, barres: [{ fret: 3, from: 5, to: 1 }] }, { frets: [8, 10, 10, 9, 8, 8], fingers: [1, 3, 4, 2, 1, 1], baseFret: 8, barres: [{ fret: 8, from: 6, to: 1 }] }],
-                'm7': [{ frets: [-1, 3, 5, 3, 4, 3], fingers: [0, 1, 3, 1, 2, 1], baseFret: 3, barres: [{ fret: 3, from: 5, to: 2 }] }, { frets: [8, 10, 8, 8, 8, 8], fingers: [2, 4, 1, 1, 1, 1], baseFret: 8, barres: [{ fret: 8, from: 6, to: 1 }] }]
-            },
-            'G': {
-                'Major': [{ frets: [3, 2, 0, 0, 0, 3], fingers: [2, 1, 0, 0, 0, 3], baseFret: 1 }, { frets: [3, 5, 5, 4, 3, 3], fingers: [1, 3, 4, 2, 1, 1], baseFret: 3, barres: [{ fret: 3, from: 6, to: 1 }] }, { frets: [-1, 10, 12, 12, 12, 10], fingers: [0, 1, 3, 4, 2, 1], baseFret: 10, barres: [{ fret: 10, from: 5, to: 1 }] }],
-                '7': [{ frets: [3, 2, 0, 0, 0, 1], fingers: [3, 2, 0, 0, 0, 1], baseFret: 1 }, { frets: [3, 5, 3, 4, 3, 3], fingers: [1, 3, 1, 2, 1, 1], baseFret: 3, barres: [{ fret: 3, from: 6, to: 1 }] }]
-            },
-            'A': {
-                'Major': [{ frets: [-1, 0, 2, 2, 2, 0], fingers: [0, 0, 1, 2, 3, 0], baseFret: 1 }, { frets: [5, 7, 7, 6, 5, 5], fingers: [1, 3, 4, 2, 1, 1], baseFret: 5, barres: [{ fret: 5, from: 6, to: 1 }] }],
-                'minor': [{ frets: [-1, 0, 2, 2, 1, 0], fingers: [0, 0, 2, 3, 1, 0], baseFret: 1 }, { frets: [5, 7, 7, 5, 5, 5], fingers: [1, 3, 4, 1, 1, 1], baseFret: 5, barres: [{ fret: 5, from: 6, to: 1 }] }],
-                 'm7': [{ frets: [5, 7, 5, 5, 5, 5], fingers: [1, 3, 1, 1, 1, 1], baseFret: 5, barres: [{ fret: 5, from: 6, to: 1 }] }]
-            },
-            'E': {
-                'Major': [{ frets: [0, 2, 2, 1, 0, 0], fingers: [0, 2, 3, 1, 0, 0], baseFret: 1 }, { frets: [-1, 7, 9, 9, 9, 7], fingers: [0, 1, 3, 4, 2, 1], baseFret: 7, barres: [{ fret: 7, from: 5, to: 1 }] }],
-                'minor': [{ frets: [0, 2, 2, 0, 0, 0], fingers: [0, 2, 3, 0, 0, 0], baseFret: 1 }, { frets: [-1, 7, 9, 7, 8, 7], fingers: [0, 1, 3, 1, 2, 1], baseFret: 7, barres: [{ fret: 7, from: 5, to: 2 }] }]
-            },
-             'D': {
-                'Major': [{ frets: [-1, -1, 0, 2, 3, 2], fingers: [0, 0, 0, 1, 3, 2], baseFret: 1 }, { frets: [-1, 5, 7, 7, 7, 5], fingers: [0, 1, 3, 4, 2, 1], baseFret: 5, barres: [{ fret: 5, from: 5, to: 1 }] }],
-                'minor': [{ frets: [-1, -1, 0, 2, 3, 1], fingers: [0, 0, 0, 2, 3, 1], baseFret: 1 }, { frets: [-1, 5, 7, 7, 6, 5], fingers: [0, 1, 3, 4, 2, 1], baseFret: 5, barres: [{ fret: 5, from: 5, to: 1 }] }]
-            },
-            'B': {
-                'm7': [{ frets: [-1, 2, 4, 2, 3, 2], fingers: [0, 1, 3, 1, 2, 1], baseFret: 2, barres: [{ fret: 2, from: 5, to: 1 }] }, { frets: [7, 9, 7, 7, 7, 7], fingers: [1, 3, 1, 1, 1, 1], baseFret: 7, barres: [{ fret: 7, from: 6, to: 1 }] }]
-            }
-        };
-        
         // --- Initialization ---
         function init() {
             populateSelectors();
@@ -221,17 +194,15 @@
             });
 
             voicingToggle.addEventListener('click', () => {
-                const voicings = getVoicings();
-                if (voicings.length > 1) {
-                    currentVoicingIndex = (currentVoicingIndex + 1) % voicings.length;
-                    updateDisplay();
+                if (generatedVoicings.length > 1) {
+                    currentVoicingIndex = (currentVoicingIndex + 1) % generatedVoicings.length;
+                    updateDisplay(false); // false: don't regenerate chords
                 }
             });
 
             playButton.addEventListener('click', () => {
-                const voicings = getVoicings();
-                if (voicings && voicings.length > 0) {
-                    playChord(voicings[currentVoicingIndex]);
+                if (generatedVoicings && generatedVoicings.length > 0) {
+                    playChord(generatedVoicings[currentVoicingIndex]);
                 }
             });
             
@@ -257,35 +228,33 @@
         }
 
         // --- Core Display Logic ---
-        function getVoicings() {
-            return chordData[currentRoot]?.[currentType] || [];
-        }
-
-        function updateDisplay() {
-            const voicings = getVoicings();
+        function updateDisplay(regenerate = true) {
+            if (regenerate) {
+                generatedVoicings = generateChordVoicings(currentRoot, currentType);
+            }
             
-            if (voicings.length === 0) {
+            if (generatedVoicings.length === 0) {
                 showChordNotFound();
                 return;
             }
 
-            if (currentVoicingIndex >= voicings.length) {
+            if (currentVoicingIndex >= generatedVoicings.length) {
                 currentVoicingIndex = 0;
             }
             
-            const chord = voicings[currentVoicingIndex];
+            const chord = generatedVoicings[currentVoicingIndex];
             const typeInfo = types[currentType];
             
             chordNameDisplay.textContent = `${currentRoot}${typeInfo.suffix} (${typeInfo.name})`;
             drawChordDiagram(chord);
             displayConstituentNotes();
-            updateVoicingInfo(voicings.length);
+            updateVoicingInfo(generatedVoicings.length);
         }
         
         function showChordNotFound() {
             fretboardSvg.innerHTML = `<text x="75" y="100" text-anchor="middle" font-size="16" fill="currentColor">找不到和弦資料</text>`;
             chordNameDisplay.textContent = "查無此和弦";
-            notesDisplay.innerHTML = `<p>請嘗試其他組合。</p>`;
+            notesDisplay.innerHTML = `<p>演算法無法找到此和弦的可按壓指法。</p>`;
             voicingCurrentSpan.textContent = '0';
             voicingTotalSpan.textContent = '0';
         }
@@ -317,6 +286,109 @@
                 notesDisplay.appendChild(p);
             });
         }
+        
+        // --- Chord Generation Algorithm ---
+        function generateChordVoicings(root, type) {
+            const rootIndex = roots.indexOf(root);
+            const typeInfo = types[type];
+            const chordNotes = typeInfo.intervals.map(i => (rootIndex + i) % 12);
+            
+            let possibleVoicings = [];
+            const maxFret = 15;
+            const fretSpan = 4;
+
+            // Iterate through each string as a potential starting point for the lowest note
+            for (let lowString = 0; lowString < 6; lowString++) {
+                for (let startFret = 0; startFret <= maxFret; startFret++) {
+                    const note = (standardTuning[lowString] + startFret) % 12;
+                    if (!chordNotes.includes(note)) continue;
+
+                    let voicing = Array(6).fill(-1);
+                    voicing[lowString] = startFret;
+                    
+                    for (let string = 0; string < 6; string++) {
+                        if (string === lowString) continue;
+                        if (string < lowString) { // Mute strings below the lowest note
+                            voicing[string] = -1;
+                            continue;
+                        }
+
+                        // Find the best fret for this string
+                        for (let fret = startFret > 0 ? startFret : 0; fret <= startFret + fretSpan; fret++) {
+                            const currentNote = (standardTuning[string] + fret) % 12;
+                            if (chordNotes.includes(currentNote)) {
+                                voicing[string] = fret;
+                                break;
+                            }
+                        }
+                    }
+
+                    const notesInVoicing = voicing.map((f, i) => f === -1 ? -1 : (standardTuning[i] + f) % 12);
+                    const uniqueNotes = [...new Set(notesInVoicing.filter(n => n !== -1))];
+                    
+                    // **FIX 1: Stricter filtering**
+                    // The voicing must contain ALL notes of the chord.
+                    if (chordNotes.every(cn => uniqueNotes.includes(cn))) {
+                        possibleVoicings.push(voicing);
+                    }
+                }
+            }
+
+            const uniqueVoicings = Array.from(new Map(possibleVoicings.map(v => [JSON.stringify(v), v])).values());
+
+            // **FIX 2: Improved scoring**
+            uniqueVoicings.forEach(v => {
+                v.score = 0;
+                const frets = v.filter(f => f !== -1);
+                if (frets.length === 0) {
+                    v.score = -999; return;
+                }
+                const pressed = frets.filter(f => f > 0);
+                const open = frets.filter(f => f === 0);
+                const muted = v.filter(f => f === -1);
+                
+                let minFret = pressed.length > 0 ? Math.min(...pressed) : 0;
+                let maxFret = pressed.length > 0 ? Math.max(...pressed) : 0;
+
+                v.score -= minFret * 2; // Lower positions are much better
+                v.score -= (maxFret - minFret) * 3; // Smaller fret span is much better
+                v.score += open.length; // Open strings are good
+                v.score -= muted.length; // Muted strings are okay, but not great
+                v.score -= pressed.length; // Fewer fingers are better
+                if (v[0] === -1) v.score += 2; // Bonus for muting low E if not needed
+            });
+
+            uniqueVoicings.sort((a, b) => b.score - a.score);
+
+            return uniqueVoicings.slice(0, 15).map(v => {
+                const fretted = v.filter(f => f > 0);
+                const baseFret = fretted.length > 0 ? Math.min(...fretted) : 1;
+                
+                let fingers = Array(6).fill(0);
+                // This is still a very simple fingering logic and can be improved,
+                // but it's better to have correct notes first.
+                let fingerToUse = 1;
+                let fretToFinger = {};
+                for (let i = 0; i < v.length; i++) {
+                    if (v[i] > 0) {
+                        if (!fretToFinger[v[i]]) {
+                            fretToFinger[v[i]] = fingerToUse++;
+                        }
+                        if (fretToFinger[v[i]] <= 4) {
+                            fingers[i] = fretToFinger[v[i]];
+                        }
+                    }
+                }
+
+                return {
+                    frets: v,
+                    baseFret: baseFret > 1 ? baseFret : 1,
+                    fingers: fingers,
+                    barres: [] // Barre logic removed for simplicity, can be re-added later
+                };
+            });
+        }
+
 
         // --- SVG Drawing ---
         function drawChordDiagram(chord) {
@@ -357,17 +429,15 @@
             // 3. Draw Fingering dots (Shapes) and Open/Muted/Finger text (Text)
             frets.forEach((fret, stringIndex) => {
                 const x = PADDING + stringIndex * FRET_WIDTH;
-                // Open/Muted strings
                 if (fret === -1) { // Muted
                     textHtml += `<text x="${x}" y="${PADDING + 10}" text-anchor="middle" font-size="12" fill="${diagramLineColor}">X</text>`;
                 } else if (fret === 0) { // Open
                     shapesHtml += `<circle cx="${x}" cy="${PADDING + 10}" r="5" stroke="${diagramLineColor}" stroke-width="1" fill="none"/>`;
                 }
 
-                // Fingering dots
                 if (fret > 0) {
                     const relativeFret = fret - baseFret + 1;
-                    if (relativeFret > 0 && relativeFret <= NUM_FRETS_DISPLAY) {
+                    if (relativeFret > 0 && relativeFret <= NUM_FRETS_DISPLAY + 1) { // Allow one fret over for display
                         const y = PADDING + 20 + (relativeFret - 0.5) * FRET_HEIGHT;
                         const finger = fingers[stringIndex];
                         
@@ -414,10 +484,9 @@
 
             frets.forEach((fret, stringIndex) => {
                 if (fret !== -1) {
-                    const baseNote = standardTuning[stringIndex];
-                    const finalNote = baseNote + fret;
-                    // Formula to convert MIDI-like note number to frequency
-                    const freq = 440 * Math.pow(2, (finalNote - 21 - 24) / 12);
+                    // **FIX 3: Accurate MIDI note calculation**
+                    const midiNote = standardTuningMidi[stringIndex] + fret;
+                    const freq = 440 * Math.pow(2, (midiNote - 69) / 12);
 
                     const oscillator = ctx.createOscillator();
                     const gainNode = ctx.createGain();
