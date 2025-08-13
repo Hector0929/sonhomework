@@ -28,7 +28,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, addDoc, setDoc, onSnapshot, query, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, addDoc, setDoc, onSnapshot, query, deleteDoc, serverTimestamp, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
         // Make Firebase functions globally available for the Babel script
         window.firebase = {
@@ -45,14 +45,15 @@
             onSnapshot,
             query,
             deleteDoc,
-            serverTimestamp // <-- 加上這一行
+            serverTimestamp,
+            getDoc // <-- 加上這一行
         };
     </script>
 
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
         // Firebase functions from the global window object
-        const { initializeApp, getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, getFirestore, collection, doc, addDoc, setDoc, onSnapshot, query, deleteDoc, serverTimestamp } = window.firebase;
+        const { initializeApp, getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, getFirestore, collection, doc, addDoc, setDoc, onSnapshot, query, deleteDoc, serverTimestamp, getDoc } = window.firebase;
 
         // --- HELPER FUNCTIONS & ICONS ---
         const generateId = () => `id_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -180,6 +181,7 @@
                 if (!db || !user) return;
 
                 setIsProfilesLoading(true);
+                const userDocRef = doc(db, `users/${user.uid}`);
                 const profilesCollectionPath = `users/${user.uid}/profiles`;
                 const q = query(collection(db, profilesCollectionPath));
 
@@ -202,12 +204,16 @@
                     
                     setProfiles(profilesData);
 
-                    let storedProfileId = localStorage.getItem('wordbank_currentProfileId');
-                    if (!storedProfileId || !profilesData.some(p => p.id === storedProfileId)) {
-                        storedProfileId = profilesData[0].id;
+                    // 從 Firestore 讀取上次選擇的 profile，而不是 localStorage
+                    const userDocSnap = await getDoc(userDocRef);
+                    let lastSelectedId = userDocSnap.data()?.lastSelectedProfileId;
+
+                    if (!lastSelectedId || !profilesData.some(p => p.id === lastSelectedId)) {
+                        lastSelectedId = profilesData[0].id;
                     }
-                    setCurrentProfileId(storedProfileId);
-                    localStorage.setItem('wordbank_currentProfileId', storedProfileId);
+                    
+                    // 直接呼叫 handleSelectProfile 來設定狀態並儲存到 Firestore
+                    handleSelectProfile(lastSelectedId, true); // 'true' 表示這是初始設定
                     setIsProfilesLoading(false);
                 }, (error) => {
                     console.error("Error fetching profiles:", error);
@@ -260,9 +266,17 @@
                 }
             };
 
-            const handleSelectProfile = (profileId) => {
+            const handleSelectProfile = async (profileId, isInitialSet = false) => {
                 setCurrentProfileId(profileId);
-                localStorage.setItem('wordbank_currentProfileId', profileId);
+                // 當選擇變更時，將新的 profileId 儲存到 Firestore 的使用者文件中
+                if (db && user && !isInitialSet) {
+                    const userDocRef = doc(db, `users/${user.uid}`);
+                    try {
+                        await setDoc(userDocRef, { lastSelectedProfileId: profileId }, { merge: true });
+                    } catch (error) {
+                        console.error("Failed to save last selected profile:", error);
+                    }
+                }
             };
 
             const sortedWords = useMemo(() => {
