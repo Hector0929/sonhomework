@@ -239,6 +239,35 @@
                 return () => unsubscribe();
             }, [db, user]);
 
+            // Firestore data listener for words, depends on currentProfileId
+            useEffect(() => {
+                if (!db || !user || !currentProfileId) {
+                    setWords([]);
+                    setIsLoading(false);
+                    return;
+                }
+
+                setIsLoading(true);
+                // 使用新的路徑結構
+                const wordsCollectionPath = `users/${user.uid}/profiles/${currentProfileId}/words`;
+                const q = query(collection(db, wordsCollectionPath));
+
+                const unsubscribe = onSnapshot(q, (querySnapshot) => {
+                    const wordsData = querySnapshot.docs.map(doc => ({
+                        id: doc.id,
+                        ...doc.data(),
+                        createdAt: doc.data().createdAt?.toDate ? doc.data().createdAt.toDate() : new Date()
+                    }));
+                    setWords(wordsData);
+                    setIsLoading(false);
+                }, (error) => {
+                    console.error("Error fetching words: ", error);
+                    setIsLoading(false);
+                });
+
+                return () => unsubscribe();
+            }, [db, user, currentProfileId]);
+
             const handleCreateProfile = async (name) => {
                 if (!db || !user) return;
 
