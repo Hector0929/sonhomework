@@ -27,17 +27,21 @@
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        // 修正：引入 setPersistence 和 browserSessionPersistence 來解決無痕模式問題
+        import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, addDoc, setDoc, onSnapshot, query, deleteDoc, serverTimestamp, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js"; // <-- 1. 引入 Functions SDK
+        import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js";
         
-        // Make Firebase functions globally available for the Babel script
+        // 將 Firebase 函式設為全域變數，供 Babel 腳本使用
         window.firebase = {
             initializeApp,
             getAuth,
             onAuthStateChanged,
-            signInWithEmailAndPassword, // <-- 新增：匯出 signIn
-            createUserWithEmailAndPassword, // <-- 新增：匯出 createUser
+            signInWithEmailAndPassword,
+            createUserWithEmailAndPassword,
+            // 修正：匯出新的函式
+            setPersistence,
+            browserSessionPersistence,
             getFirestore,
             collection,
             doc,
@@ -48,179 +52,122 @@
             deleteDoc,
             serverTimestamp,
             getDoc,
-            getFunctions, // <-- 2. 匯出 getFunctions
-            httpsCallable // <-- 3. 匯出 httpsCallable
+            getFunctions,
+            httpsCallable
         };
     </script>
 
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
-        // Firebase functions from the global window object
-        const { initializeApp, getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, getFirestore, collection, doc, addDoc, setDoc, onSnapshot, query, deleteDoc, serverTimestamp, getDoc, getFunctions, httpsCallable } = window.firebase;
+        // 從全域 window 物件取得 Firebase 函式
+        const { 
+            initializeApp, getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, 
+            setPersistence, browserSessionPersistence, // <-- 取得新函式
+            getFirestore, collection, doc, addDoc, setDoc, onSnapshot, query, deleteDoc, serverTimestamp, getDoc, 
+            getFunctions, httpsCallable 
+        } = window.firebase;
 
-        // --- 修正：為預設使用者定義一個固定的帳號密碼 ---
+        // 為預設使用者定義一個固定的帳號密碼
         const DEFAULT_USER_EMAIL = "default-user@wordbank-app.com";
-        const DEFAULT_USER_PASSWORD = "DefaultPassword123!"; // 建議使用更安全的密碼
+        const DEFAULT_USER_PASSWORD = "DefaultPassword123!";
 
-        // --- HELPER FUNCTIONS & ICONS ---
+        // --- 輔助函式與圖示 (無變更) ---
         const generateId = () => `id_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const PlusIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5"y1="12" x2="19" y2="12"></line></svg> );
+        const BookOpenIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg> );
+        const EditIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg> );
+        const Volume2Icon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg> );
+        const Trash2Icon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg> );
+        const LoadingSpinner = () => ( <div className="flex justify-center items-center p-4"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div></div> );
+        const speak = (text) => { if ('speechSynthesis' in window) { const utterance = new SpeechSynthesisUtterance(text); utterance.lang = 'en-US'; window.speechSynthesis.speak(utterance); } else { console.error('Text-to-speech not supported in this browser.'); } };
 
-        const PlusIcon = () => (
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5"y1="12" x2="19" y2="12"></line></svg>
-        );
-        const BookOpenIcon = () => (
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
-        );
-        const EditIcon = () => (
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
-        );
-        const Volume2Icon = () => (
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
-        );
-        const Trash2Icon = () => (
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-        );
-        const LoadingSpinner = () => (
-            <div className="flex justify-center items-center p-4">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-            </div>
-        );
-        const speak = (text) => {
-            if ('speechSynthesis' in window) {
-                const utterance = new SpeechSynthesisUtterance(text);
-                utterance.lang = 'en-US';
-                window.speechSynthesis.speak(utterance);
-            } else {
-                console.error('Text-to-speech not supported in this browser.');
-            }
-        };
-
-        // --- NEW: User Management Component ---
+        // --- 使用者管理元件 (無變更) ---
         function UserManagement({ profiles, currentProfileId, onCreateProfile, onSelectProfile }) {
             const [newProfileName, setNewProfileName] = useState('');
             const [error, setError] = useState('');
-
-            const handleCreate = () => {
-                if (newProfileName.trim()) {
-                    // 在 onCreateProfile 之前檢查
-                    const isDuplicate = profiles.some(
-                        profile => profile.name.toLowerCase() === newProfileName.trim().toLowerCase()
-                    );
-                    if (isDuplicate) {
-                        setError('這個名稱已經存在了！');
-                        return;
-                    }
-                    setError(''); // 清除錯誤
-                    onCreateProfile(newProfileName.trim());
-                    setNewProfileName('');
-                }
-            };
-
-            return (
-                <div className="bg-gray-100 p-4 rounded-lg mb-6 border border-gray-200 flex flex-col sm:flex-row gap-4 items-center justify-center">
-                    <div className="flex gap-2">
-                        <input
-                            type="text"
-                            value={newProfileName}
-                            onChange={(e) => setNewProfileName(e.target.value)}
-                            placeholder="輸入新使用者名稱"
-                            className="p-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                        <button onClick={handleCreate} className="bg-indigo-500 text-white font-bold p-2 rounded-lg hover:bg-indigo-600">
-                            建立新使用者
-                        </button>
-                    </div>
-                    {error && <p className="text-red-500 text-center mt-2">{error}</p>}
-                    <div className="flex gap-2 items-center">
-                        <label htmlFor="profile-select" className="font-medium text-gray-700">目前使用者:</label>
-                        <select
-                            id="profile-select"
-                            value={currentProfileId}
-                            onChange={(e) => onSelectProfile(e.target.value)}
-                            className="p-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            {profiles.map(p => (
-                                <option key={p.id} value={p.id}>{p.name}</option>
-                            ))}
-                        </select>
-                    </div>
-                </div>
-            );
+            const handleCreate = () => { if (newProfileName.trim()) { const isDuplicate = profiles.some( profile => profile.name.toLowerCase() === newProfileName.trim().toLowerCase() ); if (isDuplicate) { setError('這個名稱已經存在了！'); return; } setError(''); onCreateProfile(newProfileName.trim()); setNewProfileName(''); } };
+            return ( <div className="bg-gray-100 p-4 rounded-lg mb-6 border border-gray-200 flex flex-col sm:flex-row gap-4 items-center justify-center"> <div className="flex gap-2"> <input type="text" value={newProfileName} onChange={(e) => setNewProfileName(e.target.value)} placeholder="輸入新使用者名稱" className="p-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" /> <button onClick={handleCreate} className="bg-indigo-500 text-white font-bold p-2 rounded-lg hover:bg-indigo-600"> 建立新使用者 </button> </div> {error && <p className="text-red-500 text-center mt-2">{error}</p>} <div className="flex gap-2 items-center"> <label htmlFor="profile-select" className="font-medium text-gray-700">目前使用者:</label> <select id="profile-select" value={currentProfileId} onChange={(e) => onSelectProfile(e.target.value)} className="p-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"> {profiles.map(p => ( <option key={p.id} value={p.id}>{p.name}</option> ))} </select> </div> </div> );
         }
 
-        // --- Main App Component ---
+        // --- 主應用程式元件 ---
         function App() {
             const [db, setDb] = useState(null);
-            const [auth, setAuth] = useState(null); // <-- 新增 auth state
-            const [user, setUser] = useState(null); // <-- 新增 user state
-            const [functions, setFunctions] = useState(null); // <-- 新增 functions state
-            
-            // User profiles state
+            const [auth, setAuth] = useState(null);
+            const [user, setUser] = useState(null);
+            const [functions, setFunctions] = useState(null);
             const [profiles, setProfiles] = useState([]);
             const [currentProfileId, setCurrentProfileId] = useState('');
-
-            // App content state
             const [mode, setMode] = useState('add');
             const [words, setWords] = useState([]);
             const [isLoading, setIsLoading] = useState(true);
-            const [isProfilesLoading, setIsProfilesLoading] = useState(true); // <-- 新增 Profile 讀取狀態
+            const [isProfilesLoading, setIsProfilesLoading] = useState(true);
             
-            // Firebase Initialization and Auth
+            // Firebase 初始化與認證
             useEffect(() => {
-                const firebaseConfig = {
-                  apiKey: "AIzaSyDpWl8Ie0e38vmtK0zYS09PxuVoHKTDG_c",
-                  authDomain: "wordbank-5ff4f.firebaseapp.com",
-                  projectId: "wordbank-5ff4f",
-                  storageBucket: "wordbank-5ff4f.firebasestorage.app",
-                  messagingSenderId: "514230924466",
-                  appId: "1:514230924466:web:55aec014ab6c20746005ab",
-                  measurementId: "G-HGGYRFYK2G"
-                };
-
+                const firebaseConfig = { apiKey: "AIzaSyDpWl8Ie0e38vmtK0zYS09PxuVoHKTDG_c", authDomain: "wordbank-5ff4f.firebaseapp.com", projectId: "wordbank-5ff4f", storageBucket: "wordbank-5ff4f.firebasestorage.app", messagingSenderId: "514230924466", appId: "1:514230924466:web:55aec014ab6c20746005ab", measurementId: "G-HGGYRFYK2G" };
                 try {
                     const app = initializeApp(firebaseConfig);
                     const firebaseAuth = getAuth(app);
+                    const firestoreDb = getFirestore(app);
+                    
                     setAuth(firebaseAuth);
-                    setDb(getFirestore(app));
-                    setFunctions(getFunctions(app, 'asia-east1')); // <-- 初始化 Functions，可指定區域
+                    setDb(firestoreDb);
+                    setFunctions(getFunctions(app, 'asia-east1'));
 
-                    // --- 修正：實作「讀取或建立」的穩定使用者邏輯 ---
-                    onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
-                        if (firebaseUser) {
-                            // 情況一：使用者已登入，設定使用者狀態
-                            console.log("使用者已登入:", firebaseUser.uid);
-                            setUser(firebaseUser);
-                        } else {
-                            // 情況二：沒有使用者登入，嘗試登入預設使用者
-                            console.log("沒有使用者登入，正在嘗試登入預設使用者...");
-                            try {
-                                await signInWithEmailAndPassword(firebaseAuth, DEFAULT_USER_EMAIL, DEFAULT_USER_PASSWORD);
-                                console.log("預設使用者登入成功。");
-                                // 登入成功後，onAuthStateChanged 會再次觸發並進入上面的 if 區塊
-                            } catch (error) {
-                                if (error.code === 'auth/user-not-found') {
-                                    // 如果使用者不存在，這表示是第一次執行，則建立該使用者
-                                    console.log("找不到預設使用者，正在建立新帳號...");
-                                    try {
-                                        await createUserWithEmailAndPassword(firebaseAuth, DEFAULT_USER_EMAIL, DEFAULT_USER_PASSWORD);
-                                        console.log("預設使用者帳號建立成功。");
-                                        // 建立成功後，onAuthStateChanged 也會再次觸發
-                                    } catch (creationError) {
-                                        console.error("建立預設使用者失敗:", creationError);
-                                    }
+                    // 修正 #2：設定認證持續性以支援無痕模式
+                    setPersistence(firebaseAuth, browserSessionPersistence)
+                        .then(() => {
+                            // 持續性設定完成後，再設定狀態監聽器
+                            const unsubscribe = onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
+                                if (firebaseUser) {
+                                    console.log("使用者已登入:", firebaseUser.uid);
+                                    setUser(firebaseUser);
                                 } else {
-                                    // 其他登入錯誤 (例如密碼錯誤、網路問題)
-                                    console.error("登入預設使用者時發生其他錯誤:", error);
+                                    console.log("沒有使用者登入，正在嘗試登入預設使用者...");
+                                    try {
+                                        await signInWithEmailAndPassword(firebaseAuth, DEFAULT_USER_EMAIL, DEFAULT_USER_PASSWORD);
+                                    } catch (error) {
+                                        if (error.code === 'auth/user-not-found') {
+                                            console.log("找不到預設使用者，正在建立新帳號...");
+                                            try {
+                                                const userCredential = await createUserWithEmailAndPassword(firebaseAuth, DEFAULT_USER_EMAIL, DEFAULT_USER_PASSWORD);
+                                                const newUserId = userCredential.user.uid;
+                                                console.log("預設使用者帳號建立成功，UID:", newUserId);
+
+                                                // 修正 #1：只在第一次建立帳號時，建立初始資料
+                                                console.log("正在建立初始資料庫文件...");
+                                                const userDocRef = doc(firestoreDb, "users", newUserId);
+                                                const defaultProfileRef = doc(collection(userDocRef, "profiles")); // 產生一個新的 profile ID
+                                                
+                                                // 建立使用者主文件，並設定預設的 profile ID
+                                                await setDoc(userDocRef, { lastSelectedProfileId: defaultProfileRef.id });
+                                                // 建立預設的 profile 子文件
+                                                await setDoc(defaultProfileRef, { name: '預設使用者' });
+
+                                                console.log("初始資料建立完成。");
+
+                                            } catch (creationError) {
+                                                console.error("建立預設使用者或初始資料失敗:", creationError);
+                                            }
+                                        } else {
+                                            console.error("登入預設使用者時發生其他錯誤:", error);
+                                        }
+                                    }
                                 }
-                            }
-                        }
-                    });
+                            });
+                            // 在元件卸載時取消監聽
+                            return () => unsubscribe();
+                        })
+                        .catch((error) => {
+                            console.error("設定認證持續性失敗:", error);
+                        });
+
                 } catch (error) {
-                    console.error("Firebase init failed:", error);
+                    console.error("Firebase 初始化失敗:", error);
                 }
             }, []);
 
-            // Load profiles from Firestore once user is authenticated
+            // 從 Firestore 載入 Profiles
             useEffect(() => {
                 if (!db || !user) return;
 
@@ -230,25 +177,20 @@
                 const q = query(collection(db, profilesCollectionPath));
 
                 const unsubscribe = onSnapshot(q, async (querySnapshot) => {
-                    let profilesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
+                    const profilesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    
+                    // 修正 #1：移除自動建立 profile 的邏輯
+                    // 現在資料只會在帳號建立時產生一次，這裡只負責讀取
                     if (profilesData.length === 0) {
-                        // If no profiles, create a default one
-                        const defaultProfile = { name: '預設使用者' };
-                        try {
-                            const docRef = await addDoc(collection(db, profilesCollectionPath), defaultProfile);
-                            profilesData = [{ id: docRef.id, ...defaultProfile }];
-                            console.log("Created default profile.");
-                        } catch (e) {
-                            console.error("Error creating default profile:", e);
-                            setIsProfilesLoading(false);
-                            return;
-                        }
+                        console.warn("此使用者沒有任何 profile。");
+                        setProfiles([]);
+                        setCurrentProfileId('');
+                        setIsProfilesLoading(false);
+                        return;
                     }
                     
                     setProfiles(profilesData);
 
-                    // 從 Firestore 讀取上次選擇的 profile，而不是 localStorage
                     const userDocSnap = await getDoc(userDocRef);
                     let lastSelectedId = userDocSnap.data()?.lastSelectedProfileId;
 
@@ -256,110 +198,68 @@
                         lastSelectedId = profilesData[0].id;
                     }
                     
-                    // 直接呼叫 handleSelectProfile 來設定狀態並儲存到 Firestore
-                    handleSelectProfile(lastSelectedId, true); // 'true' 表示這是初始設定
+                    setCurrentProfileId(lastSelectedId);
                     setIsProfilesLoading(false);
                 }, (error) => {
-                    console.error("Error fetching profiles:", error);
+                    console.error("讀取 profiles 失敗:", error);
                     setIsProfilesLoading(false);
                 });
 
                 return () => unsubscribe();
             }, [db, user]);
 
-            // Firestore data listener for words, depends on currentProfileId
+            // 監聽單字資料 (無變更)
             useEffect(() => {
-                if (!db || !user || !currentProfileId) {
-                    setWords([]);
-                    setIsLoading(false);
-                    return;
-                }
-
+                if (!db || !user || !currentProfileId) { setWords([]); setIsLoading(false); return; }
                 setIsLoading(true);
-                // 使用新的路徑結構
                 const wordsCollectionPath = `users/${user.uid}/profiles/${currentProfileId}/words`;
                 const q = query(collection(db, wordsCollectionPath));
-
                 const unsubscribe = onSnapshot(q, (querySnapshot) => {
-                    const wordsData = querySnapshot.docs.map(doc => ({
-                        id: doc.id,
-                        ...doc.data(),
-                        createdAt: doc.data().createdAt?.toDate ? doc.data().createdAt.toDate() : new Date()
-                    }));
+                    const wordsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), createdAt: doc.data().createdAt?.toDate ? doc.data().createdAt.toDate() : new Date() }));
                     setWords(wordsData);
                     setIsLoading(false);
-                }, (error) => {
-                    console.error("Error fetching words: ", error);
-                    setIsLoading(false);
-                });
-
+                }, (error) => { console.error("讀取單字失敗: ", error); setIsLoading(false); });
                 return () => unsubscribe();
             }, [db, user, currentProfileId]);
 
             const handleCreateProfile = async (name) => {
                 if (!db || !user) return;
-
                 const trimmedName = name.trim();
-                if (!trimmedName) return; // 防止建立空名稱
-
-                // 檢查是否有重複的使用者名稱 (忽略大小寫)
-                const isDuplicate = profiles.some(
-                    profile => profile.name.toLowerCase() === trimmedName.toLowerCase()
-                );
-
-                if (isDuplicate) {
-                    alert(`使用者名稱 "${trimmedName}" 已經存在。`);
-                    return; // 如果重複，則停止執行
-                }
-
+                if (!trimmedName) return;
+                const isDuplicate = profiles.some( profile => profile.name.toLowerCase() === trimmedName.toLowerCase() );
+                if (isDuplicate) { alert(`使用者名稱 "${trimmedName}" 已經存在。`); return; }
                 const newProfile = { name: trimmedName };
                 const profilesCollectionPath = `users/${user.uid}/profiles`;
                 try {
                     const docRef = await addDoc(collection(db, profilesCollectionPath), newProfile);
-                    // 新增後直接切換到該 profile
                     handleSelectProfile(docRef.id);
-                } catch (e) {
-                    console.error("Error creating profile:", e);
-                }
+                } catch (e) { console.error("建立 profile 失敗:", e); }
             };
 
-            const handleSelectProfile = async (profileId, isInitialSet = false) => {
+            const handleSelectProfile = async (profileId) => {
                 setCurrentProfileId(profileId);
-                // 當選擇變更時，將新的 profileId 儲存到 Firestore 的使用者文件中
-                if (db && user && !isInitialSet) {
+                if (db && user) {
                     const userDocRef = doc(db, `users/${user.uid}`);
                     try {
                         await setDoc(userDocRef, { lastSelectedProfileId: profileId }, { merge: true });
-                    } catch (error) {
-                        console.error("Failed to save last selected profile:", error);
-                    }
+                    } catch (error) { console.error("儲存上次選擇的 profile 失敗:", error); }
                 }
             };
 
             const sortedWords = useMemo(() => {
-                return [...words].sort((a, b) => {
-                    if (a.learned === b.learned) return (b.createdAt || 0) - (a.createdAt || 0);
-                    return a.learned ? 1 : -1;
-                });
+                return [...words].sort((a, b) => { if (a.learned === b.learned) return (b.createdAt || 0) - (a.createdAt || 0); return a.learned ? 1 : -1; });
             }, [words]);
 
             const renderContent = () => {
-                if (isLoading || isProfilesLoading || !currentProfileId || !user) {
-                    return <div className="mt-10"><LoadingSpinner /></div>;
-                }
-                // 將 user.uid 和 profileId 傳遞下去
+                if (isLoading || isProfilesLoading || !user) { return <div className="mt-10"><LoadingSpinner /></div>; }
+                if (!currentProfileId) { return <div className="text-center p-8 text-gray-500">請先建立一個使用者來開始。</div>; }
                 const userId = user.uid;
                 const profileId = currentProfileId;
-
                 switch (mode) {
-                    case 'add':
-                        return <AddWordModule db={db} userId={userId} profileId={profileId} functions={functions} />; // <-- 傳遞 functions
-                    case 'review':
-                        return <ReviewModule db={db} userId={userId} profileId={profileId} words={sortedWords} />;
-                    case 'test':
-                        return <TestModule words={words} />;
-                    default:
-                        return <AddWordModule db={db} userId={userId} profileId={profileId} functions={functions} />; // <-- 傳遞 functions
+                    case 'add': return <AddWordModule db={db} userId={userId} profileId={profileId} functions={functions} />;
+                    case 'review': return <ReviewModule db={db} userId={userId} profileId={profileId} words={sortedWords} />;
+                    case 'test': return <TestModule words={words} />;
+                    default: return <AddWordModule db={db} userId={userId} profileId={profileId} functions={functions} />;
                 }
             };
 
@@ -370,25 +270,12 @@
                             <h1 className="text-4xl font-bold text-blue-600">英文單字學習板</h1>
                             <p className="text-gray-500 mt-2">建立你的個人化單字庫</p>
                         </header>
-
-                        <UserManagement 
-                            profiles={profiles}
-                            currentProfileId={currentProfileId}
-                            onCreateProfile={handleCreateProfile}
-                            onSelectProfile={handleSelectProfile}
-                        />
-
+                        <UserManagement profiles={profiles} currentProfileId={currentProfileId} onCreateProfile={handleCreateProfile} onSelectProfile={handleSelectProfile} />
                         <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6">
                             <nav className="flex justify-center border-b-2 border-gray-200 mb-6 overflow-x-auto">
-                                <button onClick={() => setMode('add')} className={`flex-shrink-0 flex items-center gap-2 px-4 py-3 text-lg font-medium border-b-4 ${mode === 'add' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-blue-500'}`}>
-                                    <PlusIcon /> 新增單字
-                                </button>
-                                <button onClick={() => setMode('review')} className={`flex-shrink-0 flex items-center gap-2 px-4 py-3 text-lg font-medium border-b-4 ${mode === 'review' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-blue-500'}`}>
-                                    <BookOpenIcon /> 複習模式
-                                </button>
-                                <button onClick={() => setMode('test')} className={`flex-shrink-0 flex items-center gap-2 px-4 py-3 text-lg font-medium border-b-4 ${mode === 'test' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-blue-500'}`}>
-                                    <EditIcon /> 考試模式
-                                </button>
+                                <button onClick={() => setMode('add')} className={`flex-shrink-0 flex items-center gap-2 px-4 py-3 text-lg font-medium border-b-4 ${mode === 'add' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-blue-500'}`}><PlusIcon /> 新增單字</button>
+                                <button onClick={() => setMode('review')} className={`flex-shrink-0 flex items-center gap-2 px-4 py-3 text-lg font-medium border-b-4 ${mode === 'review' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-blue-500'}`}><BookOpenIcon /> 複習模式</button>
+                                <button onClick={() => setMode('test')} className={`flex-shrink-0 flex items-center gap-2 px-4 py-3 text-lg font-medium border-b-4 ${mode === 'test' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-blue-500'}`}><EditIcon /> 考試模式</button>
                             </nav>
                             <main>{renderContent()}</main>
                         </div>
@@ -397,6 +284,9 @@
             );
         }
 
+        // --- 其他元件 (AddWordModule, ReviewModule, Flashcard, TestModule) ---
+        // 這些元件的程式碼與您提供的版本相同，此處為求簡潔省略。
+        // 您可以將您檔案中這些元件的程式碼直接複製貼上到這裡。
         // --- AddWordModule (No major changes needed) ---
         function AddWordModule({ db, userId, profileId, functions }) { // <-- 接收 functions
             const [word, setWord] = useState('');
