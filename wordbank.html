@@ -27,7 +27,7 @@
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, setPersistence, browserSessionPersistence, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, setPersistence, browserSessionPersistence, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, addDoc, setDoc, onSnapshot, query, deleteDoc, serverTimestamp, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js";
         
@@ -37,7 +37,8 @@
             onAuthStateChanged,
             setPersistence,
             browserSessionPersistence,
-            signInAnonymously,
+            signInWithEmailAndPassword,
+            createUserWithEmailAndPassword,
             getFirestore,
             collection,
             doc,
@@ -56,10 +57,14 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
         const { 
-            initializeApp, getAuth, onAuthStateChanged, setPersistence, browserSessionPersistence, signInAnonymously,
+            initializeApp, getAuth, onAuthStateChanged, setPersistence, browserSessionPersistence, 
+            signInWithEmailAndPassword, createUserWithEmailAndPassword,
             getFirestore, collection, doc, addDoc, setDoc, onSnapshot, query, deleteDoc, serverTimestamp, getDoc, 
             getFunctions, httpsCallable 
         } = window.firebase;
+
+        const SHARED_USER_EMAIL = "shared.user@wordbank-app.com";
+        const SHARED_USER_PASSWORD = "SharedPasswordForAllDevices123!";
 
         // --- 輔助函式與圖示 (無變更) ---
         const PlusIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5"y1="12" x2="19" y2="12"></line></svg> );
@@ -70,8 +75,8 @@
         const LoadingSpinner = () => ( <div className="flex justify-center items-center p-4"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div></div> );
         const speak = (text) => { if ('speechSynthesis' in window) { const utterance = new SpeechSynthesisUtterance(text); utterance.lang = 'en-US'; window.speechSynthesis.speak(utterance); } else { console.error('Text-to-speech not supported in this browser.'); } };
 
-        // --- 使用者管理元件 (已修改) ---
-        function UserManagement({ profiles, currentProfileId, onCreateProfile, onSelectProfile, onDeleteProfile }) {
+        // --- 學習者管理元件 (UI 文字已修改) ---
+        function LearnerManagement({ profiles, currentProfileId, onCreateProfile, onSelectProfile, onDeleteProfile }) {
             const [newProfileName, setNewProfileName] = useState('');
             const [error, setError] = useState('');
             const handleCreate = () => { if (newProfileName.trim()) { const isDuplicate = profiles.some( profile => profile.name.toLowerCase() === newProfileName.trim().toLowerCase() ); if (isDuplicate) { setError('這個名稱已經存在了！'); return; } setError(''); onCreateProfile(newProfileName.trim()); setNewProfileName(''); } };
@@ -83,21 +88,20 @@
                             type="text" 
                             value={newProfileName} 
                             onChange={(e) => setNewProfileName(e.target.value)} 
-                            placeholder={profiles.length > 0 ? "輸入新使用者名稱" : "請建立第一個使用者"}
+                            placeholder={profiles.length > 0 ? "輸入新學習者名稱" : "請建立第一個學習者"}
                             className="p-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
                         /> 
-                        <button onClick={handleCreate} className="bg-indigo-500 text-white font-bold p-2 rounded-lg hover:bg-indigo-600"> 建立新使用者 </button> 
+                        <button onClick={handleCreate} className="bg-indigo-500 text-white font-bold p-2 rounded-lg hover:bg-indigo-600"> 建立新學習者 </button> 
                     </div> 
                     {error && <p className="text-red-500 text-center mt-2 sm:mt-0">{error}</p>} 
                     
-                    {/* 只有在 profiles 存在時才顯示列表 */}
                     {profiles && profiles.length > 0 && (
                         <div className="flex gap-2 items-center"> 
-                            <label htmlFor="profile-select" className="font-medium text-gray-700">目前使用者:</label> 
+                            <label htmlFor="profile-select" className="font-medium text-gray-700">目前學習者:</label> 
                             <select id="profile-select" value={currentProfileId} onChange={(e) => onSelectProfile(e.target.value)} className="p-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"> 
                                 {profiles.map(p => ( <option key={p.id} value={p.id}>{p.name}</option> ))} 
                             </select> 
-                            <button onClick={() => onDeleteProfile(currentProfileId)} disabled={profiles.length <= 1} className="p-2 text-red-500 hover:text-red-700 disabled:text-gray-400 disabled:cursor-not-allowed" aria-label="刪除目前使用者"><Trash2Icon /></button> 
+                            <button onClick={() => onDeleteProfile(currentProfileId)} disabled={profiles.length <= 1} className="p-2 text-red-500 hover:text-red-700 disabled:text-gray-400 disabled:cursor-not-allowed" aria-label="刪除目前學習者"><Trash2Icon /></button> 
                         </div>
                     )}
                 </div> 
@@ -116,7 +120,7 @@
             const [words, setWords] = useState([]);
             const [isAppLoading, setIsAppLoading] = useState(true);
             
-            // Firebase 初始化與認證 (已修改)
+            // Firebase 初始化與認證 (採用共享帳號模型)
             useEffect(() => {
                 const firebaseConfig = { apiKey: "AIzaSyDpWl8Ie0e38vmtK0zYS09PxuVoHKTDG_c", authDomain: "wordbank-5ff4f.firebaseapp.com", projectId: "wordbank-5ff4f", storageBucket: "wordbank-5ff4f.firebasestorage.app", messagingSenderId: "514230924466", appId: "1:514230924466:web:55aec014ab6c20746005ab", measurementId: "G-HGGYRFYK2G" };
                 try {
@@ -130,30 +134,30 @@
                     setPersistence(firebaseAuth, browserSessionPersistence).then(() => {
                         const unsubscribe = onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
                             if (firebaseUser) {
-                                console.log("使用者已匿名登入:", firebaseUser.uid);
-                                const userDocRef = doc(firestoreDb, "users", firebaseUser.uid);
-                                const userDocSnap = await getDoc(userDocRef);
-
-                                // 修改：不再自動建立預設使用者
-                                if (!userDocSnap.exists()) {
-                                    // 如果使用者文件不存在，代表是第一次。建立一個空的使用者文件來記錄他們的存在。
-                                    console.log("偵測到新使用者，正在建立使用者文件...");
-                                    try {
-                                        // 只建立使用者根文件，lastSelectedProfileId 設為空
-                                        await setDoc(userDocRef, { lastSelectedProfileId: '' });
-                                        console.log("使用者文件建立完成。");
-                                    } catch (dbError) {
-                                        console.error("建立使用者文件失敗:", dbError);
-                                    }
-                                }
-                                
+                                console.log("共享帳號已登入:", firebaseUser.uid);
                                 setUser(firebaseUser);
                             } else {
-                                console.log("沒有使用者，正在執行匿名登入...");
+                                console.log("沒有使用者，正在嘗試登入或建立共享帳號...");
                                 try {
-                                    await signInAnonymously(firebaseAuth);
+                                    await signInWithEmailAndPassword(firebaseAuth, SHARED_USER_EMAIL, SHARED_USER_PASSWORD);
                                 } catch (error) {
-                                    console.error("匿名登入失敗:", error);
+                                    if (error.code === 'auth/user-not-found') {
+                                        console.log("找不到共享帳號，正在建立...");
+                                        try {
+                                            const userCredential = await createUserWithEmailAndPassword(firebaseAuth, SHARED_USER_EMAIL, SHARED_USER_PASSWORD);
+                                            const newUserId = userCredential.user.uid;
+                                            const userDocRef = doc(firestoreDb, "users", newUserId);
+                                            await setDoc(userDocRef, { lastSelectedProfileId: '' });
+                                            console.log("共享帳號及使用者文件建立完成。");
+                                        } catch (creationError) {
+                                            console.error("建立共享帳號失敗:", creationError);
+                                        }
+                                    } else if (error.code === 'auth/operation-not-allowed' || error.code === 'auth/invalid-credential') {
+                                        console.error("登入失敗！請務必前往 Firebase 控制台，啟用『電子郵件/密碼』登入。");
+                                        alert("登入設定錯誤！請確認已在 Firebase 後台啟用『電子郵件/密碼』登入方式。");
+                                    } else {
+                                        console.error("登入共享帳號時發生其他錯誤:", error);
+                                    }
                                 }
                             }
                         });
@@ -166,7 +170,7 @@
                 }
             }, []);
 
-            // 監聽器 #1：載入 Profile 列表
+            // 監聽器 #1：載入 Profile (學習者) 列表
             useEffect(() => {
                 if (!db || !user) {
                     setProfiles([]);
@@ -186,12 +190,12 @@
                 if (!db || !user) return;
                 const userDocRef = doc(db, `users/${user.uid}`);
                 const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+                    if (!docSnap.exists()) return;
                     const lastSelectedId = docSnap.data()?.lastSelectedProfileId;
                     if (profiles.length > 0) {
                         const isValid = profiles.some(p => p.id === lastSelectedId);
                         const newProfileId = isValid ? lastSelectedId : profiles[0].id;
                         setCurrentProfileId(newProfileId);
-                        // 如果當前選擇的 profile 不合法，則更新為列表中的第一個
                         if (!isValid) {
                             handleSelectProfile(newProfileId);
                         }
@@ -230,7 +234,6 @@
                 const profilesCollectionPath = `users/${user.uid}/profiles`;
                 try {
                     const docRef = await addDoc(collection(db, profilesCollectionPath), newProfile);
-                    // 建立後，自動選擇這個新的 profile
                     await handleSelectProfile(docRef.id);
                 } catch (e) { console.error("建立 profile 失敗:", e); }
             };
@@ -245,14 +248,13 @@
 
             const handleDeleteProfile = async (profileId) => {
                 if (!db || !user || !profileId || profiles.length <= 1) {
-                    alert("必須保留至少一個使用者。");
+                    alert("必須保留至少一個學習者。");
                     return;
                 }
-                if (window.confirm(`確定要刪除使用者 "${profiles.find(p=>p.id===profileId)?.name}" 嗎？此動作無法復原。`)) {
+                if (window.confirm(`確定要刪除學習者 "${profiles.find(p=>p.id===profileId)?.name}" 嗎？此動作無法復原。`)) {
                     try {
                         const profileDocRef = doc(db, `users/${user.uid}/profiles`, profileId);
                         await deleteDoc(profileDocRef);
-                        // 刪除後，lastSelectedProfileId 會在監聽器 #2 中自動更新
                     } catch (error) {
                         console.error("刪除 profile 失敗:", error);
                         alert("刪除失敗，請稍後再試。");
@@ -264,7 +266,7 @@
                 return [...words].sort((a, b) => { if (a.learned === b.learned) return (b.createdAt || 0) - (a.createdAt || 0); return a.learned ? 1 : -1; });
             }, [words]);
 
-            if (isAppLoading && !user) { // 只在最開始完全沒有 user 時顯示全螢幕讀取
+            if (isAppLoading && !user) {
                 return (
                     <div className="flex justify-center items-center min-h-screen">
                         <LoadingSpinner />
@@ -280,9 +282,8 @@
                             <p className="text-gray-500 mt-2">建立你的個人化單字庫</p>
                         </header>
                         
-                        {/* 修改：只要 App 不在初始讀取狀態就顯示使用者管理 */}
-                        {!isAppLoading && (
-                            <UserManagement 
+                        {user && (
+                            <LearnerManagement 
                                 profiles={profiles} 
                                 currentProfileId={currentProfileId} 
                                 onCreateProfile={handleCreateProfile} 
@@ -298,10 +299,11 @@
                                 <button onClick={() => setMode('test')} className={`flex-shrink-0 flex items-center gap-2 px-4 py-3 text-lg font-medium border-b-4 ${mode === 'test' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-blue-500'}`}><EditIcon /> 考試模式</button>
                             </nav>
                             <main>
-                                { isAppLoading ? <LoadingSpinner /> : !currentProfileId ? (
-                                    <div className="text-center p-8 text-gray-500">請先建立一個使用者來開始。</div>
+                                { isAppLoading ? <LoadingSpinner /> : !currentProfileId && profiles.length === 0 ? (
+                                    <div className="text-center p-8 text-gray-500">請在上方建立您的第一個學習者（例如：Hector）來開始使用。</div>
                                 ) : (
                                     (() => {
+                                        if (!user || !currentProfileId) return <LoadingSpinner />;
                                         const userId = user.uid;
                                         const profileId = currentProfileId;
                                         switch (mode) {
