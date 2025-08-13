@@ -62,7 +62,7 @@
         // 從全域 window 物件取得 Firebase 函式
         const { 
             initializeApp, getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, 
-            setPersistence, browserSessionPersistence, // <-- 取得新函式
+            setPersistence, browserSessionPersistence,
             getFirestore, collection, doc, addDoc, setDoc, onSnapshot, query, deleteDoc, serverTimestamp, getDoc, 
             getFunctions, httpsCallable 
         } = window.firebase;
@@ -82,11 +82,11 @@
         const speak = (text) => { if ('speechSynthesis' in window) { const utterance = new SpeechSynthesisUtterance(text); utterance.lang = 'en-US'; window.speechSynthesis.speak(utterance); } else { console.error('Text-to-speech not supported in this browser.'); } };
 
         // --- 使用者管理元件 (無變更) ---
-        function UserManagement({ profiles, currentProfileId, onCreateProfile, onSelectProfile }) {
+        function UserManagement({ profiles, currentProfileId, onCreateProfile, onSelectProfile, onDeleteProfile }) {
             const [newProfileName, setNewProfileName] = useState('');
             const [error, setError] = useState('');
             const handleCreate = () => { if (newProfileName.trim()) { const isDuplicate = profiles.some( profile => profile.name.toLowerCase() === newProfileName.trim().toLowerCase() ); if (isDuplicate) { setError('這個名稱已經存在了！'); return; } setError(''); onCreateProfile(newProfileName.trim()); setNewProfileName(''); } };
-            return ( <div className="bg-gray-100 p-4 rounded-lg mb-6 border border-gray-200 flex flex-col sm:flex-row gap-4 items-center justify-center"> <div className="flex gap-2"> <input type="text" value={newProfileName} onChange={(e) => setNewProfileName(e.target.value)} placeholder="輸入新使用者名稱" className="p-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" /> <button onClick={handleCreate} className="bg-indigo-500 text-white font-bold p-2 rounded-lg hover:bg-indigo-600"> 建立新使用者 </button> </div> {error && <p className="text-red-500 text-center mt-2">{error}</p>} <div className="flex gap-2 items-center"> <label htmlFor="profile-select" className="font-medium text-gray-700">目前使用者:</label> <select id="profile-select" value={currentProfileId} onChange={(e) => onSelectProfile(e.target.value)} className="p-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"> {profiles.map(p => ( <option key={p.id} value={p.id}>{p.name}</option> ))} </select> </div> </div> );
+            return ( <div className="bg-gray-100 p-4 rounded-lg mb-6 border border-gray-200 flex flex-col sm:flex-row gap-4 items-center justify-center flex-wrap"> <div className="flex gap-2"> <input type="text" value={newProfileName} onChange={(e) => setNewProfileName(e.target.value)} placeholder="輸入新使用者名稱" className="p-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" /> <button onClick={handleCreate} className="bg-indigo-500 text-white font-bold p-2 rounded-lg hover:bg-indigo-600"> 建立新使用者 </button> </div> {error && <p className="text-red-500 text-center mt-2 sm:mt-0">{error}</p>} <div className="flex gap-2 items-center"> <label htmlFor="profile-select" className="font-medium text-gray-700">目前使用者:</label> <select id="profile-select" value={currentProfileId} onChange={(e) => onSelectProfile(e.target.value)} className="p-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"> {profiles.map(p => ( <option key={p.id} value={p.id}>{p.name}</option> ))} </select> <button onClick={() => onDeleteProfile(currentProfileId)} disabled={profiles.length <= 1} className="p-2 text-red-500 hover:text-red-700 disabled:text-gray-400 disabled:cursor-not-allowed" aria-label="刪除目前使用者"><Trash2Icon /></button> </div> </div> );
         }
 
         // --- 主應用程式元件 ---
@@ -99,8 +99,7 @@
             const [currentProfileId, setCurrentProfileId] = useState('');
             const [mode, setMode] = useState('add');
             const [words, setWords] = useState([]);
-            const [isLoading, setIsLoading] = useState(true);
-            const [isProfilesLoading, setIsProfilesLoading] = useState(true);
+            const [isAppLoading, setIsAppLoading] = useState(true);
             
             // Firebase 初始化與認證
             useEffect(() => {
@@ -109,140 +108,118 @@
                     const app = initializeApp(firebaseConfig);
                     const firebaseAuth = getAuth(app);
                     const firestoreDb = getFirestore(app);
-                    
                     setAuth(firebaseAuth);
                     setDb(firestoreDb);
                     setFunctions(getFunctions(app, 'asia-east1'));
-
-                    // 修正 #2：設定認證持續性以支援無痕模式
-                    setPersistence(firebaseAuth, browserSessionPersistence)
-                        .then(() => {
-                            // 持續性設定完成後，再設定狀態監聽器
-                            const unsubscribe = onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
-                                if (firebaseUser) {
-                                    console.log("使用者已登入:", firebaseUser.uid);
-                                    setUser(firebaseUser);
-                                } else {
-                                    console.log("沒有使用者登入，正在嘗試登入預設使用者...");
-                                    try {
-                                        await signInWithEmailAndPassword(firebaseAuth, DEFAULT_USER_EMAIL, DEFAULT_USER_PASSWORD);
-                                    } catch (error) {
-                                        if (error.code === 'auth/user-not-found') {
-                                            console.log("找不到預設使用者，正在建立新帳號...");
-                                            try {
-                                                const userCredential = await createUserWithEmailAndPassword(firebaseAuth, DEFAULT_USER_EMAIL, DEFAULT_USER_PASSWORD);
-                                                const newUserId = userCredential.user.uid;
-                                                console.log("預設使用者帳號建立成功，UID:", newUserId);
-
-                                                // 修正 #1：只在第一次建立帳號時，建立初始資料
-                                                console.log("正在建立初始資料庫文件...");
-                                                const userDocRef = doc(firestoreDb, "users", newUserId);
-                                                const defaultProfileRef = doc(collection(userDocRef, "profiles")); // 產生一個新的 profile ID
-                                                
-                                                // 建立使用者主文件，並設定預設的 profile ID
-                                                await setDoc(userDocRef, { lastSelectedProfileId: defaultProfileRef.id });
-                                                // 建立預設的 profile 子文件
-                                                await setDoc(defaultProfileRef, { name: '預設使用者' });
-
-                                                console.log("初始資料建立完成。");
-
-                                            } catch (creationError) {
-                                                console.error("建立預設使用者或初始資料失敗:", creationError);
-                                            }
-                                        } else {
-                                            console.error("登入預設使用者時發生其他錯誤:", error);
-                                        }
-                                    }
+                    setPersistence(firebaseAuth, browserSessionPersistence).then(() => {
+                        const unsubscribe = onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
+                            if (firebaseUser) {
+                                setUser(firebaseUser);
+                            } else {
+                                try {
+                                    await signInWithEmailAndPassword(firebaseAuth, DEFAULT_USER_EMAIL, DEFAULT_USER_PASSWORD);
+                                } catch (error) {
+                                    if (error.code === 'auth/user-not-found') {
+                                        try {
+                                            const userCredential = await createUserWithEmailAndPassword(firebaseAuth, DEFAULT_USER_EMAIL, DEFAULT_USER_PASSWORD);
+                                            const newUserId = userCredential.user.uid;
+                                            const userDocRef = doc(firestoreDb, "users", newUserId);
+                                            const defaultProfileRef = doc(collection(userDocRef, "profiles"));
+                                            await setDoc(userDocRef, { lastSelectedProfileId: defaultProfileRef.id });
+                                            await setDoc(defaultProfileRef, { name: '預設使用者' });
+                                        } catch (creationError) { console.error("建立預設使用者或初始資料失敗:", creationError); }
+                                    } else { console.error("登入預設使用者時發生其他錯誤:", error); }
                                 }
-                            });
-                            // 在元件卸載時取消監聽
-                            return () => unsubscribe();
-                        })
-                        .catch((error) => {
-                            console.error("設定認證持續性失敗:", error);
+                            }
                         });
-
-                } catch (error) {
-                    console.error("Firebase 初始化失敗:", error);
-                }
+                        return () => unsubscribe();
+                    }).catch((error) => { console.error("設定認證持續性失敗:", error); });
+                } catch (error) { console.error("Firebase 初始化失敗:", error); }
             }, []);
 
-            // 從 Firestore 載入 Profiles
-            useEffect(() => {
-                if (!db || !user) return;
+            // *** 修正：建立兩個獨立的監聽器來確保資料同步 ***
 
-                setIsProfilesLoading(true);
-                const userDocRef = doc(db, `users/${user.uid}`);
+            // 監聽器 #1：載入 Profile 列表
+            useEffect(() => {
+                if (!db || !user) {
+                    setProfiles([]);
+                    return;
+                }
                 const profilesCollectionPath = `users/${user.uid}/profiles`;
                 const q = query(collection(db, profilesCollectionPath));
-
-                const unsubscribe = onSnapshot(q, async (querySnapshot) => {
+                const unsubscribe = onSnapshot(q, (querySnapshot) => {
                     const profilesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    
-                    // 修正 #1：移除自動建立 profile 的邏輯
-                    // 現在資料只會在帳號建立時產生一次，這裡只負責讀取
-                    if (profilesData.length === 0) {
-                        console.warn("此使用者沒有任何 profile。");
-                        setProfiles([]);
-                        setCurrentProfileId('');
-                        setIsProfilesLoading(false);
-                        return;
-                    }
-                    
                     setProfiles(profilesData);
-
-                    const userDocSnap = await getDoc(userDocRef);
-                    let lastSelectedId = userDocSnap.data()?.lastSelectedProfileId;
-
-                    if (!lastSelectedId || !profilesData.some(p => p.id === lastSelectedId)) {
-                        lastSelectedId = profilesData[0].id;
-                    }
-                    
-                    setCurrentProfileId(lastSelectedId);
-                    setIsProfilesLoading(false);
-                }, (error) => {
-                    console.error("讀取 profiles 失敗:", error);
-                    setIsProfilesLoading(false);
-                });
-
+                }, (error) => { console.error("讀取 profiles 失敗:", error); });
                 return () => unsubscribe();
             }, [db, user]);
 
-            // 監聽單字資料 (無變更)
+            // 監聽器 #2：載入並同步「當前選擇」的 Profile
             useEffect(() => {
-                if (!db || !user || !currentProfileId) { setWords([]); setIsLoading(false); return; }
-                setIsLoading(true);
+                if (!db || !user) return;
+                const userDocRef = doc(db, `users/${user.uid}`);
+                const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+                    const lastSelectedId = docSnap.data()?.lastSelectedProfileId;
+                    if (profiles.length > 0) {
+                        const isValid = profiles.some(p => p.id === lastSelectedId);
+                        setCurrentProfileId(isValid ? lastSelectedId : profiles[0].id);
+                    } else {
+                        setCurrentProfileId('');
+                    }
+                }, (error) => { console.error("監聽使用者文件失敗:", error); });
+                return () => unsubscribe();
+            }, [db, user, profiles]); // 當 profiles 列表更新時也需要重新判斷
+
+            // 監聽器 #3：載入單字資料，並管理整體讀取狀態
+            useEffect(() => {
+                setIsAppLoading(true);
+                if (!db || !user || !currentProfileId) {
+                    setWords([]);
+                    setIsAppLoading(false);
+                    return;
+                }
                 const wordsCollectionPath = `users/${user.uid}/profiles/${currentProfileId}/words`;
                 const q = query(collection(db, wordsCollectionPath));
                 const unsubscribe = onSnapshot(q, (querySnapshot) => {
                     const wordsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), createdAt: doc.data().createdAt?.toDate ? doc.data().createdAt.toDate() : new Date() }));
                     setWords(wordsData);
-                    setIsLoading(false);
-                }, (error) => { console.error("讀取單字失敗: ", error); setIsLoading(false); });
+                    setIsAppLoading(false);
+                }, (error) => { console.error("讀取單字失敗: ", error); setIsAppLoading(false); });
                 return () => unsubscribe();
             }, [db, user, currentProfileId]);
 
             const handleCreateProfile = async (name) => {
                 if (!db || !user) return;
-                const trimmedName = name.trim();
-                if (!trimmedName) return;
-                const isDuplicate = profiles.some( profile => profile.name.toLowerCase() === trimmedName.toLowerCase() );
-                if (isDuplicate) { alert(`使用者名稱 "${trimmedName}" 已經存在。`); return; }
-                const newProfile = { name: trimmedName };
+                const newProfile = { name: name.trim() };
                 const profilesCollectionPath = `users/${user.uid}/profiles`;
                 try {
                     const docRef = await addDoc(collection(db, profilesCollectionPath), newProfile);
-                    handleSelectProfile(docRef.id);
+                    await handleSelectProfile(docRef.id); // 建立後直接選取
                 } catch (e) { console.error("建立 profile 失敗:", e); }
             };
 
             const handleSelectProfile = async (profileId) => {
-                setCurrentProfileId(profileId);
-                if (db && user) {
-                    const userDocRef = doc(db, `users/${user.uid}`);
+                if (!db || !user || !profileId) return;
+                const userDocRef = doc(db, `users/${user.uid}`);
+                try {
+                    await setDoc(userDocRef, { lastSelectedProfileId: profileId }, { merge: true });
+                } catch (error) { console.error("儲存上次選擇的 profile 失敗:", error); }
+            };
+
+            const handleDeleteProfile = async (profileId) => {
+                if (!db || !user || !profileId || profiles.length <= 1) {
+                    alert("必須保留至少一個使用者。");
+                    return;
+                }
+                if (window.confirm(`確定要刪除使用者 "${profiles.find(p=>p.id===profileId)?.name}" 嗎？此動作無法復原。`)) {
                     try {
-                        await setDoc(userDocRef, { lastSelectedProfileId: profileId }, { merge: true });
-                    } catch (error) { console.error("儲存上次選擇的 profile 失敗:", error); }
+                        const profileDocRef = doc(db, `users/${user.uid}/profiles`, profileId);
+                        await deleteDoc(profileDocRef);
+                        // 注意：onSnapshot 會自動處理列表更新和當前使用者的重新選擇
+                    } catch (error) {
+                        console.error("刪除 profile 失敗:", error);
+                        alert("刪除失敗，請稍後再試。");
+                    }
                 }
             };
 
@@ -251,7 +228,7 @@
             }, [words]);
 
             const renderContent = () => {
-                if (isLoading || isProfilesLoading || !user) { return <div className="mt-10"><LoadingSpinner /></div>; }
+                if (isAppLoading || !user) { return <div className="mt-10"><LoadingSpinner /></div>; }
                 if (!currentProfileId) { return <div className="text-center p-8 text-gray-500">請先建立一個使用者來開始。</div>; }
                 const userId = user.uid;
                 const profileId = currentProfileId;
@@ -270,7 +247,7 @@
                             <h1 className="text-4xl font-bold text-blue-600">英文單字學習板</h1>
                             <p className="text-gray-500 mt-2">建立你的個人化單字庫</p>
                         </header>
-                        <UserManagement profiles={profiles} currentProfileId={currentProfileId} onCreateProfile={handleCreateProfile} onSelectProfile={handleSelectProfile} />
+                        <UserManagement profiles={profiles} currentProfileId={currentProfileId} onCreateProfile={handleCreateProfile} onSelectProfile={handleSelectProfile} onDeleteProfile={handleDeleteProfile} />
                         <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6">
                             <nav className="flex justify-center border-b-2 border-gray-200 mb-6 overflow-x-auto">
                                 <button onClick={() => setMode('add')} className={`flex-shrink-0 flex items-center gap-2 px-4 py-3 text-lg font-medium border-b-4 ${mode === 'add' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-blue-500'}`}><PlusIcon /> 新增單字</button>
