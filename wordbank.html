@@ -27,7 +27,8 @@
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        // 修正：引入 signInAnonymously，移除 Email/Password 相關函式
+        import { getAuth, onAuthStateChanged, setPersistence, browserSessionPersistence, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, addDoc, setDoc, onSnapshot, query, deleteDoc, serverTimestamp, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js";
         
@@ -36,10 +37,9 @@
             initializeApp,
             getAuth,
             onAuthStateChanged,
-            signInWithEmailAndPassword,
-            createUserWithEmailAndPassword,
             setPersistence,
             browserSessionPersistence,
+            signInAnonymously, // <-- 匯出匿名登入函式
             getFirestore,
             collection,
             doc,
@@ -59,15 +59,10 @@
         const { useState, useEffect, useMemo } = React;
         // 從全域 window 物件取得 Firebase 函式
         const { 
-            initializeApp, getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, 
-            setPersistence, browserSessionPersistence,
+            initializeApp, getAuth, onAuthStateChanged, setPersistence, browserSessionPersistence, signInAnonymously,
             getFirestore, collection, doc, addDoc, setDoc, onSnapshot, query, deleteDoc, serverTimestamp, getDoc, 
             getFunctions, httpsCallable 
         } = window.firebase;
-
-        // 為預設使用者定義一個固定的帳號密碼
-        const DEFAULT_USER_EMAIL = "default-user@wordbank-app.com";
-        const DEFAULT_USER_PASSWORD = "DefaultPassword123!";
 
         // --- 輔助函式與圖示 (無變更) ---
         const PlusIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5"y1="12" x2="19" y2="12"></line></svg> );
@@ -83,7 +78,22 @@
             const [newProfileName, setNewProfileName] = useState('');
             const [error, setError] = useState('');
             const handleCreate = () => { if (newProfileName.trim()) { const isDuplicate = profiles.some( profile => profile.name.toLowerCase() === newProfileName.trim().toLowerCase() ); if (isDuplicate) { setError('這個名稱已經存在了！'); return; } setError(''); onCreateProfile(newProfileName.trim()); setNewProfileName(''); } };
-            return ( <div className="bg-gray-100 p-4 rounded-lg mb-6 border border-gray-200 flex flex-col sm:flex-row gap-4 items-center justify-center flex-wrap"> <div className="flex gap-2"> <input type="text" value={newProfileName} onChange={(e) => setNewProfileName(e.target.value)} placeholder="輸入新使用者名稱" className="p-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" /> <button onClick={handleCreate} className="bg-indigo-500 text-white font-bold p-2 rounded-lg hover:bg-indigo-600"> 建立新使用者 </button> </div> {error && <p className="text-red-500 text-center mt-2 sm:mt-0">{error}</p>} <div className="flex gap-2 items-center"> <label htmlFor="profile-select" className="font-medium text-gray-700">目前使用者:</label> <select id="profile-select" value={currentProfileId} onChange={(e) => onSelectProfile(e.target.value)} className="p-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"> {profiles.map(p => ( <option key={p.id} value={p.id}>{p.name}</option> ))} </select> <button onClick={() => onDeleteProfile(currentProfileId)} disabled={profiles.length <= 1} className="p-2 text-red-500 hover:text-red-700 disabled:text-gray-400 disabled:cursor-not-allowed" aria-label="刪除目前使用者"><Trash2Icon /></button> </div> </div> );
+            return ( 
+                <div className="bg-gray-100 p-4 rounded-lg mb-6 border border-gray-200 flex flex-col sm:flex-row gap-4 items-center justify-center flex-wrap"> 
+                    <div className="flex gap-2"> 
+                        <input type="text" value={newProfileName} onChange={(e) => setNewProfileName(e.target.value)} placeholder="輸入新使用者名稱" className="p-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" /> 
+                        <button onClick={handleCreate} className="bg-indigo-500 text-white font-bold p-2 rounded-lg hover:bg-indigo-600"> 建立新使用者 </button> 
+                    </div> 
+                    {error && <p className="text-red-500 text-center mt-2 sm:mt-0">{error}</p>} 
+                    <div className="flex gap-2 items-center"> 
+                        <label htmlFor="profile-select" className="font-medium text-gray-700">目前使用者:</label> 
+                        <select id="profile-select" value={currentProfileId} onChange={(e) => onSelectProfile(e.target.value)} className="p-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"> 
+                            {profiles.map(p => ( <option key={p.id} value={p.id}>{p.name}</option> ))} 
+                        </select> 
+                        <button onClick={() => onDeleteProfile(currentProfileId)} disabled={profiles.length <= 1} className="p-2 text-red-500 hover:text-red-700 disabled:text-gray-400 disabled:cursor-not-allowed" aria-label="刪除目前使用者"><Trash2Icon /></button> 
+                    </div> 
+                </div> 
+            );
         }
 
         // --- 主應用程式元件 ---
@@ -108,30 +118,50 @@
                     setAuth(firebaseAuth);
                     setDb(firestoreDb);
                     setFunctions(getFunctions(app, 'asia-east1'));
+
                     setPersistence(firebaseAuth, browserSessionPersistence).then(() => {
                         const unsubscribe = onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
                             if (firebaseUser) {
+                                // 使用者已登入 (無論是剛登入還是已保持登入狀態)
+                                console.log("使用者已匿名登入:", firebaseUser.uid);
+
+                                // 檢查這是否為一個全新的匿名使用者
+                                const userDocRef = doc(firestoreDb, "users", firebaseUser.uid);
+                                const userDocSnap = await getDoc(userDocRef);
+
+                                if (!userDocSnap.exists()) {
+                                    // 如果使用者文件不存在，代表是第一次，為其建立初始資料
+                                    console.log("偵測到新使用者，正在建立初始資料庫文件...");
+                                    try {
+                                        const defaultProfileRef = doc(collection(userDocRef, "profiles"));
+                                        await setDoc(userDocRef, { lastSelectedProfileId: defaultProfileRef.id });
+                                        await setDoc(defaultProfileRef, { name: '預設使用者' });
+                                        console.log("初始資料建立完成。");
+                                    } catch (dbError) {
+                                        console.error("建立初始使用者資料失敗:", dbError);
+                                    }
+                                }
+                                
+                                // 設定 user 狀態，這將觸發後續的資料讀取
                                 setUser(firebaseUser);
                             } else {
+                                // 沒有使用者，執行匿名登入
+                                console.log("沒有使用者，正在執行匿名登入...");
                                 try {
-                                    await signInWithEmailAndPassword(firebaseAuth, DEFAULT_USER_EMAIL, DEFAULT_USER_PASSWORD);
+                                    await signInAnonymously(firebaseAuth);
+                                    // 登入成功後，onAuthStateChanged 會再次被觸發，並進入上面的 if 區塊
                                 } catch (error) {
-                                    if (error.code === 'auth/user-not-found') {
-                                        try {
-                                            const userCredential = await createUserWithEmailAndPassword(firebaseAuth, DEFAULT_USER_EMAIL, DEFAULT_USER_PASSWORD);
-                                            const newUserId = userCredential.user.uid;
-                                            const userDocRef = doc(firestoreDb, "users", newUserId);
-                                            const defaultProfileRef = doc(collection(userDocRef, "profiles"));
-                                            await setDoc(userDocRef, { lastSelectedProfileId: defaultProfileRef.id });
-                                            await setDoc(defaultProfileRef, { name: '預設使用者' });
-                                        } catch (creationError) { console.error("建立預設使用者或初始資料失敗:", creationError); }
-                                    } else { console.error("登入預設使用者時發生其他錯誤:", error); }
+                                    console.error("匿名登入失敗:", error);
                                 }
                             }
                         });
                         return () => unsubscribe();
-                    }).catch((error) => { console.error("設定認證持續性失敗:", error); });
-                } catch (error) { console.error("Firebase 初始化失敗:", error); }
+                    }).catch((error) => {
+                        console.error("設定認證持續性失敗:", error);
+                    });
+                } catch (error) {
+                    console.error("Firebase 初始化失敗:", error);
+                }
             }, []);
 
             // 監聽器 #1：載入 Profile 列表
@@ -167,7 +197,6 @@
 
             // 監聽器 #3：載入單字資料，並管理整體讀取狀態
             useEffect(() => {
-                // 修正：只有在 user 物件存在時才開始判斷讀取狀態
                 if (user) {
                     setIsAppLoading(true);
                     if (!db || !currentProfileId) {
@@ -184,7 +213,6 @@
                     }, (error) => { console.error("讀取單字失敗: ", error); setIsAppLoading(false); });
                     return () => unsubscribe();
                 } else {
-                    // 如果沒有 user，保持讀取狀態
                     setIsAppLoading(true);
                 }
             }, [db, user, currentProfileId]);
@@ -227,7 +255,6 @@
                 return [...words].sort((a, b) => { if (a.learned === b.learned) return (b.createdAt || 0) - (a.createdAt || 0); return a.learned ? 1 : -1; });
             }, [words]);
 
-            // 修正：在 App 層級統一管理讀取畫面
             if (isAppLoading) {
                 return (
                     <div className="flex justify-center items-center min-h-screen">
@@ -244,7 +271,6 @@
                             <p className="text-gray-500 mt-2">建立你的個人化單字庫</p>
                         </header>
                         
-                        {/* 只有在 profile 載入後才顯示管理介面 */}
                         {profiles.length > 0 && currentProfileId && (
                             <UserManagement 
                                 profiles={profiles} 
@@ -284,8 +310,6 @@
         }
 
         // --- 其他元件 (AddWordModule, ReviewModule, Flashcard, TestModule) ---
-        // 這些元件的程式碼與您提供的版本相同，此處為求簡潔省略。
-        // 您可以將您檔案中這些元件的程式碼直接複製貼上到這裡。
         function AddWordModule({ db, userId, profileId, functions }) {
             const [word, setWord] = useState('');
             const [results, setResults] = useState([]);
