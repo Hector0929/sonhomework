@@ -29,6 +29,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, addDoc, setDoc, onSnapshot, query, deleteDoc, serverTimestamp, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js"; // <-- 1. 引入 Functions SDK
         
         // Make Firebase functions globally available for the Babel script
         window.firebase = {
@@ -46,14 +47,16 @@
             query,
             deleteDoc,
             serverTimestamp,
-            getDoc // <-- 加上這一行
+            getDoc,
+            getFunctions, // <-- 2. 匯出 getFunctions
+            httpsCallable // <-- 3. 匯出 httpsCallable
         };
     </script>
 
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
         // Firebase functions from the global window object
-        const { initializeApp, getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, getFirestore, collection, doc, addDoc, setDoc, onSnapshot, query, deleteDoc, serverTimestamp, getDoc } = window.firebase;
+        const { initializeApp, getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, getFirestore, collection, doc, addDoc, setDoc, onSnapshot, query, deleteDoc, serverTimestamp, getDoc, getFunctions, httpsCallable } = window.firebase;
 
         // --- HELPER FUNCTIONS & ICONS ---
         const generateId = () => `id_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -146,6 +149,7 @@
             const [db, setDb] = useState(null);
             const [auth, setAuth] = useState(null); // <-- 新增 auth state
             const [user, setUser] = useState(null); // <-- 新增 user state
+            const [functions, setFunctions] = useState(null); // <-- 新增 functions state
             
             // User profiles state
             const [profiles, setProfiles] = useState([]);
@@ -174,6 +178,7 @@
                     const firebaseAuth = getAuth(app);
                     setAuth(firebaseAuth);
                     setDb(getFirestore(app));
+                    setFunctions(getFunctions(app, 'asia-east1')); // <-- 初始化 Functions，可指定區域
 
                     onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
                         if (firebaseUser) {
@@ -291,13 +296,13 @@
 
                 switch (mode) {
                     case 'add':
-                        return <AddWordModule db={db} userId={userId} profileId={profileId} />;
+                        return <AddWordModule db={db} userId={userId} profileId={profileId} functions={functions} />; // <-- 傳遞 functions
                     case 'review':
                         return <ReviewModule db={db} userId={userId} profileId={profileId} words={sortedWords} />;
                     case 'test':
                         return <TestModule words={words} />;
                     default:
-                        return <AddWordModule db={db} userId={userId} profileId={profileId} />;
+                        return <AddWordModule db={db} userId={userId} profileId={profileId} functions={functions} />; // <-- 傳遞 functions
                 }
             };
 
@@ -336,7 +341,7 @@
         }
 
         // --- AddWordModule (No major changes needed) ---
-        function AddWordModule({ db, userId, profileId }) { // <-- 接收 profileId
+        function AddWordModule({ db, userId, profileId, functions }) { // <-- 接收 functions
             const [word, setWord] = useState('');
             const [results, setResults] = useState([]);
             const [isLoading, setIsLoading] = useState(false);
@@ -347,38 +352,22 @@
                 e.preventDefault();
                 const wordsToSearch = word.split(/[,/]/).map(w => w.trim()).filter(Boolean);
                 if (wordsToSearch.length === 0) { setError('請輸入至少一個英文單字。'); return; }
+                if (!functions) { setError('Functions 服務尚未準備好。'); return; }
                 
                 setIsLoading(true);
                 setError('');
                 setResults([]);
                 setMessage('');
 
-                const apiKey = "AIzaSyBGDKOlI81nr15rJpftYbPgO9pVkygZucQ";
-                if (apiKey.includes("貼上您的API金鑰")) {
-                    setError("請先設定您的 Google AI API 金鑰。");
-                    setIsLoading(false);
-                    return;
-                }
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+                // 準備呼叫 Cloud Function
+                const getWordDefinition = httpsCallable(functions, 'getWordDefinition');
 
                 const searchPromises = wordsToSearch.map(async (singleWord) => {
-                    const prompt = `請提供英文單字 "${singleWord}" 的中文翻譯和一個適合初學者的英文例句。請用 JSON 格式回傳，包含 "translation" (字串) 和 "sentence" (字串) 兩個鍵。`;
-                    const payload = {
-                        contents: [{ role: "user", parts: [{ text: prompt }] }],
-                        generationConfig: {
-                            responseMimeType: "application/json",
-                            responseSchema: { type: "OBJECT", properties: { translation: { type: "STRING" }, sentence: { type: "STRING" } }, required: ["translation", "sentence"] }
-                        }
-                    };
                     try {
-                        const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                        if (!response.ok) throw new Error(`API request failed for ${singleWord}`);
-                        const data = await response.json();
-                        if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
-                            const parsedJson = JSON.parse(data.candidates[0].content.parts[0].text);
-                            return { word: singleWord, status: 'success', ...parsedJson };
-                        }
-                        throw new Error("API 回應格式不符");
+                        // 呼叫後端函式並傳遞單字
+                        const result = await getWordDefinition({ word: singleWord });
+                        // result.data 現在包含 { translation, sentence }
+                        return { word: singleWord, status: 'success', ...result.data };
                     } catch (err) {
                         console.error(`Error fetching ${singleWord}:`, err);
                         return { word: singleWord, status: 'error', error: '查詢失敗' };
