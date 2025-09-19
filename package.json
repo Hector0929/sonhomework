@@ -1,0 +1,18 @@
+{
+  "name": "sonhomework",
+  "private": true,
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "husky": "^9.1.7"
+  },
+  "scripts": {
+    "test": "playwright test",
+    "test:watch": "playwright test --watch",
+    "test:ui": "playwright test --ui",
+    "test:fast": "playwright test tests/chords_unit.spec.js tests/settings_apply.spec.js",
+    "prepare": "husky",
+    "test:ui:recognize": "playwright test tests/recognize_flow.spec.js",
+    "test:ui:ai": "playwright test tests/ai_recognition_button.spec.js",
+    "test:ui:all": "playwright test tests/recognize_flow.spec.js tests/ai_recognition_button.spec.js"
+  }
+}

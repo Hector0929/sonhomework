@@ -653,7 +653,8 @@
   <script src="public/js/export-module.js"></script>
   <!-- AI 直接辨識模組（取代 OCR 強化處理） -->
   <script src="public/js/ai-direct-recognition.js"></script>
- <script>
+  <script type="module">
+    import { buildPrompt, processGeminiText, formatGeminiResponse, tryParseGeminiJSON, cleanChords } from './public/js/ai-utils.js';
         // ========================================================================
         // 全域狀態管理
         // ========================================================================
@@ -713,444 +714,35 @@
         elements.useAiCheckbox.addEventListener('change', updateAIButtonState);
 
         // AI 辨識按鈕點擊事件
-        elements.aiBtn.addEventListener('click', async function onAIClick(e) {
-            e.preventDefault();
-            const resultEl = ensureRecognitionResult();
-            if (!AppState.preURL) { elements.geminiStatus.textContent = '錯誤：請先選擇檔案'; return; }
-            const apiKey = elements.apiKeyInput.value.trim();
-            if (!apiKey) { elements.geminiStatus.textContent = '錯誤：請輸入 API 金鑰'; return; }
-
-            elements.geminiStatus.textContent = 'AI 辨識啟動中...';
-            elements.aiBtn.disabled = true;
-            withPreservedScroll(() => { resultEl.innerHTML = '<em>辨識中...</em>'; });
-
-            try {
-                const raw = await callGeminiAPI(AppState.preURL, apiKey, buildPrompt());
-                console.log('[AI] Gemini 原始回傳:', raw);
-
-                let tokens = [];
-                try {
-                    const clean = raw.replace(/^```json\s*|```$/g, '').trim();
-                    const json = JSON.parse(clean);
-                    if (Array.isArray(json.lines)) {
-                        json.lines.forEach(l => {
-                            if (l.chords) tokens.push({ kind: 'chord_line', text: l.chords });
-                            if (l.lyrics) tokens.push({ kind: 'lyric', text: l.lyrics });
-                        });
-                    } else throw new Error('缺少 lines');
-                } catch (err) {
-                    console.warn('[Parser] JSON 失敗 → 改純文字解析:', err.message);
-                    tokens = parsePlainTextToTokens(raw);
-                }
-                AppState.tokens = tokens;
-                renderTokens();
-                elements.geminiStatus.textContent = 'AI 辨識完成';
-            } catch (err) {
-                console.error('[AI] 錯誤:', err);
-                let msg = err.message || '未知錯誤';
-                if (/503|overloaded/i.test(msg)) msg = '伺服器過載，稍後再試';
-                if (/inlineData/i.test(msg)) msg = '影像資料為空，檢查檔案讀取流程';
-                elements.geminiStatus.textContent = 'AI 辨識錯誤：' + msg;
-                withPreservedScroll(() => { resultEl.innerHTML = '<span style="color:#c00;">辨識失敗</span>'; });
-            } finally {
-                elements.aiBtn.disabled = false;
-                updateAIButtonState();
-            }
-        });
-
-        // ========================================================================
-        // Gemini API 相關函式 (已整合所有修正)
-        // ========================================================================
-
-        /**
-         * 建立一個結構化的提示詞，要求 Gemini 回傳 JSON 格式。
-         */
-        function buildPrompt() {
-            const jsonSchema = { "lines": [{ "chords": "包含和弦與 | 分隔符的字串", "lyrics": "對應的歌詞字串" }] };
-            return `你是樂譜辨識專家，專門將圖片中的和弦與歌詞轉換為結構化的 JSON 資料。\n任務：\n1. 辨識圖片中的所有和弦與歌詞。\n2. 和弦行與歌詞行必須分開。\n3. **嚴格**按照以下 JSON 格式回傳結果，不要包含任何額外的說明文字或 markdown 符號。\n\nJSON 格式範例：\n${JSON.stringify(jsonSchema, null, 2)}\n\n現在，請根據使用者提供的圖片，產生對應的 JSON 資料。`;
-        }
-
-        /**
-         * 呼叫 Gemini API 的主要函式。
-         */
-        async function callGeminiAPI(imageUrlOrBlob, apiKey, prompt) {
-            console.log('[Gemini] 啟動 API 呼叫...');
-            try {
-                const { mimeType, base64 } = await resolveImageSource(imageUrlOrBlob);
-                if (!base64) throw new Error('影像轉換後，base64 資料依然為空，請求中止。');
-
-                const requestBody = {
-                    contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType, data: base64 } }] }],
-                    generationConfig: { temperature: 0.1, maxOutputTokens: 4096 }
-                };
-
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-                const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody) });
-
-                if (!response.ok) {
-                    const errorText = await response.text().catch(() => '無法讀取錯誤內文');
-                    throw new Error(`API 回應錯誤: ${response.status} - ${errorText}`);
-                }
-
-                const result = await response.json();
-                const textContent = result?.candidates?.[0]?.content?.parts?.map(p => p.text).filter(Boolean).join('\n');
-                if (!textContent) {
-                    console.warn('[Gemini] API 回應中未包含文字內容，回傳原始 JSON。');
-                    return JSON.stringify(result);
-                }
-                return textContent;
-            } catch (error) {
-                console.error('[Gemini] API 呼叫失敗:', error);
-                throw error;
-            }
-        }
-
-        /**
-         * 輔助函式：將各種影像來源解析為 { mimeType, base64 } 物件。
-         */
-        async function resolveImageSource(src) {
-            if (typeof src === 'string' && src.startsWith('data:')) {
-                const match = src.match(/^data:([^;]+);base64,(.*)$/);
-                if (!match || !match[2]) throw new Error('無效的 data:URL');
-                return { mimeType: match[1], base64: match[2] };
-            }
-            if (src instanceof Blob || (typeof src === 'string' && (src.startsWith('blob:') || src.startsWith('http')))) {
-                const response = await (src instanceof Blob ? Promise.resolve(new Response(src)) : fetch(src));
-                if (!response.ok) throw new Error(`無法擷取資源: ${response.status}`);
-                const blob = await response.blob();
-                if (!blob || blob.size === 0) throw new Error('Blob 物件為空');
-                return new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onerror = () => reject(new Error('FileReader 讀取錯誤'));
-                    reader.onloadend = () => {
-                        const res = reader.result;
-                        if (typeof res !== 'string') return reject(new Error('FileReader 結果無效'));
-                        const match = res.match(/^data:([^;]+);base64,(.*)$/);
-                        if (!match || !match[2]) return reject(new Error('無法從 data:URL 解析 base64'));
-                        resolve({ mimeType: match[1] || blob.type, base64: match[2] });
-                    };
-                    reader.readAsDataURL(blob);
-                });
-            }
-            throw new Error('不支援的影像來源格式');
-        }
-
-        // ========================================================================
-        // 渲染與後備解析函式
-        // ========================================================================
-
-        /**
-         * 將 tokens 渲染到畫面上。
-         */
-        function renderTokens() {
-            const container = ensureRecognitionResult();
-            withPreservedScroll(() => {
-                const list = Array.isArray(AppState.tokens) ? AppState.tokens : [];
-                const frag = document.createDocumentFragment();
-                container.innerHTML = '';
-                if (list.length === 0) {
-                    container.textContent = '沒有辨識到任何內容。';
-                    return;
-                }
-                for (const token of list) {
-                    const div = document.createElement('div');
-                    div.className = `tag ${token.kind && token.kind.includes('chord') ? 'chord' : 'lyric'}`;
-                    div.textContent = token.text;
-                    frag.appendChild(div);
-                }
-                container.appendChild(frag);
-            });
-        }
-
-        /**
-         * 後備函式：當 JSON 解析失敗時，嘗試解析純文字。
-         */
-        function parsePlainTextToTokens(text) {
-            const lines = text.trim().split('\n');
-            const tokens = [];
-            const chordLineRegex = /[A-G][#b]?m?(sus|maj|dim|\d)?(\/[A-G][#b]?)?/;
-            lines.forEach((line, index) => {
-                if (!line.trim()) return;
-                const kind = (line.includes('|') || chordLineRegex.test(line)) ? 'chord_line' : 'lyric';
-                tokens.push({ kind, text: line, y: 20 + index * 30 });
-            });
-            return tokens;
-        }
-
-        // ========================================================================
-        // 初始化
-        // ========================================================================
-        document.addEventListener('DOMContentLoaded', () => {
-            updateAIButtonState();
-            console.log('[App] 腳本初始化完成。');
-        });
-
-        // ===== 新增：安全確保 recognitionResult 元素存在 =====
-        function ensureRecognitionResult() {
-            if (elements.recognitionResult instanceof HTMLElement) return elements.recognitionResult;
-            let el = document.getElementById('recognition-result');
-            if (!el) {
-                el = document.createElement('div');
-                el.id = 'recognition-result';
-                el.style.minHeight = '160px';
-                el.style.border = '1px solid #ccc';
-                el.style.padding = '8px';
-                (document.getElementById('result-container') || document.body).appendChild(el);
-                console.warn('[App] 動態建立 recognition-result 容器');
-            }
-            elements.recognitionResult = el;
-            return el;
-        }
-
-        /* ========== 檔案讀取：確保存成 dataURL ========== */
-if (elements.fileInput) {
-  elements.fileInput.addEventListener('change', function() {
-    const file = this.files && this.files[0];
-    if (!file) { AppState.preURL = null; return; }
-    const fr = new FileReader();
-    fr.onload = e => {
-      AppState.preURL = e.target.result;            // dataURL
-      console.log('[File] dataURL 長度', AppState.preURL.length);
-    };
-    fr.readAsDataURL(file);
-  });
-}
-
-/* ========== 影像來源解析 ========== */
-async function resolveImageSource(src) {
-  if (!src) throw new Error('缺少影像來源');
-  // 已是 dataURL
-  if (typeof src === 'string' && src.startsWith('data:')) {
-    const m = src.match(/^data:([^;]+);base64,(.*)$/);
-    if (!m || !m[2]) throw new Error('data:URL 無效');
-    return { mimeType: m[1], base64: m[2] };
-  }
-  // blob:/http
-  if (typeof src === 'string' && (src.startsWith('blob:') || src.startsWith('http'))) {
-    const resp = await fetch(src);
-    if (!resp.ok) throw new Error('擷取影像失敗 ' + resp.status);
-    const blob = await resp.blob();
-    return blobToBase64(blob);
-  }
-  if (src instanceof Blob) return blobToBase64(src);
-  throw new Error('不支援的影像來源型別');
-}
-
-function blobToBase64(blob) {
-  if (!blob || !blob.size) return Promise.reject(new Error('Blob 為空'));
-  return new Promise((res, rej) => {
-    const fr = new FileReader();
-    fr.onerror = () => rej(new Error('FileReader 失敗'));
-    fr.onloadend = () => {
-      if (typeof fr.result !== 'string') return rej(new Error('FileReader 結果型別錯誤'));
-      const m = fr.result.match(/^data:([^;]+);base64,(.*)$/);
-      if (!m || !m[2]) return rej(new Error('無法解析 base64'));
-      res({ mimeType: m[1], base64: m[2] });
-    };
-    fr.readAsDataURL(blob);
-  });
-}
-
-/* ========== Gemini API 呼叫（強化除錯） ========== */
-async function callGeminiAPI(imageSource, apiKey, prompt) {
-  console.log('[API] 準備解析影像來源...');
-  const { mimeType, base64 } = await resolveImageSource(imageSource);
-  console.log('[API] mimeType=', mimeType, 'base64Len=', base64.length);
-  if (base64.length < 50) throw new Error('影像 base64 長度異常，可能讀取失敗');
-
-  const body = {
-    contents: [{
-      parts: [
-        { text: prompt },
-        { inlineData: { mimeType, data: base64 } }
-      ]
-    }],
-    generationConfig: { temperature: 0.1, maxOutputTokens: 4096 }
-  };
-  console.log('[API] 請求內容 (截斷):', JSON.stringify(body).slice(0, 180) + '...');
-
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type':'application/json' },
-    body: JSON.stringify(body)
-  });
-  if (!resp.ok) {
-    const t = await resp.text().catch(()=> '');
-    throw new Error(`Gemini API 錯誤 ${resp.status}: ${t}`);
-  }
-  const json = await resp.json();
-  const txt = json?.candidates?.[0]?.content?.parts?.map(p=>p.text).filter(Boolean).join('\n') || '';
-  console.log('[API] 回傳文字長度=', txt.length);
-  return txt || JSON.stringify(json);
-}
-
-/* ---------- 取得或建立結果 textarea ---------- */
-function getOrCreateResultTextarea() {
-    let ta = document.getElementById('recognition-text');
-    if (ta && ta.tagName === 'TEXTAREA') return ta;
-    const host = document.getElementById('recognition-result') || ensureRecognitionResult();
-    // 若 host 是 textarea 則直接回傳
-    if (host.tagName === 'TEXTAREA') return host;
-    // 建立
-    ta = document.createElement('textarea');
-    ta.id = 'recognition-text';
-    ta.style.width = '100%';
-    ta.style.height = '520px';
-    ta.style.fontFamily = 'monospace';
-    ta.style.fontSize = '14px';
-    ta.style.lineHeight = '1.4';
-    ta.style.whiteSpace = 'pre';   // 保留空格
-    ta.wrap = 'off';
-    host.innerHTML = '';
-    host.appendChild(ta);
-    console.warn('[GeminiUI] 建立結果文字欄');
-    return ta;
-}
-
-/* ---------- 顯示原始 Gemini 回傳 ---------- */
-function showGeminiRaw(raw) {
-    AppState.geminiRaw = raw;
-    const ta = getOrCreateResultTextarea();
-    ta.value = raw; // 原樣
-    console.log('[GeminiUI] 已寫入文字欄, rawLen=', raw.length);
-}
-
-/* ---------- 修正：保留空格解析 ---------- */
-function processGeminiText(raw) {
-    const lines = raw.replace(/\r/g,'').split('\n');
-    const tokens = [];
-    for (let i=0;i<lines.length;i++){
-        let line = lines[i];
-        if (line === undefined) continue;
-        if (line === '') continue; // 空行略過（可改成 tokens.push({kind:'blank',text:''})
-        const trimmed = line.trim();
-        if (!trimmed) continue;
-        if (isChordLineForClassification(trimmed)) {
-            tokens.push({ kind:'chords', text: line }); // 保留原空格
-            const next = lines[i+1];
-            if (next !== undefined && next.trim() && !isChordLineForClassification(next.trim())) {
-                tokens.push({ kind:'lyric', text: next });
-                i++;
-            }
-        } else {
-            tokens.push({ kind:'lyric', text: line });
-        }
-    }
-    return tokens;
-}
-
-function isChordLineForClassification(t) {
-    if (t.includes('|')) return true;
-    const CH = /([A-G][#b]?)(maj7|maj9|maj|add9|sus2|sus4|sus|dim7|dim|aug|m7b5|m7|m9|m6|m|7|6|9|11|13)?(\/[A-G][#b]?)?/;
-    const re = new RegExp(`^(${CH.source})(\\s+${CH.source})*$`);
-    return re.test(t);
-}
-
-/* ---------- 渲染 tokens（不覆蓋 textarea 原文） ---------- */
-function renderTokens() {
-    const ta = getOrCreateResultTextarea();
-    let preview = document.getElementById('tokens-preview-block');
-    if (!preview) {
-        preview = document.createElement('div');
-        preview.id = 'tokens-preview-block';
-        preview.style.marginTop = '12px';
-        preview.style.padding = '8px';
-        preview.style.border = '1px solid #e2e2e2';
-        preview.style.fontFamily = 'monospace';
-        preview.style.whiteSpace = 'pre';
-        ta.parentNode.appendChild(preview);
-    }
-    preview.innerHTML = '';
-    const list = Array.isArray(AppState.tokens) ? AppState.tokens : [];
-    if (!list.length) {
-        preview.textContent = '（無拆分結果）';
-        return;
-    }
-    const frag = document.createDocumentFragment();
-    list.forEach(t=>{
-        const lineEl = document.createElement('div');
-        lineEl.className = 'token-line ' + (t.kind === 'chords' ? 'token-chords':'token-lyric');
-        lineEl.style.whiteSpace = 'pre';
-        lineEl.style.fontFamily = 'monospace';
-        if (t.kind === 'chords') lineEl.style.fontWeight = '600';
-        lineEl.textContent = t.text; // 保留空格
-        frag.appendChild(lineEl);
+    elements.aiBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      els.aiBtn.disabled = true;
+      els.geminiStatus.textContent = '準備中...';
+      try {
+        const raw = await callGeminiAPI(AppState.preURL, els.apiKey.value.trim(), buildPrompt());
+        // 1) 先將 JSON→純文字（若不是 JSON 則原樣）
+        const display = formatGeminiResponse(raw);
+        // 2) 寫入唯一結果欄（保留空格/對齊）
+        setGeminiRawText(display);
+        // 3) 供後續功能使用的 tokens（以純文字為基礎）
+        AppState.tokens = processGeminiText(display);
+        els.geminiStatus.textContent = '完成';
+        els.appStatus.textContent = 'AI 完成';
+        // 若有視圖切換請保留你原本的切換呼叫（如需）
+        // switchView?.('view-result');
+      } catch (err) {
+        console.error(err);
+        let msg = String(err.message || err);
+        if (/overloaded|503/i.test(msg)) msg = 'AI 服務繁忙，請稍後重試';
+        els.geminiStatus.textContent = '錯誤：' + msg;
+        els.appStatus.textContent = '失敗';
+      } finally {
+        els.aiBtn.disabled = false;
+      }
     });
-    preview.appendChild(frag);
-}
-
-/* ---------- 呼叫 API（確保 base64） ---------- */
-async function callGeminiAPI(imageSource, apiKey, prompt) {
-    const { mimeType, base64 } = await resolveImageSource(imageSource);
-    console.log('[API] mimeType=', mimeType, 'base64Len=', base64.length);
-    if (base64.length < 50) throw new Error('影像 base64 長度異常，可能讀取失敗');
-
-    const body = {
-        contents:[{ parts:[ { text: prompt }, { inlineData:{ mimeType, data: base64 } } ] }],
-        generationConfig:{ temperature:0.1, maxOutputTokens:4096 }
-    };
-    const url=`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-    const r = await fetch(url,{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify(body)
-    });
-    if(!r.ok){
-        const txt=await r.text().catch(()=> '');
-        throw new Error(`Gemini API 錯誤 ${r.status}: ${txt}`);
-    }
-    const json=await r.json();
-    const text=json?.candidates?.[0]?.content?.parts?.map(p=>p.text).filter(Boolean).join('\n')||'';
-    console.log('[API] 回傳文字長度=', text.length);
-    return text || JSON.stringify(json);
-}
-
-/* ---------- AI 按鈕事件（核心） ---------- */
-// 找到舊的 events.aiBtn 監聽並替換
-if (elements.aiBtn) {
-    elements.aiBtn.replaceWith(elements.aiBtn.cloneNode(true));
-    elements.aiBtn = document.getElementById('recognize-ai-btn');
-    elements.aiBtn.addEventListener('click', async (e)=>{
-        e.preventDefault();
-        if(!AppState.preURL){ elements.geminiStatus.textContent='請先選擇圖片'; return; }
-        const key = elements.apiKeyInput.value.trim();
-        if(!key){ elements.geminiStatus.textContent='請輸入 API 金鑰'; return; }
-        elements.aiBtn.disabled = true;
-        elements.geminiStatus.textContent='辨識中...';
-
-        try{
-            const raw = await callGeminiAPI(AppState.preURL, key, buildPrompt());
-            showGeminiRaw(raw); // 立刻顯示原始
-            AppState.tokens = processGeminiText(raw);
-            renderTokens();
-            elements.geminiStatus.textContent='完成';
-        }catch(err){
-            console.error('[Gemini] 失敗', err);
-            elements.geminiStatus.textContent='錯誤: '+err.message;
-        }finally{
-            elements.aiBtn.disabled=false;
-        }
-    });
-}
-
-/* ---------- 確保檔案讀取為 dataURL ---------- */
-if (elements.fileInput) {
-    elements.fileInput.addEventListener('change', function(){
-        const f=this.files&&this.files[0];
-        if(!f){ AppState.preURL=null; return; }
-        const fr=new FileReader();
-        fr.onload=e=>{
-            AppState.preURL=e.target.result;
-            console.log('[File] dataURL 長度=', AppState.preURL.length);
-        };
-        fr.readAsDataURL(f);
-    });
-}
-
-// ...existing code...
-</script>
-<script>
+    // ...existing code...
+  </script>
+  <script>
 // 防重入
 (function (g, d) {
   if (g.__GeminiUIBootLoaded) return; g.__GeminiUIBootLoaded = true;
@@ -1823,11 +1415,11 @@ if (elements.fileInput) {
         body: JSON.stringify(body)
       });
       if (!resp.ok) {
-        const t = await resp.text().catch(()=> '');
-        throw new Error(`Gemini API 錯誤 ${resp.status}: ${t}`);
+        const txt=await resp.text().catch(()=> '');
+        throw new Error(`Gemini API 錯誤 ${resp.status}: ${txt}`);
       }
-      const json = await resp.json();
-      const text = json?.candidates?.[0]?.content?.parts?.map(p => p.text).filter(Boolean).join('\n') || '';
+      const json=await resp.json();
+      const text=json?.candidates?.[0]?.content?.parts?.map(p=>p.text).filter(Boolean).join('\n')||'';
       console.log('[API] 回傳文字長度=', text.length);
       return text || JSON.stringify(json);
     }
@@ -1878,8 +1470,12 @@ if (elements.fileInput) {
       syncAIBtn();
     });
 
-    // AI 辨識按鈕
-    elements.aiBtn?.addEventListener('click', async () => {
+    // AI 辨識按鈕（避免重複綁定）
+    if (elements.aiBtn && elements.aiBtn.__wired) {
+      // 已由前一段程式碼綁定，避免重複
+    } else if (elements.aiBtn) {
+      elements.aiBtn.__wired = true;
+      elements.aiBtn.addEventListener('click', async () => {
       const apiKey = elements.apiKeyInput?.value.trim();
       const imageUrl = getCurrentImageURL();
 
@@ -1900,8 +1496,20 @@ if (elements.fileInput) {
         const tokens = parseGeminiResponseToTokens(responseText);
         g.AppState.tokens = tokens;
         
+        // 寫入文字編輯器
+        if (elements.textEditor) {
+          elements.textEditor.value = responseText;
+        }
+
         renderTokens(tokens);
         elements.geminiStatus.textContent = 'AI 辨識完成';
+        
+        // 成功後切換到「辨識編輯」分頁
+        if (typeof g.switchView === 'function') {
+          g.switchView('recognition');
+        } else if (typeof window.switchView === 'function') {
+          window.switchView('recognition');
+        }
         
       } catch (error) {
         console.error('[AI] 辨識流程失敗:', error);
@@ -1909,6 +1517,7 @@ if (elements.fileInput) {
         renderTokens([{ kind: 'error', text: `辨識失敗：${error.message}`, x:10, y:10, w:400, h:50 }]);
       }
     });
+    }
 
     // 顯示 Log 按鈕
     elements.showLogBtn?.addEventListener('click', () => {
@@ -1931,5 +1540,3 @@ if (elements.fileInput) {
 
   })(window, document);
 </script>
-</body>
-</html>

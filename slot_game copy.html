@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>爸！拉霸啦！</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #E84D38;
+            overflow: hidden; 
+        }
+
+        .background-svg {
+            position: fixed;
+            z-index: -10;
+            opacity: 0.08;
+            stroke: #4A1C15; 
+            stroke-width: 8;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .slot-machine-wrapper {
+            padding: 25px; 
+            background: #D83C2A;
+            border: 10px solid #C03425;
+            border-radius: 40px;
+            position: relative;
+            box-shadow: 0 0 25px 8px rgba(192, 52, 37, 0.7), 
+                        0 10px 20px rgba(0,0,0,0.3), 
+                        inset 0 0 15px rgba(0,0,0,0.4);
+        }
+
+        .lights-container {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            right: 8px;
+            bottom: 8px;
+            border-radius: 40px;
+            pointer-events: none;
+            display: grid;
+            grid-template-columns: repeat(17, 1fr);
+            grid-template-rows: repeat(10, 1fr);
+            gap: 5px;
+        }
+
+        .light {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            transition: background-color 0.1s, box-shadow 0.1s;
+            background-color: #FFC700;
+            box-shadow: inset 0 0 4px rgba(0,0,0,0.4);
+            border: 1px solid rgba(0,0,0,0.2);
+        }
+        
+        .light.on {
+            background-color: #FFFFFF; 
+            box-shadow: 0 0 8px #FFFFFF, 0 0 12px rgba(255, 255, 255, 0.7);
+        }
+
+        .reels-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            background: #222;
+            border-radius: 20px;
+            padding: 20px;
+            overflow: hidden;
+            border: 5px solid #444;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+            position: relative;
+            z-index: 10;
+            margin: 8px;
+        }
+
+        .reel {
+            width: 110px;
+            height: 120px;
+            background-color: #fff;
+            border: 2px solid #ccc;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 0 5px rgba(0,0,0,0.2);
+        }
+
+        .reel-symbols {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+        }
+        
+        .reel-symbols > div {
+            height: 120px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 34px;
+            font-weight: 900;
+            background: linear-gradient(145deg, #FFFF8C, #FDEE6A, #E2B600, #C99600);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 2px 2px 3px rgba(0, 0, 0, 0.35);
+            -webkit-text-stroke: 0.5px #444;
+            transition: filter 0.3s ease;
+            filter: blur(0px);
+        }
+
+        .reel-symbols.spinning > div {
+            filter: blur(3px);
+        }
+
+        .start-button {
+            background: linear-gradient(180deg, #FF7070, #E54040);
+            border: none;
+            border-radius: 20px;
+            color: white;
+            font-weight: 900;
+            font-size: 2rem;
+            padding: 15px 50px;
+            cursor: pointer;
+            box-shadow: 0 8px 0 #B22222, 0 12px 15px rgba(0,0,0,0.3);
+            transition: all 0.1s ease-in-out;
+            text-shadow: 0 2px 3px rgba(0,0,0,0.4);
+            user-select: none;
+        }
+
+        .start-button:active, .start-button.disabled {
+            transform: translateY(4px);
+            box-shadow: 0 4px 0 #B22222, 0 8px 10px rgba(0,0,0,0.3);
+            background: linear-gradient(180deg, #E54040, #D03030);
+            cursor: not-allowed;
+        }
+        
+        #result-text {
+            height: 40px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        .prize-table {
+            margin-top: 2rem;
+            background: rgba(0,0,0,0.2);
+            padding: 1rem;
+            border-radius: 15px;
+            width: 100%;
+            max-width: 450px;
+        }
+        .prize-table th, .prize-table td {
+            padding: 0.75rem;
+            text-align: center;
+            color: white;
+            font-size: 1.1rem;
+        }
+        .prize-table th {
+            text-shadow: 1px 1px 2px black;
+        }
+        .prize-table td {
+            font-weight: bold;
+            background: rgba(255,255,255,0.1);
+        }
+        .prize-table tr:first-child th:first-child { border-top-left-radius: 10px; }
+        .prize-table tr:first-child th:last-child { border-top-right-radius: 10px; }
+        .prize-table tr:last-child td:first-child { border-bottom-left-radius: 10px; }
+        .prize-table tr:last-child td:last-child { border-bottom-right-radius: 10px; }
+
+        #reset-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            background-color: #C03425;
+            border-radius: 50%;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        #reset-button:hover {
+            background-color: #A92B1A;
+            transform: scale(1.1);
+        }
+        
+        #reset-button::before,
+        #reset-button::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 2px;
+        }
+
+        #reset-button::before {
+            width: 20px;
+            height: 4px;
+            transform: translate(-50%, -50%);
+        }
+
+        #reset-button::after {
+            width: 4px;
+            height: 20px;
+            transform: translate(-50%, -50%);
+        }
+
+        #confirm-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            width: 90%;
+            max-width: 400px;
+        }
+        .modal-content p {
+            font-size: 1.25rem;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .modal-buttons button {
+            padding: 10px 25px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 0 10px;
+            transition: background-color 0.2s;
+        }
+        #confirm-yes {
+            background-color: #E54040;
+            color: white;
+        }
+        #confirm-yes:hover {
+            background-color: #C03425;
+        }
+        #confirm-no {
+            background-color: #ccc;
+            color: #333;
+        }
+        #confirm-no:hover {
+            background-color: #bbb;
+        }
+
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-4">
+
+    <svg class="background-svg" style="top: 5%; left: 5%; width: 150px; transform: rotate(-15deg);" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="40"/>
+        <circle cx="35" cy="45" r="8"/>
+        <circle cx="65" cy="45" r="8"/>
+        <line x1="43" y1="45" x2="57" y2="45"/>
+        <path d="M 30 70 Q 50 80 70 70"/>
+    </svg>
+    <svg class="background-svg" style="bottom: 8%; right: 5%; width: 120px; transform: rotate(15deg);" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="40"/>
+        <path d="M 25 60 Q 50 50 75 60 Q 65 75 50 75 Q 35 75 25 60"/>
+        <circle cx="38" cy="42" r="3"/>
+        <circle cx="62" cy="42" r="3"/>
+    </svg>
+    <svg class="background-svg" style="bottom: 5%; left: 8%; width: 130px; transform: rotate(-10deg);" viewBox="0 0 100 120">
+        <circle cx="50" cy="40" r="30"/>
+        <circle cx="40" cy="38" r="3"/>
+        <circle cx="60" cy="38" r="3"/>
+        <path d="M 40 55 Q 50 65 60 55"/>
+        <path d="M 48 70 L 52 70 L 55 95 L 45 95 Z" />
+    </svg>
+     <svg class="background-svg" style="top: 8%; right: 10%; width: 80px; transform: rotate(20deg);" viewBox="0 0 100 100">
+        <path d="M50,30 C20,10 20,60 50,90 C80,60 80,10 50,30 Z"/>
+    </svg>
+
+
+    <h1 class="text-6xl md:text-8xl font-black text-white text-center mb-4" style="text-shadow: 4px 4px 6px rgba(0,0,0,0.3);">爸！拉霸啦！</h1>
+
+    <div class="slot-machine-wrapper">
+        <div class="lights-container" id="lights-container"></div>
+        <div class="reels-container">
+            <div class="reel" id="reel1"></div>
+            <div class="reel" id="reel2"></div>
+            <div class="reel" id="reel3"></div>
+        </div>
+    </div>
+
+    <div class="mt-8 text-center">
+        <p id="result-text" class="mb-4 h-10"></p>
+        <button id="start-button" class="start-button">啟動</button>
+    </div>
+
+    <table class="prize-table" id="prize-table">
+        <thead>
+            <tr>
+                <th>獎項</th>
+                <th>剩餘數量</th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+
+    <div id="reset-button"></div>
+
+    <div id="confirm-modal" style="display: none;">
+        <div class="modal-content">
+            <p>是否要重新恢復獎品數量？</p>
+            <div class="modal-buttons">
+                <button id="confirm-yes">是</button>
+                <button id="confirm-no">否</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        // 匯入 Firebase SDK
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, onSnapshot, runTransaction, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            // DOM 元素
+            const reelElements = [
+                document.getElementById('reel1'),
+                document.getElementById('reel2'),
+                document.getElementById('reel3'),
+            ];
+            const startButton = document.getElementById('start-button');
+            const resultText = document.getElementById('result-text');
+            const lightsContainer = document.getElementById('lights-container');
+            const prizeTableBody = document.querySelector('#prize-table tbody');
+            const resetButton = document.getElementById('reset-button');
+            const confirmModal = document.getElementById('confirm-modal');
+            const confirmYes = document.getElementById('confirm-yes');
+            const confirmNo = document.getElementById('confirm-no');
+
+            // Firebase 設定
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'slot-machine-cny';
+            // 修正：確保 firebaseConfig 是有效的物件
+            const firebaseConfig = typeof __firebase_config !== 'undefined' && __firebase_config ? JSON.parse(__firebase_config) : {
+                apiKey: "AIzaSyDkU102hvhvcDQ8Hr4pxeYXGd6c4urCLzs",
+                authDomain: "slotmachinegame-68bd0.firebaseapp.com",
+                projectId: "slotmachinegame-68bd0",
+                storageBucket: "slotmachinegame-68bd0.firebasestorage.app",
+                messagingSenderId: "967564490987",
+                appId: "1:967564490987:web:c6f9c4e9090be17f1766ae",
+                measurementId: "G-76D82WGL63"
+            };
+            
+            const app = initializeApp(firebaseConfig);
+            const auth = getAuth(app);
+            const db = getFirestore(app);
+
+            // 登入 Firebase
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Firebase 登入失敗:", error);
+                resultText.textContent = '認證失敗，請重新整理！';
+                return; // 登入失敗則停止後續操作
+            }
+
+            // 資料庫路徑
+            const prizesCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'prizes');
+
+            // 音效設定
+            let sounds;
+            let audioReady = false;
+
+            function initAudio() {
+                if (audioReady) return;
+                try {
+                    Tone.start();
+                    sounds = {
+                        click: new Tone.MembraneSynth({ pitchDecay: 0.01, octaves: 2, envelope: { attack: 0.001, decay: 0.2, sustain: 0 } }).toDestination(),
+                        lightTick: new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.001, decay: 0.1, sustain: 0.01, release: 0.05 } }).toDestination(),
+                        win: new Tone.PolySynth(Tone.Synth, { oscillator: { type: "triangle" }, envelope: { attack: 0.005, decay: 0.1, sustain: 0.3, release: 1 } }).toDestination(),
+                        bigWin: new Tone.PolySynth(Tone.Synth, { oscillator: { type: "fatsawtooth", count: 3, spread: 30 }, envelope: { attack: 0.01, decay: 0.4, sustain: 0.6, release: 1.2 } }).toDestination(),
+                        tryAgain: new Tone.FMSynth({ harmonicity: 3, modulationIndex: 10, envelope: { attack: 0.01, decay: 0.2 }, modulationEnvelope: { attack: 0.01, decay: 0.1 } }).toDestination()
+                    };
+                    sounds.lightTick.volume.value = -12;
+                    sounds.win.volume.value = -8;
+                    sounds.bigWin.volume.value = -4; 
+                    sounds.tryAgain.volume.value = -6;
+                    audioReady = true;
+                } catch (e) {
+                    console.error("音效初始化失敗:", e);
+                }
+            }
+
+            // 遊戲設定
+            const initialPrizes = {
+                'prize_500': { name: '500元全聯禮券', count: 8 },
+                'prize_100': { name: '100元全聯禮券', count: 20 },
+                'prize_50': { name: '50元教會櫃台禮券', count: 25 },
+            };
+            
+            // 遊戲狀態
+            const gameState = {
+                prizes: {}, 
+                symbols: ['500元', '100元', '50元', '再', '一', '次'],
+                isSpinning: false,
+                lightInterval: null,
+                orderedLights: [],
+            };
+            const reelHeight = 120;
+            const spinDuration = 7000;
+
+            // 【重構】初始化遊戲
+            function initGame() {
+                confirmModal.style.display = 'none';
+                resultText.textContent = '讀取獎品中...';
+                startButton.disabled = true;
+                startButton.classList.add('disabled');
+                
+                setupReels();
+                createLights();
+                setupPrizeListener(); // 直接設定監聽器
+            }
+
+            // 【重構】使用單一監聽器處理所有資料邏輯
+            function setupPrizeListener() {
+                onSnapshot(prizesCollectionRef, (snapshot) => {
+                    if (snapshot.empty) {
+                        console.log("資料庫是空的，正在初始化...");
+                        resetPrizes(false); // 首次初始化，不顯示彈窗
+                        return; // 等待重置後觸發下一次 snapshot
+                    }
+
+                    gameState.prizes = {};
+                    snapshot.forEach((doc) => {
+                        gameState.prizes[doc.id] = doc.data();
+                    });
+                    
+                    updatePrizeTable();
+                    if (!gameState.isSpinning) {
+                        updateButtonState();
+                    }
+                }, (error) => {
+                    console.error("Firebase 監聽失敗:", error);
+                    resultText.textContent = '資料庫連線失敗！';
+                });
+            }
+
+            // 更新獎項表格
+            function updatePrizeTable() {
+                prizeTableBody.innerHTML = '';
+                const prizeOrder = ['prize_500', 'prize_100', 'prize_50'];
+                prizeOrder.forEach(prizeId => {
+                    const prize = gameState.prizes[prizeId];
+                    if (prize) {
+                         const row = `
+                            <tr>
+                                <td>${prize.name}</td>
+                                <td id="count-${prizeId}">${prize.count}</td>
+                            </tr>
+                        `;
+                        prizeTableBody.innerHTML += row;
+                    }
+                });
+            }
+            
+            // 更新按鈕狀態
+            function updateButtonState() {
+                const remainingPrizes = Object.values(gameState.prizes).reduce((sum, p) => sum + p.count, 0);
+                if (remainingPrizes > 0) {
+                    startButton.disabled = false;
+                    startButton.classList.remove('disabled');
+                    // 清除"讀取中"或"已兌換完畢"的訊息
+                    if(resultText.textContent === '所有獎項已兌換完畢！' || resultText.textContent === '讀取獎品中...') {
+                       resultText.textContent = '';
+                    }
+                } else {
+                    resultText.textContent = '所有獎項已兌換完畢！';
+                    startButton.disabled = true;
+                    startButton.classList.add('disabled');
+                }
+            }
+
+            // 設定滾筒
+            function setupReels() {
+                reelElements.forEach(reel => {
+                    reel.innerHTML = '';
+                    const symbolContainer = document.createElement('div');
+                    symbolContainer.classList.add('reel-symbols');
+                    const extendedSymbols = Array(6).fill(gameState.symbols).flat().sort(() => Math.random() - 0.5);
+                    
+                    extendedSymbols.forEach(symbol => {
+                        const symbolDiv = document.createElement('div');
+                        symbolDiv.textContent = symbol;
+                        symbolContainer.appendChild(symbolDiv);
+                    });
+                    reel.appendChild(symbolContainer);
+                });
+            }
+
+            // 建立環繞的燈光並排序
+            function createLights() {
+                lightsContainer.innerHTML = '';
+                const rows = 10;
+                const cols = 17;
+                const tempGrid = Array(rows).fill(null).map(() => Array(cols).fill(null));
+
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        if (r === 0 || r === rows - 1 || c === 0 || c === cols - 1) {
+                            const light = document.createElement('div');
+                            light.classList.add('light');
+                            tempGrid[r][c] = light;
+                            lightsContainer.appendChild(light);
+                        } else {
+                            lightsContainer.appendChild(document.createElement('div'));
+                        }
+                    }
+                }
+
+                gameState.orderedLights = [];
+                for (let c = 0; c < cols; c++) gameState.orderedLights.push(tempGrid[0][c]);
+                for (let r = 1; r < rows; r++) gameState.orderedLights.push(tempGrid[r][cols - 1]);
+                for (let c = cols - 2; c >= 0; c--) gameState.orderedLights.push(tempGrid[rows - 1][c]);
+                for (let r = rows - 2; r > 0; r--) gameState.orderedLights.push(tempGrid[r][0]);
+            }
+            
+            // 跑馬燈動畫
+            let lightAnimationStep = 0;
+            function animateLights() {
+                if (!gameState.orderedLights.length) return;
+                const notes = ["C5", "D5", "E5", "F5", "G5", "A5", "B5", "C6"].reverse();
+                
+                gameState.lightInterval = setInterval(() => {
+                    gameState.orderedLights.forEach((light, i) => light.classList.toggle('on', i === lightAnimationStep));
+                    if(audioReady) {
+                        sounds.lightTick.triggerAttackRelease(notes[lightAnimationStep % notes.length], "32n");
+                    }
+                    lightAnimationStep = (lightAnimationStep + 1) % gameState.orderedLights.length;
+                }, 60);
+            }
+            
+            function stopLightAnimation() {
+                clearInterval(gameState.lightInterval);
+                gameState.lightInterval = null;
+                gameState.orderedLights.forEach(light => light.classList.remove('on'));
+            }
+
+            // 決定結果
+            function determineOutcome() {
+                const pool = [];
+                const weights = { 'prize_500': 2, 'prize_100': 10, 'prize_50': 15, '再來一次': 8 };
+
+                Object.entries(weights).forEach(([prizeId, weight]) => {
+                    if (prizeId === '再來一次' || (gameState.prizes[prizeId] && gameState.prizes[prizeId].count > 0)) {
+                        for (let i = 0; i < weight; i++) pool.push(prizeId);
+                    }
+                });
+                
+                return pool.length > 0 ? pool[Math.floor(Math.random() * pool.length)] : 'NoPrizes';
+            }
+
+            // 開始轉動
+            function spin() {
+                if (gameState.isSpinning) return;
+                
+                const outcome = determineOutcome();
+                if (outcome === 'NoPrizes') {
+                    updateButtonState(); // 確保顯示正確訊息
+                    return;
+                }
+
+                gameState.isSpinning = true;
+                startButton.disabled = true;
+                startButton.classList.add('disabled');
+                resultText.textContent = ''; 
+                animateLights();
+                
+                const finalResults = (outcome === '再來一次')
+                    ? ['再', '一', '次']
+                    : Array(3).fill(outcome.split('_')[1] + '元');
+
+                reelElements.forEach((reel, i) => {
+                    const symbolContainer = reel.querySelector('.reel-symbols');
+                    // 【修改點】在這裡只加上 spinning class
+                    symbolContainer.classList.add('spinning');
+                    
+                    const symbolCount = symbolContainer.children.length;
+                    const possibleIndexes = [];
+                    symbolContainer.querySelectorAll('div').forEach((el, index) => {
+                        if (el.textContent === finalResults[i]) possibleIndexes.push(index);
+                    });
+                    
+                    const validIndexes = possibleIndexes.filter(index => index > symbolCount / 2);
+                    const targetIndex = validIndexes.length > 0 
+                        ? validIndexes[Math.floor(Math.random() * validIndexes.length)]
+                        : possibleIndexes[Math.floor(Math.random() * possibleIndexes.length)];
+                    
+                    const finalPosition = -targetIndex * reelHeight;
+                    
+                    symbolContainer.style.transition = 'none';
+                    symbolContainer.style.top = `${-Math.floor(Math.random() * (symbolCount / 3)) * reelHeight}px`;
+                    
+                    symbolContainer.offsetHeight; // 強制瀏覽器重繪
+                    
+                    symbolContainer.style.transition = `top ${spinDuration / 1000}s cubic-bezier(0.15, 1, 0.3, 1)`;
+                    symbolContainer.style.top = `${finalPosition}px`;
+                });
+
+                // 【修改點】將移除 class 的邏輯移到這裡
+                setTimeout(() => {
+                    // 在處理結果前，移除所有滾輪的模糊效果
+                    reelElements.forEach(reel => {
+                        reel.querySelector('.reel-symbols').classList.remove('spinning');
+                    });
+                    handleResult(outcome);
+                }, spinDuration);
+            }
+            
+            // 處理結果
+            async function handleResult(outcome) {
+                stopLightAnimation();
+
+                if (outcome === '再來一次') {
+                    if(audioReady) sounds.tryAgain.triggerAttackRelease("G4", "8n", Tone.now());
+                    resultText.textContent = '再來一次！';
+                    gameState.orderedLights.forEach(light => light.classList.add('on'));
+                    setTimeout(() => {
+                        gameState.isSpinning = false;
+                        updateButtonState();
+                        gameState.orderedLights.forEach(light => light.classList.remove('on'));
+                    }, 1500);
+                } else {
+                    try {
+                        const prizeRef = doc(prizesCollectionRef, outcome);
+                        await runTransaction(db, async (transaction) => {
+                            const prizeDoc = await transaction.get(prizeRef);
+                            if (!prizeDoc.exists() || prizeDoc.data().count <= 0) throw "獎品已被抽完";
+                            transaction.update(prizeRef, { count: prizeDoc.data().count - 1 });
+                        });
+                        
+                        if(audioReady) {
+                            if (outcome === 'prize_500') sounds.bigWin.triggerAttackRelease(["C5", "E5", "G5", "C6"], "2n");
+                            else sounds.win.triggerAttackRelease(["C4", "E4", "G4"], "8n");
+                        }
+                        resultText.textContent = `🎉 恭喜！抽中 ${gameState.prizes[outcome].name} 🎉`;
+
+                    } catch (e) {
+                        console.error("交易失敗: ", e);
+                        resultText.textContent = '哎呀！獎品剛被抽走了！';
+                        gameState.isSpinning = false;
+                        updateButtonState();
+                        return;
+                    }
+
+                    let flashCount = 0;
+                    const flashInterval = setInterval(() => {
+                        gameState.orderedLights.forEach(light => light.classList.toggle('on', flashCount % 2 === 0));
+                        if (++flashCount > 5) {
+                            clearInterval(flashInterval);
+                            gameState.orderedLights.forEach(light => light.classList.remove('on'));
+                            gameState.isSpinning = false;
+                            // 【修復點】在這裡手動呼叫 updateButtonState()
+                            // 這會確保在動畫結束後，按鈕狀態和獎品數量都立即刷新。
+                            updateButtonState(); 
+                        }
+                    }, 200);
+                }
+            }
+
+            // 【優化】重置功能邏輯
+            async function resetPrizes(showModal = true) {
+                if(audioReady) sounds.click.triggerAttackRelease("C3", "8n");
+                
+                const batch = writeBatch(db);
+                Object.entries(initialPrizes).forEach(([prizeId, data]) => {
+                    const prizeRef = doc(prizesCollectionRef, prizeId);
+                    batch.set(prizeRef, data);
+                });
+                
+                try {
+                    await batch.commit();
+                    resultText.textContent = '獎項已成功重置！';
+                } catch (error) {
+                    console.error("重置失敗:", error);
+                    resultText.textContent = '重置失敗，請檢查網路！';
+                }
+
+                if(showModal) {
+                    confirmModal.style.display = 'none';
+                }
+            }
+
+            // 綁定事件
+            startButton.addEventListener('click', () => {
+                initAudio();
+                if(audioReady) sounds.click.triggerAttackRelease("C4", "8n");
+                spin();
+            });
+            resetButton.addEventListener('click', () => {
+                initAudio();
+                if(audioReady) sounds.click.triggerAttackRelease("C3", "8n");
+                confirmModal.style.display = 'flex';
+            });
+            confirmYes.addEventListener('click', () => resetPrizes(true));
+            confirmNo.addEventListener('click', () => {
+                if(audioReady) sounds.click.triggerAttackRelease("C3", "8n");
+                confirmModal.style.display = 'none';
+            });
+            
+            // 啟動遊戲
+            initGame();
+        });
+    </script>
+</body>
+</html>

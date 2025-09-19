@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chord OCR 自動化自測</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
+  <style>
+  .overlay-stage { position: relative; display: inline-block; }
+  .overlay-stage img { display:block; max-width:100%; height:auto; }
+  .chord-tag {
+    position:absolute; background:rgba(0,0,0,.88); color:#ffd700; font-weight:700;
+    padding:0 4px; border-radius:4px; line-height:1; font-family:monospace;
+    display:flex; align-items:center; justify-content:center; white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis; pointer-events:none;
+  }
+
+  /* Tooltip */
+  .tip { position: relative; display: inline-flex; align-items: center; margin-left: .25rem; }
+  .tip-icon {
+    width: 16px; height: 16px; border-radius: 9999px; background: #1f2937; color: #fff;
+    display: inline-flex; align-items: center; justify-content: center; font-size: 12px;
+    line-height: 1; cursor: help;
+  }
+  .tip:focus .tip-bubble,
+  .tip:hover .tip-bubble { opacity: 1; transform: translateY(0); pointer-events: auto; }
+  .tip-bubble {
+    position: absolute; left: 0; bottom: 125%;
+    background: #111827; color: #e5e7eb; padding: .5rem .6rem; border-radius: .375rem;
+    white-space: normal; width: 22rem; max-width: min(22rem, 80vw);
+    font-size: .825rem; line-height: 1.2; z-index: 30; box-shadow: 0 8px 24px rgba(0,0,0,.25);
+    opacity: 0; transform: translateY(4px); transition: all .15s ease;
+    pointer-events: none; user-select: text;
+  }
+  .tip-bubble code { background: #374151; color:#fff; padding: 0 .25rem; border-radius: .25rem; }
+  </style>
+</head>
+<body class="bg-gray-50">
+  <div class="container mx-auto p-6">
+    <h1 class="text-2xl font-bold mb-4">Chord OCR 自動化自測</h1>
+    <p class="mb-4 text-sm text-gray-600">
+      測試輸入：tests/assets/738327.jpg；期望：tests/assets/738328.jpg。F1 ≥ 0.92 視為通過。
+    </p>
+
+    <!-- 新增：測項控制面板 -->
+<details class="mb-4 bg-white rounded border p-3">
+  <summary class="cursor-pointer font-medium">測項設定（可即時調整與儲存）</summary>
+  <div class="mt-3 grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+    <!-- 預處理 -->
+    <div>
+      <div class="font-semibold text-gray-700 mb-1">預處理</div>
+
+      <label class="block mb-1">Scale
+        <span class="tip" tabindex="0" aria-label="Scale 說明">
+          <span class="tip-icon">i</span>
+          <span class="tip-bubble">
+            放大辨識影像的倍率。較大通常提升字形解析度，但計算較慢且可能放大雜訊。<br>
+            建議區間：<code>1.4 ~ 2.2</code>；常用：<code>1.6</code>、<code>1.8</code>、<code>2.0</code>。
+          </span>
+        </span>
+        <input id="ctl-scale" type="number" step="0.1" min="0.5" class="mt-1 w-full border rounded px-2 py-1" />
+      </label>
+
+      <label class="block mb-1">Contrast Clip
+        <span class="tip" tabindex="0" aria-label="Contrast Clip 說明">
+          <span class="tip-icon">i</span>
+          <span class="tip-bubble">
+            直方圖裁切比例，用於對比拉伸時忽略最暗/最亮的極端像素，避免受雜點干擾。<br>
+            建議區間：<code>0.005 ~ 0.02</code>；範例：<code>0.005</code>、<code>0.01</code>、<code>0.02</code>。
+          </span>
+        </span>
+        <input id="ctl-contrast" type="number" step="0.001" min="0" max="0.2" class="mt-1 w-full border rounded px-2 py-1" />
+      </label>
+
+      <label class="block mb-1">
+        <span>Binarize</span>
+        <span class="tip" tabindex="0" aria-label="Binarize 說明">
+          <span class="tip-icon">i</span>
+          <span class="tip-bubble">
+            是否使用 Otsu 自動門檻將影像二值化（黑字白底）。通常對文字辨識更穩定；若譜面有灰階陰影，關閉可保留細節。
+          </span>
+        </span>
+        <input id="ctl-binarize" type="checkbox" class="ml-2" />
+      </label>
+
+      <label class="block">
+        <span>水平膨脹（連通文字）</span>
+        <span class="tip" tabindex="0" aria-label="水平膨脹 說明">
+          <span class="tip-icon">i</span>
+          <span class="tip-bubble">
+            對二值化後影像做水平形態學膨脹，將左右相鄰筆劃連通，有助合併被切開的 <code>#</code>/<code>b</code> 與根音。<br>
+            可能副作用：歌詞的相近字也被連成一塊而造成誤抓。
+          </span>
+        </span>
+        <input id="ctl-dilateH" type="checkbox" class="ml-2" />
+      </label>
+    </div>
+
+    <!-- 後處理 -->
+    <div>
+      <div class="font-semibold text-gray-700 mb-1">後處理</div>
+
+      <label class="block mb-1">Min Confidence
+        <span class="tip" tabindex="0" aria-label="Min Confidence 說明">
+          <span class="tip-icon">i</span>
+          <span class="tip-bubble">
+            文字框的平均信心分數下限（0~100）。過高會漏掉低分但正確的框，過低會增加噪點。<br>
+            建議區間：<code>60 ~ 80</code>；常用：<code>70</code>。
+          </span>
+        </span>
+        <input id="ctl-minConf" type="number" step="1" min="0" max="100" class="mt-1 w-full border rounded px-2 py-1" />
+      </label>
+
+      <label class="block">Root 字高下限比
+        <span class="tip" tabindex="0" aria-label="Root 字高下限比 說明">
+          <span class="tip-icon">i</span>
+          <span class="tip-bubble">
+            僅根音（如 <code>C</code>、<code>G#</code>）的最小高度需達所有框高度中位數的比例，用以過濾歌詞單字誤抓。<br>
+            建議區間：<code>0.6 ~ 0.9</code>；常用：<code>0.7</code>。
+          </span>
+        </span>
+        <input id="ctl-rootRatio" type="number" step="0.05" min="0" max="2" class="mt-1 w-full border rounded px-2 py-1" />
+      </label>
+    </div>
+
+    <!-- 評測 -->
+    <div>
+      <div class="font-semibold text-gray-700 mb-1">評測</div>
+
+      <label class="block mb-1">PASS 門檻（F1）
+        <span class="tip" tabindex="0" aria-label="PASS 門檻 說明">
+          <span class="tip-icon">i</span>
+          <span class="tip-bubble">
+            驗收使用「vs 期待圖（738328.jpg）」的 bag-of-words F1 分數門檻。<br>
+            建議區間：<code>0.85 ~ 0.95</code>；預設：<code>0.92</code>。
+          </span>
+        </span>
+        <input id="ctl-passF1" type="number" step="0.01" min="0" max="1" class="mt-1 w-full border rounded px-2 py-1" />
+      </label>
+
+      <label class="block mb-1">IoU 門檻（GT 偵測）
+        <span class="tip" tabindex="0" aria-label="IoU 門檻 說明">
+          <span class="tip-icon">i</span>
+          <span class="tip-bubble">
+            與 GT 配對時的邊界重疊度（Intersection-over-Union）門檻。<br>
+            常見設定：<code>0.5</code>（寬鬆）、<code>0.6</code>、<code>0.7</code>（嚴格）。
+          </span>
+        </span>
+        <input id="ctl-iou" type="number" step="0.05" min="0" max="1" class="mt-1 w-full border rounded px-2 py-1" />
+      </label>
+
+      <label class="block">少抓/多抓清單來源
+        <span class="tip" tabindex="0" aria-label="清單來源 說明">
+          <span class="tip-icon">i</span>
+          <span class="tip-bubble">
+            清單顯示相對於哪個集合：<br>
+            • <b>vs 期待圖</b>：與 738328.jpg 的 OCR 結果比較（驗收主指標）。<br>
+            • <b>vs GT</b>：與人工標註（.gt.json）比較，用於更客觀診斷。
+          </span>
+        </span>
+        <select id="ctl-listSource" class="mt-1 w-full border rounded px-2 py-1">
+          <option value="expected">vs 期待圖（738328.jpg）</option>
+          <option value="gt">vs GT（需提供 .gt.json）</option>
+        </select>
+      </label>
+    </div>
+  </div>
+
+  <div class="mt-3 flex items-center gap-2 text-sm">
+    <label class="inline-flex items-center mr-2">
+      <input id="ctl-autoRun" type="checkbox" class="mr-2" />
+      <span>變更後自動重新執行</span>
+      <span class="tip" tabindex="0" aria-label="自動執行 說明">
+        <span class="tip-icon">i</span>
+        <span class="tip-bubble">
+          啟用後，只要改變任一設定就會自動重新測試；便於快速微調並觀察指標變化。
+        </span>
+      </span>
+    </label>
+    <button id="save-settings" class="bg-gray-700 hover:bg-gray-800 text-white px-3 py-1.5 rounded">儲存設定</button>
+    <button id="reset-settings" class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1.5 rounded">重設預設</button>
+  </div>
+</details>
+
+    <div class="flex gap-6">
+      <div class="w-1/2">
+        <h2 class="font-semibold mb-2">輸入疊圖預覽（738327.jpg）</h2>
+        <div id="preview" class="border bg-white p-3 rounded">
+          <div id="overlay" class="overlay-stage"></div>
+        </div>
+      </div>
+      <div class="w-1/2">
+        <h2 class="font-semibold mb-2">結果</h2>
+        <div class="border bg-white p-3 rounded">
+          <div id="metrics" class="text-sm"></div>
+          <div class="mt-3">
+            <h3 class="font-medium">少抓（應有而未抓到）</h3>
+            <ul id="miss" class="list-disc pl-5 text-sm"></ul>
+          </div>
+          <div class="mt-3">
+            <h3 class="font-medium">多抓（不該有卻抓到）</h3>
+            <ul id="extra" class="list-disc pl-5 text-sm"></ul>
+          </div>
+          <button id="run" class="mt-4 bg-blue-600 text-white px-4 py-2 rounded">開始自測</button>
+          <button id="export-gt" class="mt-4 ml-2 bg-emerald-600 text-white px-4 py-2 rounded">匯出預測為 GT 樣板</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ===== 路徑設定 =====
+    const INPUT_IMG = '../tests/assets/738327.jpg';
+    const EXPECTED_IMG = '../tests/assets/738328.jpg';
+    const GT_JSON = '../tests/assets/738327.gt.json';
+
+    // ===== 影像預處理設定與工具 =====
+    const PREPROC = {
+      enabled: true,
+      scale: 1.8,
+      contrastClip: 0.01,
+      binarize: true,
+      dilateH: true
+    };
+
+    function loadImage(url){
+      return new Promise((resolve,reject)=>{
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = ()=>resolve(img);
+        img.onerror = reject;
+        img.src = url;
+      });
+    }
+    function toGray(ctx, w, h){
+      const imgData = ctx.getImageData(0,0,w,h);
+      const d = imgData.data;
+      for(let i=0;i<d.length;i+=4){
+        const r=d[i], g=d[i+1], b=d[i+2];
+        const y = (0.299*r + 0.587*g + 0.114*b)|0;
+        d[i]=d[i+1]=d[i+2]=y;
+      }
+      ctx.putImageData(imgData,0,0);
+      return imgData;
+    }
+    function contrastStretch(ctx, imgData, clip=0.01){
+      const d = imgData.data, hist = new Array(256).fill(0);
+      for(let i=0;i<d.length;i+=4) hist[d[i]]++;
+      const total = d.length/4;
+      const clipCount = total*clip;
+      let lo=0, hi=255, acc=0;
+      for(let v=0; v<256; v++){ acc += hist[v]; if(acc>=clipCount){ lo=v; break; } }
+      acc=0;
+      for(let v=255; v>=0; v--){ acc += hist[v]; if(acc>=clipCount){ hi=v; break; } }
+      const range = Math.max(1, hi - lo);
+      for(let i=0;i<d.length;i+=4){
+        let y = d[i];
+        y = Math.min(255, Math.max(0, ((y - lo) * 255 / range)|0));
+        d[i]=d[i+1]=d[i+2]=y;
+      }
+      ctx.putImageData(imgData,0,0);
+      return imgData;
+    }
+    function otsuThreshold(grayData){
+      const d = grayData.data;
+      const hist = new Array(256).fill(0);
+      let total = 0, sum = 0;
+      for(let i=0;i<d.length;i+=4){ hist[d[i]]++; total++; sum += d[i]; }
+      let sumB=0, wB=0, maxVar=0, threshold=127;
+      for(let t=0;t<256;t++){
+        wB += hist[t];
+        if(wB === 0) continue;
+        const wF = total - wB;
+        if(wF === 0) break;
+        sumB += t * hist[t];
+        const mB = sumB / wB;
+        const mF = (sum - sumB) / wF;
+        const between = wB * wF * (mB - mF) * (mB - mF);
+        if(between > maxVar){ maxVar = between; threshold = t; }
+      }
+      return threshold;
+    }
+    function binarize(ctx, imgData){
+      const d = imgData.data;
+      const th = otsuThreshold(imgData);
+      for(let i=0;i<d.length;i+=4){
+        const y = d[i];
+        const v = y < th ? 0 : 255; // 黑字白底
+        d[i]=d[i+1]=d[i+2]=v;
+      }
+      ctx.putImageData(imgData,0,0);
+      return imgData;
+    }
+    function dilateHorizontal(ctx, imgData){
+      const w = imgData.width, h = imgData.height;
+      const src = new Uint8ClampedArray(imgData.data);
+      const d = imgData.data;
+      const idx = (x,y)=> ((y*w + x) * 4);
+      for(let y=0;y<h;y++){
+        for(let x=0;x<w;x++){
+          let black = false;
+          for(let dx=-1; dx<=1; dx++){
+            const xx = Math.min(w-1, Math.max(0, x+dx));
+            if(src[idx(xx,y)] === 0){ black = true; break; }
+          }
+          const v = black ? 0 : 255;
+          const p = idx(x,y);
+          d[p]=d[p+1]=d[p+2]=v;
+        }
+      }
+      ctx.putImageData(imgData,0,0);
+      return imgData;
+    }
+    async function preprocessImageToDataURL(url, opt=PREPROC){
+      if(!opt.enabled) return url;
+      const img = await loadImage(url);
+      const scale = opt.scale || 1.0;
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = Math.round(img.naturalWidth * scale);
+      canvas.height = Math.round(img.naturalHeight * scale);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      let gray = toGray(ctx, canvas.width, canvas.height);
+      gray = contrastStretch(ctx, gray, opt.contrastClip ?? 0.01);
+      if(opt.binarize){
+        let bin = binarize(ctx, gray);
+        if(opt.dilateH){ bin = dilateHorizontal(ctx, bin); }
+      }
+      return canvas.toDataURL('image/png');
+    }
+
+    // ===== 文字正規化與判別 =====
+    function toHalfWidth(s){return (s||'').replace(/[\uFF01-\uFF5E]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0xFEE0)).replace(/\u3000/g,' ')};
+    function normalizeSuperscripts(s){const m={'⁰':'0','¹':'1','²':'2','³':'3','⁴':'4','⁵':'5','⁶':'6','⁷':'7','⁸':'8','⁹':'9'};return s.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]/g,x=>m[x]||x)};
+    function normalizeToken(raw){
+      let s = toHalfWidth(raw||'').trim();
+      s = s.replace(/^[\|\‖∥\[\(\{]+/,'').replace(/[\]\)\}\.,]+$/,'')
+      const primes = "[\\u2032\\u2033\\u02BA\\u02B9\\uFF02\"'\\^\\u02C6`´ˇ˘]";
+      const SHARP_ANYWHERE = new RegExp(`([A-G])${primes}+`,'g');
+      s = s.replace(SHARP_ANYWHERE,'$1#');
+      s = s.replace(/[♯＃﹟]/g,'#').replace(/[♭ｂＢ]/g,'b').replace(/[°º]/g,'#');
+      s = s.replace(/[Δ△]/g,'maj');
+      s = normalizeSuperscripts(s);
+      s = s.replace(/\s+/g,'');
+      return s;
+    }
+    function cleanToken(t){return (t||'').trim().replace(/^[\[\(]+|[\]\),.]+$/g,'')};
+    function isRootOnly(t){return /^[A-G][#b]?$/i.test(t||'')};
+    function isChordSuffix(t){
+      t=(t||'').toLowerCase();
+      return /^(maj7|maj9|maj11|maj13|m(?!aj)(?:7|9|11|13)?|7|9|11|13|6|4|2|5|sus(?:2|4)?|add(?:2|4|9|11|13)?|dim|aug|M7|M9|M11|M13)$/.test(t);
+    }
+    function isSlashRoot(t){return /^\/[A-G][#b]?$/i.test(t||'')};
+    const SECTION_RE=/^(Intro|Verse|Chorus|Tag|Bridge|Interlude|Solo|Pre[- ]?Chorus|Outro|Hook|Refrain|Coda|Repeat|副歌|主歌|間奏|橋段|前奏|尾奏)$/i;
+    const PUNCT_RE=/^[\|\:\‖·•\.\-–—=~]+$/; const PURE_NUM_RE=/^\d+$/;
+    const STOP_WORDS=new Set(['Page','Worthy','is','the','Lamb','Key','Capo','Tempo','BPM','Repeat','Fine','D.S.','D.C.','Coda','和弦','拍','調','頁']);
+    function isChordToken(token){
+      token=cleanToken(normalizeToken(token));
+      if(!token||SECTION_RE.test(token)||STOP_WORDS.has(token)||PUNCT_RE.test(token)||PURE_NUM_RE.test(token))return false;
+      return /^([A-G][#b]?)(?:maj7|maj9|maj11|maj13|M7|M9|M11|M13|m(?!aj)(?:7|9|11|13)?|7|9|11|13|6|4|2|5|sus(?:2|4)?|add(?:2|4|9|11|13)?|dim|aug)?(?:\/([A-G][#b]?))?$/i.test(token);
+    }
+    function isAccidentalToken(t){
+      const s=(t||'').trim();
+      if(!s) return false;
+      const primes=/^[\u2032\u2033\u02BA\u02B9\uFF02"'^\u02C6`´ˇ˘]+$/;
+      return s==='#' || primes.test(s);
+    }
+    function canonicalizeChordText(t){
+      let s = normalizeToken(t||'');
+      if(!s) return '';
+      s = s.replace(/^([a-g])(?=[#b]?)/, (m)=>m.toUpperCase());
+      s = s.replace(/\/([a-g])(?=[#b]?)/g, (m,p)=>'/'+p.toUpperCase());
+      s = s.replace(/M(?=(7|9|11|13)\b)/g,'maj');
+      return s;
+    }
+    function canonicalRelaxed(s){
+      s = canonicalizeChordText(s);
+      s = s.replace(/([A-G])b/g, (m,p)=>{
+        const up = {A:'G#',B:'A#',C:'B',D:'C#',E:'D#',F:'E',G:'F#'};
+        return up[p] || m;
+      });
+      s = s.replace(/\bM(?=(7|9|11|13)\b)/g,'maj');
+      return s;
+    }
+
+    // ===== OCR 與評測小工具 =====
+    async function createOcrWorker(){
+      const w = await Tesseract.createWorker({
+        logger:m=>console.log('[OCR]',m),
+        workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/worker.min.js',
+        corePath:'https://cdn.jsdelivr.net/npm/tesseract.js-core@4.0.2/tesseract-core.wasm.js',
+        langPath:'https://tessdata.projectnaptha.com/4.0.0'
+      });
+      await w.loadLanguage('eng'); await w.initialize('eng');
+      await w.setParameters({
+        tessedit_char_whitelist:'ABCDEFGabcdefg#♯＃﹟b♭/()0123456789mMajdimaugsusadd-+º°Δ△\'"',
+        tessedit_pageseg_mode:Tesseract.PSM.SPARSE_TEXT,
+        preserve_interword_spaces:'1'
+      });
+      return w;
+    }
+    async function loadJsonIfExists(url){
+      try{
+        const res = await fetch(url, { cache:'no-store' });
+        if(!res.ok) return null;
+        return await res.json();
+      }catch{ return null; }
+    }
+    async function getImageSize(dataURL){
+      const img = await loadImage(dataURL);
+      return { w: img.naturalWidth, h: img.naturalHeight };
+    }
+    function iou(a,b){
+      const x0=Math.max(a.x0,b.x0), y0=Math.max(a.y0,b.y0);
+      const x1=Math.min(a.x1,b.x1), y1=Math.min(a.y1,b.y1);
+      const inter = Math.max(0,x1-x0)*Math.max(0,y1-y0);
+      const areaA = Math.max(0,a.x1-a.x0)*Math.max(0,a.y1-a.y0);
+      const areaB = Math.max(0,b.x1-b.x0)*Math.max(0,b.y1-b.y0);
+      const uni = areaA+areaB-inter;
+      return uni>0 ? inter/uni : 0;
+    }
+    function toAbs(rel, W, H){
+      return { x0:rel[0]*W, y0:rel[1]*H, x1:rel[2]*W, y1:rel[3]*H };
+    }
+    const POSTFILTER = { minConfidence: 70, minRootOnlyHeightRatio: 0.7 };
+    function median(arr){ if(!arr.length) return 0; const a=[...arr].sort((x,y)=>x-y); const m=Math.floor(a.length/2); return a.length%2 ? a[m] : (a[m-1]+a[m])/2; }
+
+    async function recognizeBoxes(worker, imgURL){
+      const preURL = await preprocessImageToDataURL(imgURL, PREPROC);
+      const { w:preW, h:preH } = await getImageSize(preURL);
+      const { data } = await worker.recognize(preURL);
+      const lines = data?.lines ?? [];
+      const boxesRaw = [];
+
+      for(const line of lines){
+        const words = line.words || [];
+        for(let i=0;i<words.length;i++){
+          const bboxOf = w => w.bbox || w;
+          let t0 = normalizeToken(words[i].text||''); if(!t0) continue;
+          t0 = t0.replace(/^[\|\‖∥]+/,''); if(!t0) continue;
+
+          let confSum = words[i].confidence ?? 0;
+          let confCnt = (words[i].confidence!=null)? 1 : 0;
+
+          if(isRootOnly(t0) && i+1 < words.length){
+            const t1raw = normalizeToken(words[i+1].text||'');
+            if(isAccidentalToken(t1raw)){
+              t0 = t0 + '#';
+              const b0=bboxOf(words[i]), b1=bboxOf(words[i+1]);
+              words[i].bbox = { x0:Math.min(b0.x0,b1.x0), y0:Math.min(b0.y0,b1.y0), x1:Math.max(b0.x1,b1.x1), y1:Math.max(b0.y1,b1.y1) };
+              confSum += (words[i+1].confidence ?? 0);
+              confCnt += (words[i+1].confidence!=null)?1:0;
+              i += 1;
+            }
+          }
+
+          if(isChordToken(t0)){
+            boxesRaw.push({text:canonicalizeChordText(t0), bbox:bboxOf(words[i]), conf: confCnt? confSum/confCnt : 0});
+            continue;
+          }
+
+          if(isRootOnly(t0)){
+            let merged=t0, union={...bboxOf(words[i])}, j=i+1, suffixCount=0;
+            for(; j<words.length && suffixCount<3; ){
+              let tj = normalizeToken(words[j].text||''); if(!tj) break;
+
+              if(isAccidentalToken(tj) && /(?:^|\/)[A-G]$/.test(merged)){
+                merged += '#';
+                const bj=bboxOf(words[j]);
+                union = { x0:Math.min(union.x0,bj.x0), y0:Math.min(union.y0,bj.y0), x1:Math.max(union.x1,bj.x1), y1:Math.max(union.y1,bj.y1) };
+                confSum += (words[j].confidence ?? 0); confCnt += (words[j].confidence!=null)?1:0;
+                j++; continue;
+              }
+              if(tj==='/' && j+1<words.length){
+                const tNext = normalizeToken(words[j+1].text||'');
+                if(isRootOnly(tNext)){
+                  const bj1=bboxOf(words[j+1]);
+                  merged += '/' + tNext;
+                  union = { x0:Math.min(union.x0,bj1.x0), y0:Math.min(union.y0,bj1.y0), x1:Math.max(union.x1,bj1.x1), y1:Math.max(union.y1,bj.y1) };
+                  confSum += (words[j+1].confidence ?? 0); confCnt += (words[j+1].confidence!=null)?1:0;
+                  j += 2;
+                  if(j < words.length){
+                    const tAcc = normalizeToken(words[j].text||'');
+                    if(isAccidentalToken(tAcc) && /\/[A-G]$/.test(merged)){
+                      const bj=bboxOf(words[j]);
+                      merged += '#';
+                      union = { x0:Math.min(union.x0,bj.x0), y0:Math.min(union.y0,bj.y0), x1:Math.max(union.x1,bj.x1), y1:Math.max(union.y1,bj.y1) };
+                      confSum += (words[j].confidence ?? 0); confCnt += (words[j].confidence!=null)?1:0;
+                      j++;
+                    }
+                  }
+                  break;
+                } else break;
+              }
+              if(isSlashRoot(tj)){
+                const bj=bboxOf(words[j]);
+                merged += tj;
+                union = { x0:Math.min(union.x0,bj.x0), y0:Math.min(union.y0,bj.y0), x1:Math.max(union.x1,bj.x1), y1:Math.max(union.y1,bj.y1) };
+                confSum += (words[j].confidence ?? 0); confCnt += (words[j].confidence!=null)?1:0;
+                j++;
+                if(j < words.length){
+                  const tAcc = normalizeToken(words[j].text||'');
+                  if(isAccidentalToken(tAcc) && /\/[A-G]$/.test(merged)){
+                    const bj2=bboxOf(words[j]);
+                    merged += '#';
+                    union = { x0:Math.min(union.x0,bj2.x0), y0:Math.min(union.y0,bj.y0), x1:Math.max(union.x1,bj2.x1), y1:Math.max(union.y1,bj.y1) };
+                    confSum += (words[j].confidence ?? 0); confCnt += (words[j].confidence!=null)?1:0;
+                    j++;
+                  }
+                }
+                break;
+              }
+              if(isChordSuffix(tj)){
+                const bj=bboxOf(words[j]);
+                merged += tj;
+                union = { x0:Math.min(union.x0,bj.x0), y0:Math.min(union.y0,bj.y0), x1:Math.max(union.x1,bj.x1), y1:Math.max(union.y1,bj.y1) };
+                confSum += (words[j].confidence ?? 0); confCnt += (words[j].confidence!=null)?1:0;
+                suffixCount++; j++; continue;
+              }
+              break;
+            }
+            if(isChordToken(merged)){
+              boxesRaw.push({text:canonicalizeChordText(merged), bbox:union, conf: confCnt? confSum/confCnt : 0});
+              i=j-1; continue;
+            }
+          }
+        }
+      }
+
+      const hList = boxesRaw.map(b=> (b.bbox.y1 - b.bbox.y0) );
+      const hMed = median(hList)||1;
+      const boxes = boxesRaw.filter(b=>{
+        if(POSTFILTER.minConfidence>0 && (b.conf||0) < POSTFILTER.minConfidence) return false;
+        if(/^[A-G][#b]?$/.test(b.text)){
+          const h = b.bbox.y1 - b.bbox.y0;
+          if(h < hMed * (POSTFILTER.minRootOnlyHeightRatio||0)) return false;
+        }
+        return true;
+      });
+      return { boxes, preURL, preW, preH };
+    }
+
+    function multiset(list){ const m=new Map(); list.forEach(x=>m.set(x,(m.get(x)||0)+1)); return m; }
+    function compareSets(got, exp){
+      const mg=multiset(got), me=multiset(exp);
+      let tp=0, fn=0, fp=0;
+      const miss=[], extra=[];
+      for(const [k, v] of me.entries()){
+        const g = mg.get(k)||0;
+        if(g < v){ miss.push(`${k} x${v-g}`); fn += (v-g); }
+        tp += Math.min(g, v);
+      }
+      for(const [k, v] of mg.entries()){
+        const e = me.get(k)||0;
+        if(v > e){ extra.push(`${k} x${v-e}`); fp += (v-e); }
+      }
+      const prec = tp ? tp/(tp+fp) : 0;
+      const rec  = tp ? tp/(tp+fn) : 0;
+      const f1   = (prec+rec)? 2*prec*rec/(prec+rec) : 0;
+      return {tp, fp, fn, prec, rec, f1, miss, extra};
+    }
+
+    function fitTextToBox(tag){
+      let fontPx=parseInt(tag.style.fontSize||'12',10);
+      while(fontPx>8 && tag.scrollWidth>tag.clientWidth+1){ fontPx--; tag.style.fontSize=fontPx+'px'; }
+    }
+    function renderOverlay(container, imgURL, boxes){
+      container.innerHTML='';
+      const stage=document.createElement('div'); stage.className='overlay-stage';
+      const img=new Image(); img.src=imgURL; img.onload=()=>{
+        stage.appendChild(img);
+        requestAnimationFrame(()=>{
+          const W=img.clientWidth, H=img.clientHeight;
+          const sx=W/img.naturalWidth, sy=H/img.naturalHeight;
+          boxes.forEach(b=>{
+            const bw=Math.max(6,(b.bbox.x1-b.bbox.x0)*sx);
+            const bh=Math.max(10,(b.bbox.y1-b.bbox.y0)*sy);
+            const tag=document.createElement('span');
+            tag.className='chord-tag';
+            tag.style.width=Math.round(bw)+'px';
+            tag.style.height=Math.round(bh)+'px';
+            tag.style.fontSize=Math.round(bh*0.85)+'px';
+            tag.textContent=b.text;
+            stage.appendChild(tag);
+            tag.style.left=Math.round(b.bbox.x0*sx)+'px';
+            tag.style.top =Math.round(b.bbox.y0*sy)+'px';
+            fitTextToBox(tag);
+          });
+        });
+      };
+      container.appendChild(stage);
+    }
+
+    // ===== 事件綁定（單一版本） =====
+    let lastPredBoxes = null, lastPreW=0, lastPreH=0, lastPreURL=null;
+
+    document.getElementById('run').addEventListener('click', async ()=>{
+      const overlay = document.getElementById('overlay');
+      const metricsEl = document.getElementById('metrics');
+      const missEl = document.getElementById('miss');
+      const extraEl = document.getElementById('extra');
+      metricsEl.textContent='執行中…';
+      missEl.innerHTML=''; extraEl.innerHTML='';
+
+      let worker=null;
+      try{
+        worker = await createOcrWorker();
+
+        // 1) 輸入圖
+        const { boxes: predBoxes, preURL: preIn, preW, preH } = await recognizeBoxes(worker, INPUT_IMG);
+        lastPredBoxes = predBoxes; lastPreW = preW; lastPreH = preH; lastPreURL = preIn;
+        renderOverlay(overlay, preIn || INPUT_IMG, predBoxes);
+
+        // 2) 期待圖（738328.jpg）
+        const { boxes: boxesExpRaw } = await recognizeBoxes(worker, EXPECTED_IMG);
+
+        // 3) GT
+        const gt = await loadJsonIfExists(GT_JSON);
+        let gtBoxesAbs = null, usingGT = false;
+        if(gt && Array.isArray(gt.boxes)){
+          usingGT = true;
+          gtBoxesAbs = gt.boxes.map(item=>{
+            const bb = toAbs(item.bbox, preW, preH);
+            return { text: canonicalizeChordText(item.text), bbox: bb };
+          });
+        }
+
+        // 4) 三組 bag-of-words
+        const got = predBoxes.map(b=>canonicalizeChordText(b.text));
+        const exp_expected = boxesExpRaw.map(b=>canonicalizeChordText(b.text));
+        const bag_vs_expected = compareSets(got, exp_expected);
+
+        const exp_gt = usingGT ? gtBoxesAbs.map(b=>canonicalizeChordText(b.text)) : [];
+        const bag_vs_gt = usingGT ? compareSets(got, exp_gt) : null;
+
+        // 5) 若有 GT，跑偵測/端到端，IoU 用設定值
+        let detF1=0, detPrec=0, detRec=0, e2eF1_strict=0, e2ePrec_strict=0, e2eRec_strict=0, e2eF1_relaxed=0, e2ePrec_relaxed=0, e2eRec_relaxed=0;
+        if(usingGT){
+          const P = predBoxes.map(b=>({ text:canonicalizeChordText(b.text), bbox:b.bbox }));
+          const G = gtBoxesAbs.map(b=>({ text:canonicalizeChordText(b.text), bbox:b.bbox }));
+
+          const matched = []; const usedG=new Set(); const usedP=new Set();
+          const IOU_THR = EVAL.iou ?? 0.5;
+          for(let i=0;i<P.length;i++){
+            let bestJ=-1, bestIoU=0;
+            for(let j=0;j<G.length;j++){
+              if(usedG.has(j)) continue;
+              const v = iou(P[i].bbox, G[j].bbox);
+              if(v>bestIoU){ bestIoU=v; bestJ=j; }
+            }
+            if(bestIoU>=IOU_THR && bestJ>=0){
+              matched.push({ pIdx:i, gIdx:bestJ, iou:bestIoU });
+              usedP.add(i); usedG.add(bestJ);
+            }
+          }
+          const detTP = matched.length;
+          const detFN = G.length - usedG.size;
+          const detFP = P.length - usedP.size;
+          detPrec = detTP ? detTP/(detTP+detFP) : 0;
+          detRec  = detTP ? detTP/(detTP+detFN) : 0;
+          detF1   = (detPrec+detRec)? 2*detPrec*detRec/(detPrec+detRec) : 0;
+
+          const e2eTP_strict = matched.filter(({pIdx,gIdx})=>P[pIdx].text===G[gIdx].text).length;
+          const e2eTP_relaxed= matched.filter(({pIdx,gIdx})=>canonicalRelaxed(P[pIdx].text)===canonicalRelaxed(G[gIdx].text)).length;
+          e2ePrec_strict = e2eTP_strict ? e2eTP_strict/(e2eTP_strict+detFP) : 0;
+          e2eRec_strict  = e2eTP_strict ? e2eTP_strict/(e2eTP_strict+detFN) : 0;
+          e2eF1_strict   = (e2ePrec_strict+e2eRec_strict)? 2*e2ePrec_strict*e2eRec_strict/(e2ePrec_strict+e2eRec_strict) : 0;
+
+          e2ePrec_relaxed = e2eTP_relaxed ? e2eTP_relaxed/(e2eTP_relaxed+detFP) : 0;
+          e2eRec_relaxed  = e2eTP_relaxed ? e2eTP_relaxed/(e2eTP_relaxed+detFN) : 0;
+          e2eF1_relaxed   = (e2ePrec_relaxed+e2eRec_relaxed)? 2*e2ePrec_relaxed*e2eRec_relaxed/(e2ePrec_relaxed+e2eRec_relaxed) : 0;
+        }
+
+        // 6) 驗收 PASS 用設定門檻；清單來源可切換
+        const pass = bag_vs_expected.f1 >= (EVAL.passF1 ?? 0.92);
+
+        // 決定清單資料來源
+        const usingGtList = (EVAL.listSource === 'gt' && usingGT);
+        const listData = usingGtList ? bag_vs_gt : bag_vs_expected;
+
+        metricsEl.innerHTML = `
+          <div class="font-medium">驗收基線（bag-of-words，vs 期待圖 738328.jpg，門檻 F1 ≥ ${(EVAL.passF1*100).toFixed(0)}%） → ${pass?'<span class="text-green-600 font-semibold">PASS</span>':'<span class="text-red-600 font-semibold">FAIL</span>'}</div>
+          <div>Precision ${(bag_vs_expected.prec*100).toFixed(1)}% | Recall ${(bag_vs_expected.rec*100).toFixed(1)}% | F1 ${(bag_vs_expected.f1*100).toFixed(1)}%</div>
+          ${
+            usingGT ? `
+            <hr class="my-2">
+            <div class="text-sm">偵測層（對 GT，IoU≥${(EVAL.iou*100).toFixed(0)}%） F1 ${(detF1*100).toFixed(1)}% | P ${(detPrec*100).toFixed(1)}% | R ${(detRec*100).toFixed(1)}%</div>
+            <div class="text-sm">端到端（對 GT） 嚴格 F1 ${(e2eF1_strict*100).toFixed(1)}% | 寬鬆 F1 ${(e2eF1_relaxed*100).toFixed(1)}%</div>
+            <div class="text-xs text-gray-600">參考：bag-of-words（vs GT） P ${(bag_vs_gt.prec*100).toFixed(1)}% | R ${(bag_vs_gt.rec*100).toFixed(1)}% | F1 ${(bag_vs_gt.f1*100).toFixed(1)}%</div>
+            ` : `
+            <div class="text-xs text-gray-600 mt-1">（未提供 GT 標註檔，僅顯示 vs 期待圖 的基線指標）</div>
+            `
+          }
+          <div class="text-xs text-gray-600 mt-1">清單來源：${usingGtList ? 'vs GT' : 'vs 期待圖'}${EVAL.listSource==='gt' && !usingGT ? '（未提供 GT，已自動改為 vs 期待圖）' : ''}</div>
+        `;
+
+        // 清單
+        missEl.innerHTML=''; extraEl.innerHTML='';
+        listData.miss.forEach(x=>{ const li=document.createElement('li'); li.textContent=x; missEl.appendChild(li); });
+        listData.extra.forEach(x=>{ const li=document.createElement('li'); li.textContent=x; extraEl.appendChild(li); });
+      } catch(e) {
+        console.error(e);
+        document.getElementById('metrics').textContent='測試失敗：請查看主控台';
+      } finally {
+        if(worker) await worker.terminate();
+      }
+    });
+
+    function downloadText(filename, text){
+      const blob = new Blob([text], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+    }
+    document.getElementById('export-gt').addEventListener('click', ()=>{
+      if(!lastPredBoxes || !lastPredBoxes.length){
+        alert('尚未有預測結果，請先「開始自測」。'); return;
+      }
+      const gt = {
+        image: INPUT_IMG,
+        boxes: lastPredBoxes.map(b=>{
+          const x0=b.bbox.x0/lastPreW, y0=b.bbox.y0/lastPreH, x1=b.bbox.x1/lastPreW, y1=b.bbox.y1/lastPreH;
+          return { text: canonicalizeChordText(b.text), bbox: [x0,y0,x1,y1] };
+        })
+      };
+      downloadText('738327.gt.json', JSON.stringify(gt, null, 2));
+      alert('已下載 GT 樣板（請手動修正不正確的框與文字後放回 tests/assets/）。');
+    });
+
+    // ===== 新增：測項設定（參數化 + 本地儲存） =====
+    const EVAL_DEFAULT = { passF1: 0.92, iou: 0.5, listSource: 'expected', autoRun: false };
+    let EVAL = { ...EVAL_DEFAULT };
+
+    function loadAllSettings() {
+      try {
+        const raw = localStorage.getItem('selftest.settings');
+        if (!raw) return null;
+        const s = JSON.parse(raw);
+        return s;
+      } catch { return null; }
+    }
+    function settingsFromState() {
+      return {
+        preproc: { ...PREPROC },
+        postfilter: { ...POSTFILTER },
+        eval: { ...EVAL }
+      };
+    }
+    function applySettingsToState(s) {
+      if (s?.preproc) {
+        PREPROC.enabled = true; // 預處理開關固定啟用；如需也參數化，可另加控制
+        PREPROC.scale = Number(s.preproc.scale ?? PREPROC.scale);
+        PREPROC.contrastClip = Number(s.preproc.contrastClip ?? PREPROC.contrastClip);
+        PREPROC.binarize = !!(s.preproc.binarize ?? PREPROC.binarize);
+        PREPROC.dilateH = !!(s.preproc.dilateH ?? PREPROC.dilateH);
+      }
+      if (s?.postfilter) {
+        POSTFILTER.minConfidence = Number(s.postfilter.minConfidence ?? POSTFILTER.minConfidence);
+        POSTFILTER.minRootOnlyHeightRatio = Number(s.postfilter.minRootOnlyHeightRatio ?? POSTFILTER.minRootOnlyHeightRatio);
+      }
+      if (s?.eval) {
+        EVAL.passF1 = Number(s.eval.passF1 ?? EVAL.passF1);
+        EVAL.iou = Number(s.eval.iou ?? EVAL.iou);
+        EVAL.listSource = String(s.eval.listSource ?? EVAL.listSource);
+        EVAL.autoRun = !!(s.eval.autoRun ?? EVAL.autoRun);
+      }
+    }
+    function saveAllSettings() {
+      localStorage.setItem('selftest.settings', JSON.stringify(settingsFromState()));
+    }
+    function applyStateToUI() {
+      // 預處理
+      document.getElementById('ctl-scale').value = PREPROC.scale;
+      document.getElementById('ctl-contrast').value = PREPROC.contrastClip;
+      document.getElementById('ctl-binarize').checked = !!PREPROC.binarize;
+      document.getElementById('ctl-dilateH').checked = !!PREPROC.dilateH;
+      // 後處理
+      document.getElementById('ctl-minConf').value = POSTFILTER.minConfidence;
+      document.getElementById('ctl-rootRatio').value = POSTFILTER.minRootOnlyHeightRatio;
+      // 評測
+      document.getElementById('ctl-passF1').value = EVAL.passF1;
+      document.getElementById('ctl-iou').value = EVAL.iou;
+      document.getElementById('ctl-listSource').value = EVAL.listSource;
+      document.getElementById('ctl-autoRun').checked = !!EVAL.autoRun;
+    }
+    function bindSettingsUI() {
+      const rerunIfNeeded = () => {
+        saveAllSettings();
+        if (EVAL.autoRun) document.getElementById('run').click();
+      };
+      // 預處理
+      document.getElementById('ctl-scale').addEventListener('input', e => { PREPROC.scale = Number(e.target.value||1.8); rerunIfNeeded(); });
+      document.getElementById('ctl-contrast').addEventListener('input', e => { PREPROC.contrastClip = Number(e.target.value||0.01); rerunIfNeeded(); });
+      document.getElementById('ctl-binarize').addEventListener('change', e => { PREPROC.binarize = !!e.target.checked; rerunIfNeeded(); });
+      document.getElementById('ctl-dilateH').addEventListener('change', e => { PREPROC.dilateH = !!e.target.checked; rerunIfNeeded(); });
+      // 後處理
+      document.getElementById('ctl-minConf').addEventListener('input', e => { POSTFILTER.minConfidence = Number(e.target.value||70); rerunIfNeeded(); });
+      document.getElementById('ctl-rootRatio').addEventListener('input', e => { POSTFILTER.minRootOnlyHeightRatio = Number(e.target.value||0.7); rerunIfNeeded(); });
+      // 評測
+      document.getElementById('ctl-passF1').addEventListener('input', e => { EVAL.passF1 = Number(e.target.value||0.92); rerunIfNeeded(); });
+      document.getElementById('ctl-iou').addEventListener('input', e => { EVAL.iou = Number(e.target.value||0.5); rerunIfNeeded(); });
+      document.getElementById('ctl-listSource').addEventListener('change', e => { EVAL.listSource = String(e.target.value||'expected'); rerunIfNeeded(); });
+      document.getElementById('ctl-autoRun').addEventListener('change', e => { EVAL.autoRun = !!e.target.checked; saveAllSettings(); });
+
+      // 儲存 / 重設
+      document.getElementById('save-settings').addEventListener('click', () => { saveAllSettings(); alert('已儲存設定到本機。'); });
+      document.getElementById('reset-settings').addEventListener('click', () => {
+        // 回到預設值
+        applySettingsToState({
+          preproc: { enabled:true, scale:1.8, contrastClip:0.01, binarize:true, dilateH:true },
+          postfilter: { minConfidence:70, minRootOnlyHeightRatio:0.7 },
+          eval: { ...EVAL_DEFAULT }
+        });
+        applyStateToUI();
+        saveAllSettings();
+        if (EVAL.autoRun) document.getElementById('run').click();
+      });
+    }
+
+    // 啟動時還原設定
+    {
+      const saved = loadAllSettings();
+      if (saved) applySettingsToState(saved);
+      // 等 DOM 有控制項後灌值與綁定（這段 script 在 body 底部，DOM 已可抓）
+      setTimeout(() => {
+        // 控制項可能尚未插入時保險
+        if (document.getElementById('ctl-scale')) {
+          applyStateToUI();
+          bindSettingsUI();
+        }
+      }, 0);
+    }
+
+    // ===== 將自測頁儲存的設定讀出並套用到主程式 =====
+    (function applySelftestSettingsToMain(){
+      try {
+        const raw = localStorage.getItem('selftest.settings');
+        if (!raw) return;
+        const cfg = JSON.parse(raw);
+        const pre = cfg.preproc || {};
+        const post = cfg.postfilter || {};
+        const evalCfg = cfg.eval || {};
+
+        // 依你的主程式變數命名調整：以下假設同名 PREPROC/POSTFILTER 存在
+        if (window.PREPROC) {
+          PREPROC.enabled = true;
+          if (pre.scale != null) PREPROC.scale = Number(pre.scale);
+          if (pre.contrastClip != null) PREPROC.contrastClip = Number(pre.contrastClip);
+          if (pre.binarize != null) PREPROC.binarize = !!pre.binarize;
+          if (pre.dilateH != null) PREPROC.dilateH = !!pre.dilateH;
+        }
+        if (window.POSTFILTER) {
+          if (post.minConfidence != null) POSTFILTER.minConfidence = Number(post.minConfidence);
+          if (post.minRootOnlyHeightRatio != null) POSTFILTER.minRootOnlyHeightRatio = Number(post.minRootOnlyHeightRatio);
+        }
+        // 如果主程式也有評測/顯示門檻（非必要）
+        if (!window.EVAL) window.EVAL = {};
+        if (evalCfg.passF1 != null) EVAL.passF1 = Number(evalCfg.passF1);
+        if (evalCfg.iou != null) EVAL.iou = Number(evalCfg.iou);
+        if (evalCfg.listSource != null) EVAL.listSource = String(evalCfg.listSource);
+
+        console.log('[Main] 已套用自測設定：', { PREPROC, POSTFILTER, EVAL });
+      } catch (e) {
+        console.warn('[Main] 套用自測設定失敗：', e);
+      }
+    })();
+  </script>
+</body>
+</html>

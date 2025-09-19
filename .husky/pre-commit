@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# 跑快速測試（單元 + 設定套用）
+npm run -s test:fast

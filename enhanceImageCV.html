@@ -1,0 +1,87 @@
+```html
+// filepath: d:\sonhomework\chords_tranport.html
+<script>
+// --- 新增：傾斜校正 ---
+function deskewByHough(imgEl) {
+  try {
+    const src = cv.imread(imgEl);
+    const gray = new cv.Mat();
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    const edges = new cv.Mat();
+    cv.Canny(gray, edges, 50, 150);
+    const lines = new cv.Mat();
+    cv.HoughLines(edges, lines, 1, Math.PI/180, 120);
+    let angleSum = 0, cnt = 0;
+    for (let i = 0; i < lines.rows; i++) {
+      const rho = lines.data32F[i*2];
+      const theta = lines.data32F[i*2 + 1];
+      // 接近水平的線，換算成需旋轉角度（-15°~15°）
+      const deg = (theta * 180 / Math.PI) - 90;
+      if (Math.abs(deg) <= 15) { angleSum += deg; cnt++; }
+    }
+    const angle = cnt ? (angleSum / cnt) : 0;
+    if (Math.abs(angle) < 0.2) { src.delete(); gray.delete(); edges.delete(); lines.delete(); return null; }
+    const center = new cv.Point(src.cols/2, src.rows/2);
+    const M = cv.getRotationMatrix2D(center, angle, 1.0);
+    const dst = new cv.Mat();
+    cv.warpAffine(src, dst, M, new cv.Size(src.cols, src.rows), cv.INTER_LINEAR, cv.BORDER_REPLICATE);
+    const canvas = document.createElement('canvas');
+    cv.imshow(canvas, dst);
+    const url = canvas.toDataURL('image/png');
+    src.delete(); gray.delete(); edges.delete(); lines.delete(); dst.delete();
+    return url;
+  } catch(e){ console.warn('[deskew] 失敗', e); return null; }
+}
+
+// --- 取代/強化：影像增強 ---
+function enhanceImageCV(imgEl, opt = PREPROC) {
+  try {
+    // 0) 可選傾斜校正
+    let workEl = imgEl;
+    const sk = deskewByHough(imgEl);
+    if (sk) { const im = new Image(); im.src = sk; workEl = im; }
+
+    // 1) 讀圖 + 尺度
+    const scale = Number(opt?.scale ?? 1.8);
+    const src0 = cv.imread(workEl);
+    const src = new cv.Mat();
+    cv.resize(src0, src, new cv.Size(0,0), scale, scale, cv.INTER_CUBIC);
+
+    // 2) 灰階 + CLAHE 提升對比
+    const gray = new cv.Mat();
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    const clahe = new cv.CLAHE(opt?.contrastClip ?? 0.01, new cv.Size(8,8));
+    clahe.apply(gray, gray);
+
+    // 3) 輕量降噪 + 銳化
+    const blur = new cv.Mat();
+    cv.GaussianBlur(gray, blur, new cv.Size(3,3), 0.8, 0.8, cv.BORDER_DEFAULT);
+    const sharp = new cv.Mat();
+    // Unsharp mask: sharp = 1.5*gray - 0.5*blur
+    cv.addWeighted(gray, 1.5, blur, -0.5, 0, sharp);
+
+    // 4) 自適應二值化（比 Otsu 更耐光照）
+    const bin = new cv.Mat();
+    cv.adaptiveThreshold(sharp, bin, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C,
+                         cv.THRESH_BINARY, 31, 10);
+
+    // 5) 輕微開閉運算，連接破碎字體、去掉鹽噪
+    const kernelClose = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2,2));
+    const bin2 = new cv.Mat();
+    cv.morphologyEx(bin, bin2, cv.MORPH_CLOSE, kernelClose, new cv.Point(-1,-1), 1);
+    const kernelOpen = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(1,1));
+    const bin3 = new cv.Mat();
+    cv.morphologyEx(bin2, bin3, cv.MORPH_OPEN, kernelOpen, new cv.Point(-1,-1), 1);
+
+    // 6) 回傳 DataURL
+    const canvas = document.createElement('canvas');
+    cv.imshow(canvas, bin3);
+    const url = canvas.toDataURL('image/png');
+
+    // 釋放
+    src0.delete(); src.delete(); gray.delete(); blur.delete(); sharp.delete(); bin.delete(); bin2.delete(); bin3.delete();
+    return url;
+  } catch (e) { console.warn('[enhanceImageCV] 失敗，回傳原圖', e); return imgEl.src || null; }
+}
+</script>
+```
