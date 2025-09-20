@@ -520,6 +520,15 @@
     .key-btn:hover, #recognize-ai-btn:hover { background:#f3f4f6; }
     #recognize-ai-btn.primary { background:#10b981; color:#fff; border-color:#10b981; }
     #gemini-status { font-size:12px; color:#6b7280; min-height:18px; }
+
+    /* 新增的樣式區域 */
+    /* 安全預編譯：單一來源，避免字串拼接遺失跳脫 */
+    .chord-token-re {
+      display: none;
+    }
+    .chord-line-re {
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -654,92 +663,75 @@
   <!-- AI 直接辨識模組（取代 OCR 強化處理） -->
   <script src="public/js/ai-direct-recognition.js"></script>
   <script type="module">
-    import { buildPrompt, processGeminiText, formatGeminiResponse, tryParseGeminiJSON, cleanChords } from './public/js/ai-utils.js';
-        // ========================================================================
-        // 全域狀態管理
-        // ========================================================================
-        window.AppState = {
-            preURL: null,
-            tokens: [],
-            currentTranspose: 0
-        };
+    import {
+      buildPrompt,
+      processGeminiText,
+      formatGeminiResponse
+    } from './public/js/ai-utils.js';
 
-        // ========================================================================
-        // DOM 元素參考
-        // ========================================================================
-        const elements = {
-            fileInput: document.getElementById('file-input'),
-            startBtn: document.getElementById('start-recognition-btn'),
-            aiBtn: document.getElementById('recognize-ai-btn'),
-            apiKeyInput: document.getElementById('gemini-api-key'),
-            useAiCheckbox: document.getElementById('use-gemini-ai'),
-            recognitionStatus: document.getElementById('recognition-status'),
-            geminiStatus: document.getElementById('gemini-status'),
-            originalImage: document.getElementById('original-image'),
-            recognitionResult: document.getElementById('recognition-result'),
-            textEditor: document.getElementById('text-editor'),
-        };
+    // 將模組函式掛到全域，供下方非模組腳本使用
+    window.formatGeminiResponse = formatGeminiResponse;
+    //（可選）另外導出供除錯，不覆蓋既有全域同名函式
+    window.__AIUtils__ = { buildPrompt, processGeminiText, formatGeminiResponse };
 
-        // ========================================================================
-        // 事件監聽與 UI 更新
-        // ========================================================================
+    // ========================================================================
+    // 全域狀態管理
+    // ========================================================================
+    window.AppState = {
+        preURL: null,
+        tokens: [],
+        currentTranspose: 0
+    };
 
-        // 檔案選擇處理
-        elements.fileInput.addEventListener('change', function() {
-            const file = this.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    window.AppState.preURL = e.target.result;
-                    elements.originalImage.innerHTML = `<img src="${e.target.result}" alt="原始圖片" style="max-width: 100%; height: auto;">`;
-                    updateAIButtonState();
-                };
-                reader.readAsDataURL(file);
-            } else {
-                window.AppState.preURL = null;
-                elements.originalImage.innerHTML = '';
+    // ========================================================================
+    // DOM 元素參考
+    // ========================================================================
+    const elements = {
+        fileInput: document.getElementById('file-input'),
+        startBtn: document.getElementById('start-recognition-btn'),
+        aiBtn: document.getElementById('recognize-ai-btn'),
+        apiKeyInput: document.getElementById('gemini-api-key'),
+        useAiCheckbox: document.getElementById('use-gemini-ai'),
+        recognitionStatus: document.getElementById('recognition-status'),
+        geminiStatus: document.getElementById('gemini-status'),
+        originalImage: document.getElementById('original-image'),
+        recognitionResult: document.getElementById('recognition-result'),
+        textEditor: document.getElementById('text-editor'),
+    };
+
+    // ========================================================================
+    // 事件監聽與 UI 更新
+    // ========================================================================
+
+    // 檔案選擇處理
+    elements.fileInput.addEventListener('change', function() {
+        const file = this.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                window.AppState.preURL = e.target.result;
+                elements.originalImage.innerHTML = `<img src="${e.target.result}" alt="原始圖片" style="max-width: 100%; height: auto;">`;
                 updateAIButtonState();
-            }
-        });
-
-        // 更新 AI 按鈕狀態的邏輯
-        function updateAIButtonState() {
-            const hasFile = !!window.AppState.preURL;
-            const hasKey = elements.apiKeyInput.value.trim().length > 0;
-            const useAI = elements.useAiCheckbox.checked;
-            elements.aiBtn.disabled = !(hasFile && hasKey && useAI);
+            };
+            reader.readAsDataURL(file);
+        } else {
+            window.AppState.preURL = null;
+            elements.originalImage.innerHTML = '';
+            updateAIButtonState();
         }
-
-        elements.apiKeyInput.addEventListener('input', updateAIButtonState);
-        elements.useAiCheckbox.addEventListener('change', updateAIButtonState);
-
-        // AI 辨識按鈕點擊事件
-    elements.aiBtn.addEventListener('click', async (e) => {
-      e.preventDefault();
-      els.aiBtn.disabled = true;
-      els.geminiStatus.textContent = '準備中...';
-      try {
-        const raw = await callGeminiAPI(AppState.preURL, els.apiKey.value.trim(), buildPrompt());
-        // 1) 先將 JSON→純文字（若不是 JSON 則原樣）
-        const display = formatGeminiResponse(raw);
-        // 2) 寫入唯一結果欄（保留空格/對齊）
-        setGeminiRawText(display);
-        // 3) 供後續功能使用的 tokens（以純文字為基礎）
-        AppState.tokens = processGeminiText(display);
-        els.geminiStatus.textContent = '完成';
-        els.appStatus.textContent = 'AI 完成';
-        // 若有視圖切換請保留你原本的切換呼叫（如需）
-        // switchView?.('view-result');
-      } catch (err) {
-        console.error(err);
-        let msg = String(err.message || err);
-        if (/overloaded|503/i.test(msg)) msg = 'AI 服務繁忙，請稍後重試';
-        els.geminiStatus.textContent = '錯誤：' + msg;
-        els.appStatus.textContent = '失敗';
-      } finally {
-        els.aiBtn.disabled = false;
-      }
     });
+
+    // 更新 AI 按鈕狀態的邏輯
+    function updateAIButtonState() {
+        const hasFile = !!window.AppState.preURL;
+        const hasKey = elements.apiKeyInput.value.trim().length > 0;
+        const useAI = elements.useAiCheckbox.checked;
+        elements.aiBtn.disabled = !(hasFile && hasKey && useAI);
+    }
+
+    elements.apiKeyInput.addEventListener('input', updateAIButtonState);
+    elements.useAiCheckbox.addEventListener('change', updateAIButtonState);
+    // 移除此段內建 AI 按鈕綁定（改由下方單一處理邏輯綁定，避免重複與未定義變數）
     // ...existing code...
   </script>
   <script>
@@ -1114,7 +1106,7 @@
 讚美你的聖名
 
 **重要：**
-- 如果看到类似 |F2| 或 |Csus| 的格式，請完整保留
+- 如果看到类似 |F2 |  |或 |Csus| 的格式，請完整保留豎線|
 - 不要忽略任何歌詞或和弦
 - 保持原有的行的結構和格式
 - 直接輸出，不要加任何解釋或說明`;
@@ -1470,6 +1462,16 @@
       syncAIBtn();
     });
 
+    // 將 Gemini 回傳（可能是 JSON 或純文字）格式化為顯示用文字：
+    // - 和弦行：保留豎線 |，移除 [F] 這類方括號
+    // - 歌詞行：移除所有豎線 | 以及方括號和弦，其他空白保留
+    function formatGeminiDisplay(raw) {
+      // 使用全域掛載的 formatGeminiResponse；若不存在則原樣回傳字串
+      return (typeof window.formatGeminiResponse === 'function')
+        ? window.formatGeminiResponse(raw)
+        : String(raw ?? '');
+    }
+
     // AI 辨識按鈕（避免重複綁定）
     if (elements.aiBtn && elements.aiBtn.__wired) {
       // 已由前一段程式碼綁定，避免重複
@@ -1496,9 +1498,10 @@
         const tokens = parseGeminiResponseToTokens(responseText);
         g.AppState.tokens = tokens;
         
-        // 寫入文字編輯器
+        // 寫入文字編輯器（歌詞不包含 |，和弦保留 |）
         if (elements.textEditor) {
-          elements.textEditor.value = responseText;
+          const display = formatGeminiDisplay(responseText);
+          elements.textEditor.value = display;
         }
 
         renderTokens(tokens);
