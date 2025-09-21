@@ -4,7 +4,7 @@ import fs from 'fs';
 import os from 'os';
 
 // 單頁 demo
-const fileURL = 'file://' + path.resolve('chords_tranport.html');
+const fileURL = 'file://' + path.resolve('chords_transport.html');
 const ONE_PX_PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMB/axhCpgAAAAASUVORK5CYII=';
 
 test('UploadModule 上傳後應顯示 AI 辨識區域並更新 AppState', async ({ page }) => {

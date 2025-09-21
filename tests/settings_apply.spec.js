@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import path from 'path';
 
-const fileURL = 'file://' + path.resolve('chords_tranport.html');
+const fileURL = 'file://' + path.resolve('chords_transport.html');
 
 test('localStorage 自測設定會套用到 PREPROC/POSTFILTER', async ({ page }) => {
   // 事先寫入設定

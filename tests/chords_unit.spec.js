@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import path from 'path';
 
-const fileURL = 'file://' + path.resolve('chords_tranport.html');
+const fileURL = 'file://' + path.resolve('chords_transport.html');
 const MINI = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/wwAAgMBAp4lS8QAAAAASUVORK5CYII=';
 
 test.beforeEach(async ({ page }) => {

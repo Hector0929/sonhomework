@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 const MINI='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/wwAAgMBAp4lS8QAAAAASUVORK5CYII=';
 
 test('開始辨識流程', async ({ page }) => {
-  await page.goto('/chords_tranport.html');
+  await page.goto('/chords_transport.html');
   const input = page.locator('#file-input');
   const btn = page.locator('#recognize-btn');
   await expect(btn).toBeDisabled();
