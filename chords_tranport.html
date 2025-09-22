@@ -1693,3 +1693,34 @@
 
   })(window, document);
 </script>
+<script>
+// 自動隱藏底部 Log 面板（不影響其它功能）
+(function hideBottomLogs() {
+  const candidates = [
+    '#gemini-log', '#ai-log', '#recognition-log', '#recognize-log',
+    '.log-panel', '.api-log', '.recognition-log', '.gemini-log',
+    '[data-role="log"]', '#gemini-api-log', '#gemini-log-panel'
+  ];
+
+  // 隱藏已知的 Log 容器
+  candidates.forEach(sel => {
+    document.querySelectorAll(sel).forEach(el => {
+      el.style.display = 'none';
+      el.setAttribute('data-hidden-by', 'hide-logs');
+    });
+  });
+
+  // 針對可能以 ``` 顯示的 Log/原始輸出做防護性隱藏
+  const maybeLogs = document.querySelectorAll('pre, textarea, .code, .output');
+  maybeLogs.forEach(el => {
+    const text = (el.value ?? el.textContent ?? '').trim();
+    if (!text) return;
+    const looksLikeLog =
+      /^```/.test(text) || /API.*Log/i.test(text) || /辨識\s*Log/i.test(text);
+    if (looksLikeLog && (el.offsetHeight > 120 || text.length > 200)) {
+      el.style.display = 'none';
+      el.setAttribute('data-hidden-by', 'hide-logs');
+    }
+  });
+})();
+</script>

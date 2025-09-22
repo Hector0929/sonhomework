@@ -13,6 +13,40 @@
       "type": "npm",
       "script": "test:ui",
       "problemMatcher": []
+    },
+    {
+      "label": "git: commit (no-verify)",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "git add -A; git commit -m \"${input:commitMessage}\" --no-verify"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "git: commit & push (no-verify)",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "git add -A; git commit -m \"${input:commitMessage}\" --no-verify; git push origin main"
+      ],
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "commitMessage",
+      "type": "promptString",
+      "description": "輸入 commit 訊息 (例如: fix: 修正UI重疊)",
+      "default": "chore: quick commit"
     }
   ]
 }
