@@ -650,7 +650,19 @@
           <div class="original-image-container">
             <h3 style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
               <span>原始圖片</span>
-              <button id="toggle-fit-mode" class="tool-btn" style="margin-left:auto;">適應寬度</button>
+              <div style="display:flex; align-items:center; gap:6px; margin-left:auto; flex-wrap:wrap;">
+                <button id="toggle-fit-mode" class="tool-btn">適應寬度</button>
+                <button id="zoom-out" class="tool-btn" title="縮小">-</button>
+                <span id="zoom-label" style="min-width:48px; text-align:center; font-size:12px; color:#374151;">100%</span>
+                <button id="zoom-in" class="tool-btn" title="放大">+</button>
+                <select id="zoom-preset" class="tool-btn" style="height:28px;">
+                  <option value="0.5">50%</option>
+                  <option value="0.75">75%</option>
+                  <option value="1" selected>100%</option>
+                  <option value="1.5">150%</option>
+                  <option value="2">200%</option>
+                </select>
+              </div>
             </h3>
             <div id="original-image" class="image-container fit-width"></div>
           </div>
@@ -829,6 +841,10 @@
   const imgBox   = $('original-image') || $('recognition-result');
   const textArea = $('text-editor');
   const fitBtn   = $('toggle-fit-mode');
+  const zoomOut  = $('zoom-out');
+  const zoomIn   = $('zoom-in');
+  const zoomLbl  = $('zoom-label');
+  const zoomSel  = $('zoom-preset');
 
   // 自動高度調整：根據內容變化自適應高度，保留最小高度門檻
   function autoResizeTextEditor(el) {
@@ -897,16 +913,28 @@
   // 顯示模式：適應寬度 / 原尺寸
   function getFitPref(){ return localStorage.getItem('img_fit_mode') || 'fit'; }
   function setFitPref(v){ localStorage.setItem('img_fit_mode', v); }
+  function getZoom(){ const v = parseFloat(localStorage.getItem('img_zoom') || '1'); return isNaN(v)?1:Math.min(2,Math.max(0.5,v)); }
+  function setZoom(v){ localStorage.setItem('img_zoom', String(v)); }
   function applyImageFitMode(){
     if (!imgBox) return;
     const mode = getFitPref();
     imgBox.classList.remove('fit-width','actual-size');
+    const img = imgBox.querySelector('img');
     if (mode === 'actual') {
       imgBox.classList.add('actual-size');
       if (fitBtn) fitBtn.textContent = '原尺寸';
+      // 在原尺寸模式下套用縮放比例
+      const z = getZoom();
+      if (img) img.style.transform = `scale(${z})`;
+      if (img) img.style.transformOrigin = 'top left';
+      if (zoomLbl) zoomLbl.textContent = Math.round(z*100) + '%';
+      if (zoomSel) zoomSel.value = String(z);
     } else {
       imgBox.classList.add('fit-width');
       if (fitBtn) fitBtn.textContent = '適應寬度';
+      // 適應寬度模式下移除縮放
+      if (img) img.style.transform = '';
+      if (zoomLbl) zoomLbl.textContent = '適應';
     }
   }
   // 導出到全域供其他模組呼叫
@@ -918,6 +946,14 @@
       applyImageFitMode();
     });
     fitBtn.__wired = true;
+  }
+  // 縮放控制（僅在原尺寸模式下有意義）
+  function bumpZoom(delta){ setZoom(Math.round((getZoom()+delta)*100)/100); applyImageFitMode(); }
+  if (zoomOut && !zoomOut.__wired) { zoomOut.addEventListener('click', ()=> bumpZoom(-0.1)); zoomOut.__wired = true; }
+  if (zoomIn && !zoomIn.__wired)  { zoomIn .addEventListener('click', ()=> bumpZoom(+0.1)); zoomIn .__wired = true; }
+  if (zoomSel && !zoomSel.__wired) {
+    zoomSel.addEventListener('change', ()=> { const v=parseFloat(zoomSel.value||'1'); if(!isNaN(v)) setZoom(v); applyImageFitMode(); });
+    zoomSel.__wired = true;
   }
   // 初始套用一次（無圖時也先設好 class，載圖後會沿用）
   applyImageFitMode();
