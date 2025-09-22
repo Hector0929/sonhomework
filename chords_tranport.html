@@ -453,7 +453,8 @@
       overflow: auto;
     }
     /* 模式一：適應寬度（預設） */
-    .original-image-container .image-container.fit-width img {
+    .original-image-container .image-container.fit-width img,
+    .original-image-container .image-container.fit-width canvas {
       width: 100%;
       height: auto;
       max-width: 100%;
@@ -461,7 +462,8 @@
       display: block;
     }
     /* 模式二：原尺寸 */
-    .original-image-container .image-container.actual-size img {
+    .original-image-container .image-container.actual-size img,
+    .original-image-container .image-container.actual-size canvas {
       max-width: none;
       max-height: none;
       width: auto;
@@ -732,6 +734,8 @@
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
   <script src="https://docs.opencv.org/4.8.0/opencv.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/music-chord-parser@0.1.2/dist/music-chord-parser.min.js"></script>
+  <!-- PDF.js for PDF preview -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- 匯出所需函式庫 -->
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
@@ -786,12 +790,20 @@
     elements.fileInput.addEventListener('change', function() {
         const file = this.files[0];
         if (file) {
+            // PDF 直接用 objectURL 交給 fallbackPreview（讓 PDF.js 渲染）
+            if (/pdf$/i.test(file.type) || /\.pdf$/i.test(file.name)) {
+              const url = URL.createObjectURL(file);
+              window.AppState.preURL = url;
+              fallbackPreview(url);
+              updateAIButtonState();
+              return;
+            }
             const reader = new FileReader();
-      reader.onload = function(e) {
-        window.AppState.preURL = e.target.result;
-        elements.originalImage.innerHTML = `<img src="${e.target.result}" alt="原始圖片">`;
-        if (typeof window.applyImageFitMode === 'function') window.applyImageFitMode();
-                updateAIButtonState();
+            reader.onload = function(e) {
+              window.AppState.preURL = e.target.result;
+              elements.originalImage.innerHTML = `<img src="${e.target.result}" alt="原始圖片">`;
+              if (typeof window.applyImageFitMode === 'function') window.applyImageFitMode();
+              updateAIButtonState();
             };
             reader.readAsDataURL(file);
         } else {
@@ -900,13 +912,38 @@
   }
 
   // 5) 後備顯示（當沒有 performRecognition）
-    function fallbackPreview(url) {
+    async function renderPdfToCanvas(arrayBuffer, container) {
+      try {
+        const pdf = await window['pdfjsLib'].getDocument({ data: arrayBuffer }).promise;
+        const page = await pdf.getPage(1);
+        const viewport = page.getViewport({ scale: 2 });
+        const canvas = d.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = viewport.width; canvas.height = viewport.height;
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        container.innerHTML = '';
+        container.appendChild(canvas);
+      } catch (e) { console.error('PDF render failed', e); }
+    }
+
+    async function fallbackPreview(url) {
     if (!imgBox || !url) return;
     imgBox.innerHTML = '';
-    const img = new Image();
-    img.src = url;
-      // 保持原尺寸，由 CSS 規則控制
-    imgBox.appendChild(img);
+    try {
+      // 若是 data:application/pdf 或 .pdf，使用 pdfjs 渲染
+      if (/\.pdf($|\?)/i.test(url) || /^data:application\/pdf/i.test(url)) {
+        // 若是 blob/data URL，則抓取 ArrayBuffer
+        const res = await fetch(url);
+        const buf = await res.arrayBuffer();
+        await renderPdfToCanvas(buf, imgBox);
+      } else {
+        const img = new Image();
+        img.src = url;
+        imgBox.appendChild(img);
+      }
+    } catch (e) {
+      console.error('preview failed', e);
+    }
     applyImageFitMode();
   }
 
@@ -919,7 +956,7 @@
     if (!imgBox) return;
     const mode = getFitPref();
     imgBox.classList.remove('fit-width','actual-size');
-    const img = imgBox.querySelector('img');
+  const img = imgBox.querySelector('img') || imgBox.querySelector('canvas');
     if (mode === 'actual') {
       imgBox.classList.add('actual-size');
       if (fitBtn) fitBtn.textContent = '原尺寸';
