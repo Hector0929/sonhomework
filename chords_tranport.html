@@ -646,7 +646,7 @@
 
     <!-- 移調分頁 -->
     <section id="transpose-section" class="hidden">
-      <div>
+      <div class="text-tools" style="justify-content:flex-start; gap:12px;">
         <label>原調
           <select id="original-key">
             <option>C</option><option>C#</option><option>D</option><option>D#</option><option>E</option><option>F</option>
@@ -661,7 +661,10 @@
         </label>
         <button id="transpose-btn">套用移調</button>
       </div>
-      <div id="transposed-result" style="margin-top:15px;"></div>
+      <div id="transpose-editor-wrap" style="margin-top:8px; display:flex; flex-direction:column; min-height:200px;">
+        <textarea id="transpose-editor" placeholder="這裡會自動帶入上一頁的文字譜，您可以在此進一步編輯或校正後再移調" style="flex:1 1 auto; min-height:0; width:100%; border:1px solid #e5e7eb; border-radius:8px; padding:10px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; line-height:1.6; white-space:pre; overflow-y:auto;"></textarea>
+      </div>
+      <div id="transposed-result" style="margin-top:12px;"></div>
       <button id="to-export-btn" style="margin-top:15px;">下一步：匯出</button>
     </section>
 
@@ -783,20 +786,21 @@
   const textArea = $('text-editor');
 
   // 自動高度調整：根據內容變化自適應高度，保留最小高度門檻
-  function autoResizeTextEditor() {
-    if (!textArea) return;
+  function autoResizeTextEditor(el) {
+    const ta = el || textArea;
+    if (!ta) return;
     // 若採用 flex:1 等高填滿，就不以內容高度重設 height，避免破壞等高布局
-    const style = g.getComputedStyle ? g.getComputedStyle(textArea) : null;
+    const style = g.getComputedStyle ? g.getComputedStyle(ta) : null;
     const isFlexFill = style && /flex\s*:/i.test(style.getPropertyValue('flex') || '');
     if (isFlexFill) {
       // 在等高模式下僅確保不低於 0，不需動態調整
-      textArea.style.minHeight = '0';
+      ta.style.minHeight = '0';
       return;
     }
     const min = 360; // 與 CSS min-height 對齊
-    textArea.style.height = 'auto';
-    const next = Math.max(min, textArea.scrollHeight + 2);
-    textArea.style.height = next + 'px';
+    ta.style.height = 'auto';
+    const next = Math.max(min, ta.scrollHeight + 2);
+    ta.style.height = next + 'px';
   }
   // 導出到全域，供其他腳本存取
   g.autoResizeTextEditor = autoResizeTextEditor;
@@ -1111,6 +1115,19 @@
         Object.values(tabs).forEach(tb => { if (tb) tb.setAttribute('aria-selected', 'false'); });
         const activeTab = tabs[view];
         if (activeTab) activeTab.setAttribute('aria-selected', 'true');
+
+        // 進入移調頁時，帶入辨識結果的文字
+        if (view === 'transpose') {
+          try {
+            const src = d.getElementById('text-editor');
+            const dst = d.getElementById('transpose-editor');
+            if (src && dst && !dst.__filledOnce) {
+              dst.value = src.value || '';
+              dst.__filledOnce = true; // 初次帶入，之後使用者可編輯不被覆蓋
+              g.autoResizeTextEditor?.(dst);
+            }
+          } catch(_) {}
+        }
         return view;
       };
     }
@@ -1126,7 +1143,21 @@
 
     // 下一步按鈕：辨識 → 移調、移調 → 匯出
     const toTranspose = d.getElementById('to-transpose-btn');
-    if (toTranspose && !toTranspose.__wired) { toTranspose.addEventListener('click', () => g.switchView('transpose')); toTranspose.__wired = true; }
+    if (toTranspose && !toTranspose.__wired) {
+      toTranspose.addEventListener('click', () => {
+        // 帶入後再切換頁面
+        try {
+          const src = d.getElementById('text-editor');
+          const dst = d.getElementById('transpose-editor');
+          if (src && dst) {
+            dst.value = src.value || '';
+            g.autoResizeTextEditor?.(dst);
+          }
+        } catch(_) {}
+        g.switchView('transpose');
+      });
+      toTranspose.__wired = true;
+    }
     const toExport = d.getElementById('to-export-btn');
     if (toExport && !toExport.__wired) { toExport.addEventListener('click', () => g.switchView('export')); toExport.__wired = true; }
 
@@ -1327,6 +1358,13 @@
       geminiLogDiv: $('gemini-log'),
       geminiLogContent: $('gemini-log-content')
     };
+
+    // 讓移調頁可操作的元素
+    const transposeEditor = d.getElementById('transpose-editor');
+    const originalKeySel = d.getElementById('original-key');
+    const targetKeySel   = d.getElementById('target-key');
+    const transposeBtn   = d.getElementById('transpose-btn');
+    const transposeOut   = d.getElementById('transposed-result');
 
     /**
      * 更新 AI 辨識按鈕的狀態
@@ -1606,6 +1644,48 @@
             elements.geminiLogContent.textContent = '尚無 Gemini API 的日誌紀錄。';
         }
     });
+
+    // --- 轉調相關 ---
+    function transposeChordText(ch, fromKey, toKey) {
+      try {
+        if (!ch) return ch;
+        // 使用 TransposeModule 若有載入
+        if (g.TransposeModule?.transposeChord) return g.TransposeModule.transposeChord(ch, fromKey, toKey);
+        return ch;
+      } catch { return ch; }
+    }
+
+    function isChordTokenLike(token) {
+      return /^[A-G][#b]?(?:maj|min|m|sus|dim|aug|add|[0-9]+)*(?:\/[A-G][#b]?)?$/.test(token);
+    }
+
+    function transposePlainText(content, fromKey, toKey) {
+      const lines = String(content||'').split('\n');
+      return lines.map(line => {
+        // 判定為和弦行：包含豎線 | 或多個可能的和弦 token
+        const looksChordLine = /\|/.test(line) || (line.match(/[A-G]/g)||[]).length >= 2;
+        if (!looksChordLine) return line; // 歌詞或其他行不處理
+
+        // 逐個 token 轉調，保留原有空白與豎線
+        return line.replace(/([A-G][#b]?(?:maj|min|m|sus|dim|aug|add|[0-9]+)*(?:\/[A-G][#b]?)?)/g, (m) => {
+          if (!isChordTokenLike(m)) return m;
+          return transposeChordText(m, fromKey, toKey);
+        });
+      }).join('\n');
+    }
+
+    if (transposeBtn && !transposeBtn.__wired) {
+      transposeBtn.addEventListener('click', () => {
+        const fromKey = originalKeySel?.value || 'C';
+        const toKey   = targetKeySel?.value || 'C';
+        const input   = transposeEditor?.value ?? elements.textEditor?.value ?? '';
+        const outText = transposePlainText(input, fromKey, toKey);
+        if (transposeOut) transposeOut.textContent = outText;
+        if (transposeEditor) transposeEditor.value = outText;
+        g.autoResizeTextEditor?.(transposeEditor);
+      });
+      transposeBtn.__wired = true;
+    }
 
     // 初始化按鈕狀態
     syncAIBtn();
