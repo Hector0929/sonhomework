@@ -736,6 +736,15 @@
   <script src="https://cdn.jsdelivr.net/npm/music-chord-parser@0.1.2/dist/music-chord-parser.min.js"></script>
   <!-- PDF.js for PDF preview -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    (function(){
+      try {
+        if (window.pdfjsLib && window.pdfjsLib.GlobalWorkerOptions) {
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+      } catch(_) {}
+    })();
+  </script>
   <!-- 匯出所需函式庫 -->
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
@@ -794,7 +803,9 @@
             if (/pdf$/i.test(file.type) || /\.pdf$/i.test(file.name)) {
               const url = URL.createObjectURL(file);
               window.AppState.preURL = url;
-              fallbackPreview(url);
+              const container = elements.originalImage;
+              if (container) { renderPdfToCanvas(url, container); }
+              if (typeof window.applyImageFitMode === 'function') window.applyImageFitMode();
               updateAIButtonState();
               return;
             }
@@ -912,9 +923,11 @@
   }
 
   // 5) 後備顯示（當沒有 performRecognition）
-    async function renderPdfToCanvas(arrayBuffer, container) {
+    async function renderPdfToCanvas(src, container) {
       try {
-        const pdf = await window['pdfjsLib'].getDocument({ data: arrayBuffer }).promise;
+        let arg;
+        if (typeof src === 'string') arg = { url: src }; else arg = { data: src };
+        const pdf = await window['pdfjsLib'].getDocument(arg).promise;
         const page = await pdf.getPage(1);
         const viewport = page.getViewport({ scale: 2 });
         const canvas = d.createElement('canvas');
@@ -931,11 +944,8 @@
     imgBox.innerHTML = '';
     try {
       // 若是 data:application/pdf 或 .pdf，使用 pdfjs 渲染
-      if (/\.pdf($|\?)/i.test(url) || /^data:application\/pdf/i.test(url)) {
-        // 若是 blob/data URL，則抓取 ArrayBuffer
-        const res = await fetch(url);
-        const buf = await res.arrayBuffer();
-        await renderPdfToCanvas(buf, imgBox);
+      if (/\.pdf($|\?)/i.test(url) || /^data:application\/pdf/i.test(url) || url.startsWith('blob:')) {
+        await renderPdfToCanvas(url, imgBox);
       } else {
         const img = new Image();
         img.src = url;
