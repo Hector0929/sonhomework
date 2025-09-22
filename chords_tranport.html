@@ -452,7 +452,16 @@
       justify-content: flex-start;
       overflow: auto;
     }
-    .original-image-container .image-container img {
+    /* 模式一：適應寬度（預設） */
+    .original-image-container .image-container.fit-width img {
+      width: 100%;
+      height: auto;
+      max-width: 100%;
+      object-fit: contain;
+      display: block;
+    }
+    /* 模式二：原尺寸 */
+    .original-image-container .image-container.actual-size img {
       max-width: none;
       max-height: none;
       width: auto;
@@ -639,8 +648,11 @@
         <!-- 左右對照區域 -->
         <div class="recognition-compare-area">
           <div class="original-image-container">
-            <h3>原始圖片</h3>
-            <div id="original-image" class="image-container"></div>
+            <h3 style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+              <span>原始圖片</span>
+              <button id="toggle-fit-mode" class="tool-btn" style="margin-left:auto;">適應寬度</button>
+            </h3>
+            <div id="original-image" class="image-container fit-width"></div>
           </div>
           <div class="recognition-result-container">
             <h3>辨識結果 <span id="recognition-status">(待開始)</span></h3>
@@ -815,6 +827,7 @@
   const statusR  = $('recognition-status') || $('upload-status');
   const imgBox   = $('original-image') || $('recognition-result');
   const textArea = $('text-editor');
+  const fitBtn   = $('toggle-fit-mode');
 
   // 自動高度調整：根據內容變化自適應高度，保留最小高度門檻
   function autoResizeTextEditor(el) {
@@ -877,7 +890,34 @@
     img.src = url;
       // 保持原尺寸，由 CSS 規則控制
     imgBox.appendChild(img);
+    applyImageFitMode();
   }
+
+  // 顯示模式：適應寬度 / 原尺寸
+  function getFitPref(){ return localStorage.getItem('img_fit_mode') || 'fit'; }
+  function setFitPref(v){ localStorage.setItem('img_fit_mode', v); }
+  function applyImageFitMode(){
+    if (!imgBox) return;
+    const mode = getFitPref();
+    imgBox.classList.remove('fit-width','actual-size');
+    if (mode === 'actual') {
+      imgBox.classList.add('actual-size');
+      if (fitBtn) fitBtn.textContent = '原尺寸';
+    } else {
+      imgBox.classList.add('fit-width');
+      if (fitBtn) fitBtn.textContent = '適應寬度';
+    }
+  }
+  if (fitBtn && !fitBtn.__wired) {
+    fitBtn.addEventListener('click', () => {
+      const next = getFitPref() === 'fit' ? 'actual' : 'fit';
+      setFitPref(next);
+      applyImageFitMode();
+    });
+    fitBtn.__wired = true;
+  }
+  // 初始套用一次（無圖時也先設好 class，載圖後會沿用）
+  applyImageFitMode();
 
   // 6) 點擊處理：開始辨識（沿用既有 recBtn）
   async function onRecognizeClick() {
