@@ -446,6 +446,21 @@
       object-fit: contain;
     }
 
+    /* 左側原始圖片：使用原尺寸，超出則顯示捲軸 */
+    .original-image-container .image-container {
+      align-items: flex-start;
+      justify-content: flex-start;
+      overflow: auto;
+    }
+    .original-image-container .image-container img {
+      max-width: none;
+      max-height: none;
+      width: auto;
+      height: auto;
+      object-fit: initial;
+      display: block;
+    }
+
     /* 辨識結果容器 */
     .overlay-container {
       flex: 1;
@@ -748,9 +763,9 @@
         const file = this.files[0];
         if (file) {
             const reader = new FileReader();
-            reader.onload = function(e) {
-                window.AppState.preURL = e.target.result;
-                elements.originalImage.innerHTML = `<img src="${e.target.result}" alt="原始圖片" style="max-width: 100%; height: auto;">`;
+      reader.onload = function(e) {
+        window.AppState.preURL = e.target.result;
+        elements.originalImage.innerHTML = `<img src="${e.target.result}" alt="原始圖片">`;
                 updateAIButtonState();
             };
             reader.readAsDataURL(file);
@@ -855,13 +870,12 @@
   }
 
   // 5) 後備顯示（當沒有 performRecognition）
-  function fallbackPreview(url) {
+    function fallbackPreview(url) {
     if (!imgBox || !url) return;
     imgBox.innerHTML = '';
     const img = new Image();
     img.src = url;
-    img.style.maxWidth = '100%';
-    img.style.height = 'auto';
+      // 保持原尺寸，由 CSS 規則控制
     imgBox.appendChild(img);
   }
 
@@ -1829,63 +1843,5 @@
       el.setAttribute('data-hidden-by', 'hide-logs');
     }
   });
-})();
-</script>
-<style>
-  /* 隱藏用樣式 */
-  .hidden-log { display: none !important; }
-</style>
-<script>
-/* 移調結果 Log 自動隱藏（不影響原功能） */
-(function setupTransposeLogHider(){
-  const EXCLUDE_SELECTOR = '#recognition-result, #recognition-text, [data-keep-visible]';
-
-  function isTransposeLogText(t){
-    if (!t) return false;
-    const s = String(t).trim();
-    if (!s.startsWith('```')) return false;
-    // 有大量豎線或常見段落關鍵字，判定為移調輸出 Log
-    const bars = (s.match(/\|/g) || []).length;
-    const hasSection = /(Intro|Verse|Pre-?Chorus|Chorus|Bridge|Tag)\b/i.test(s);
-    return bars >= 10 || hasSection;
-  }
-
-  function hideTransposeLogs(root=document){
-    const nodes = root.querySelectorAll('pre, code, textarea, .output, .log, .console, .result, .editor, div, p');
-    nodes.forEach(el=>{
-      if (el.closest(EXCLUDE_SELECTOR)) return;             // 不處理主要結果區
-      if (el.classList.contains('hidden-log')) return;      // 已處理
-      const text = (el.value ?? el.textContent ?? '').trim();
-      if (isTransposeLogText(text)) {
-        el.classList.add('hidden-log');
-        el.setAttribute('data-hidden-by','transpose-log-hider');
-      }
-    });
-  }
-
-  // 初始執行
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', ()=> hideTransposeLogs());
-  } else {
-    hideTransposeLogs();
-  }
-
-  // 監看後續新增節點
-  const mo = new MutationObserver(muts=>{
-    for (const m of muts) {
-      if (m.type === 'childList') {
-        m.addedNodes.forEach(n=>{
-          if (n.nodeType === 1) hideTransposeLogs(n);
-        });
-      }
-    }
-  });
-  mo.observe(document.body, { childList:true, subtree:true });
-
-  // 若有「套用移調」按鈕，點擊後延遲呼叫一次隱藏
-  const btn = document.getElementById('transpose-btn');
-  if (btn) {
-    btn.addEventListener('click', ()=> setTimeout(()=> hideTransposeLogs(), 60));
-  }
 })();
 </script>
