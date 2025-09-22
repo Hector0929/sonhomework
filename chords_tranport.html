@@ -459,6 +459,7 @@
       height: auto;
       object-fit: initial;
       display: block;
+      flex: 0 0 auto; /* 避免被 flex 縮放 */
     }
 
     /* 辨識結果容器 */
@@ -546,6 +547,8 @@
     .tool-btn { padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; background:#fff; cursor:pointer; font-size:12px; }
     .tool-btn:hover { background:#f3f4f6; }
     .tool-btn.primary { background:#22c3ee; color:#fff; border-color:#22c3ee; }
+  /* 只保留複製按鈕，其他隱藏 */
+  .text-tools .tool-btn:not(#copy-text) { display:none !important; }
 
   /* 匯出預覽樣式 */
   .export-toolbar { display:flex; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
@@ -644,9 +647,6 @@
             <div id="text-editor-wrap">
               <div class="text-tools">
                 <button id="copy-text" class="tool-btn">複製</button>
-                <button id="clear-text" class="tool-btn">清空</button>
-                <button id="apply-text" class="tool-btn primary">套用到匯出</button>
-                <button id="show-log" class="tool-btn">顯示 Log</button>
               </div>
               <textarea id="text-editor" placeholder="辨識完成後會自動轉換為文字，您可直接編輯…"></textarea>
               <!-- Gemini API Log 顯示區域 -->
@@ -945,7 +945,7 @@
           autoResizeTextEditor();
         }
 
-        statusR && (statusR.textContent = `AI 辨識完成，找到 ${tokens.length} 個項目`);
+  statusR && (statusR.textContent = `已完成`);
         statusAI && (statusAI.textContent = 'AI 辨識完成');
         
       } catch (apiError) {
@@ -1733,7 +1733,9 @@
         }
 
         renderTokens(tokens);
-        elements.geminiStatus.textContent = 'AI 辨識完成';
+  elements.geminiStatus.textContent = 'AI 辨識完成';
+  const recStatus = d.getElementById('recognition-status');
+  if (recStatus) recStatus.textContent = '已完成';
         
         // 成功後切換到「辨識編輯」分頁
         if (typeof g.switchView === 'function') {
@@ -1766,6 +1768,30 @@
         }
     });
 
+    // 複製按鈕
+    (function bindCopy(){
+      const btn = d.getElementById('copy-text');
+      if (!btn || btn.__wired) return;
+      btn.addEventListener('click', async () => {
+        try {
+          const val = elements.textEditor?.value || '';
+          await navigator.clipboard.writeText(val);
+          const old = btn.textContent;
+          btn.textContent = '已複製';
+          setTimeout(()=> btn.textContent = old, 1200);
+        } catch (e) {
+          // 後備：選取並嘗試 execCommand
+          try {
+            elements.textEditor?.select();
+            const ok = d.execCommand && d.execCommand('copy');
+            const old = btn.textContent;
+            btn.textContent = ok ? '已複製' : '複製失敗';
+            setTimeout(()=> btn.textContent = '複製', 1200);
+          } catch(_) {}
+        }
+      });
+      btn.__wired = true;
+    })();
     // --- 轉調相關 ---
     function transposeChordText(ch, fromKey, toKey) {
       try {
