@@ -778,6 +778,7 @@
       reader.onload = function(e) {
         window.AppState.preURL = e.target.result;
         elements.originalImage.innerHTML = `<img src="${e.target.result}" alt="原始圖片">`;
+        if (typeof window.applyImageFitMode === 'function') window.applyImageFitMode();
                 updateAIButtonState();
             };
             reader.readAsDataURL(file);
@@ -908,6 +909,8 @@
       if (fitBtn) fitBtn.textContent = '適應寬度';
     }
   }
+  // 導出到全域供其他模組呼叫
+  g.applyImageFitMode = applyImageFitMode;
   if (fitBtn && !fitBtn.__wired) {
     fitBtn.addEventListener('click', () => {
       const next = getFitPref() === 'fit' ? 'actual' : 'fit';
