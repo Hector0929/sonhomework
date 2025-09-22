@@ -1,7 +1,10 @@
 import { test, expect } from '@playwright/test';
 import path from 'path';
-
-const fileURL = 'file://' + path.resolve('chords_transport.html');
+import fs from 'fs';
+const htmlEntry = fs.existsSync(path.resolve('chords_transport.html'))
+  ? 'chords_transport.html'
+  : (fs.existsSync(path.resolve('chords_tranport.html')) ? 'chords_tranport.html' : 'index.html');
+const fileURL = 'file://' + path.resolve(htmlEntry);
 
 test('ExportModule serializeTokens / renderExport', async ({ page }) => {
   await page.goto(fileURL);

@@ -3,8 +3,13 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 
+import fss from 'fs';
+
 // 單頁 demo
-const fileURL = 'file://' + path.resolve('chords_transport.html');
+const htmlEntry = fss.existsSync(path.resolve('chords_transport.html'))
+  ? 'chords_transport.html'
+  : (fss.existsSync(path.resolve('chords_tranport.html')) ? 'chords_tranport.html' : 'index.html');
+const fileURL = 'file://' + path.resolve(htmlEntry);
 const ONE_PX_PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMB/axhCpgAAAAASUVORK5CYII=';
 
 test('UploadModule 上傳後應顯示 AI 辨識區域並更新 AppState', async ({ page }) => {
