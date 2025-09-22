@@ -498,11 +498,19 @@
     /* 純文字編輯器 */
     #text-editor-wrap { margin-top:8px; }
     #text-editor {
-      width:100%; height:360px; resize:vertical;
-      white-space:pre; line-height:1.6;
+      width:100%;
+      /* 設定基本高度，實際高度由 JS 依內容自動調整 */
+      min-height:360px;
+      height:auto;
+      resize:vertical; /* 仍允許手動拉高 */
+      white-space:pre;
+      line-height:1.6;
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-      border:1px solid #e5e7eb; border-radius:8px; padding:10px;
+      border:1px solid #e5e7eb;
+      border-radius:8px;
+      padding:10px;
       background:#fff;
+      overflow-y:auto;
     }
 
     /* 文字工具列 */
@@ -759,6 +767,18 @@
   const statusAI = $('gemini-status');
   const statusR  = $('recognition-status') || $('upload-status');
   const imgBox   = $('original-image') || $('recognition-result');
+  const textArea = $('text-editor');
+
+  // 自動高度調整：根據內容變化自適應高度，保留最小高度門檻
+  function autoResizeTextEditor() {
+    if (!textArea) return;
+    const min = 360; // 與 CSS min-height 對齊
+    textArea.style.height = 'auto';
+    const next = Math.max(min, textArea.scrollHeight + 2);
+    textArea.style.height = next + 'px';
+  }
+  // 導出到全域，供其他腳本存取
+  g.autoResizeTextEditor = autoResizeTextEditor;
 
   // 3) 啟用邏輯
   function syncRecognizeBtn() {
@@ -770,6 +790,16 @@
     const hasKey = !!(keyInput && keyInput.value.trim());
     const enabled = (!!useCk ? useCk.checked : true) && hasKey;
     aiBtn.disabled = !enabled;
+  }
+
+  // 輸入時即時調整高度
+  if (textArea && !textArea.__autoresize) {
+    textArea.addEventListener('input', autoResizeTextEditor);
+    textArea.__autoresize = true;
+    // 初始化調整一次，避免空內容但高度太小
+    d.addEventListener('DOMContentLoaded', autoResizeTextEditor, { once: true });
+    // 若頁面已載入完成則直接調整
+    if (d.readyState !== 'loading') autoResizeTextEditor();
   }
 
   // 4) 取得目前影像 URL（檔案/已有預覽/AppState）
@@ -855,6 +885,9 @@
         // 更新文字編輯器
         if (typeof g.updateTextEditor === 'function') {
           g.updateTextEditor(tokens);
+          autoResizeTextEditor();
+        } else {
+          autoResizeTextEditor();
         }
 
         statusR && (statusR.textContent = `AI 辨識完成，找到 ${tokens.length} 個項目`);
@@ -890,6 +923,9 @@
         
         if (typeof g.updateTextEditor === 'function') {
           g.updateTextEditor(g.AppState.tokens);
+          autoResizeTextEditor();
+        } else {
+          autoResizeTextEditor();
         }
         statusR && (statusR.textContent = '(後備) 辨識完成');
       }
@@ -1080,6 +1116,7 @@
       if (typeof g.updateTextEditor === 'function' && g.AppState?.tokens) {
         g.updateTextEditor(g.AppState.tokens);
       }
+      autoResizeTextEditor();
     });
 
     syncRecognizeBtn(); syncAIBtn();
@@ -1235,7 +1272,6 @@
   log('修正載入完成，原函式型別:', typeof prev);
 })(window, document);
 </script>
-<!-- 請將此區塊貼在 </body> 標籤之前 -->
 <script>
   // 確保所有程式碼在一個立即執行的函式 (IIFE) 中，避免汙染全域範圍
   (function (g, d) {
@@ -1456,6 +1492,8 @@
         // 同時更新文字編輯器
         if (elements.textEditor) {
             elements.textEditor.value = (tokens || []).map(t => t.text).join('\n');
+      // 內容更新後調整高度
+      try { if (typeof window.autoResizeTextEditor === 'function') window.autoResizeTextEditor(); } catch(_) {}
         }
     }
 
@@ -1511,6 +1549,7 @@
         if (elements.textEditor) {
           const display = formatGeminiDisplay(responseText);
           elements.textEditor.value = display;
+          try { if (typeof window.autoResizeTextEditor === 'function') window.autoResizeTextEditor(); } catch(_) {}
         }
 
         renderTokens(tokens);
@@ -1527,6 +1566,7 @@
         console.error('[AI] 辨識流程失敗:', error);
         elements.geminiStatus.textContent = `錯誤: ${error.message}`;
         renderTokens([{ kind: 'error', text: `辨識失敗：${error.message}`, x:10, y:10, w:400, h:50 }]);
+        try { if (typeof window.autoResizeTextEditor === 'function') window.autoResizeTextEditor(); } catch(_) {}
       }
     });
     }
