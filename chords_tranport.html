@@ -230,6 +230,8 @@
       min-height: 400px;
       display: flex;
       flex-direction: column;
+      box-sizing: border-box;
+      gap: 8px; /* 內部元素間距，避免與下方框線視覺貼合 */
     }
     .original-image-container h3,
     .recognition-result-container h3 {
@@ -496,7 +498,7 @@
     .mode-btn.active { background:#22c3ee; color:#fff; border-color:#22c3ee; }
 
     /* 純文字編輯器 */
-    #text-editor-wrap { margin-top:8px; }
+    #text-editor-wrap { margin-top:8px; margin-bottom:8px; }
     #text-editor {
       width:100%;
       /* 設定基本高度，實際高度由 JS 依內容自動調整 */
@@ -511,6 +513,8 @@
       padding:10px;
       background:#fff;
       overflow-y:auto;
+      box-sizing: border-box;
+      max-height: 70vh; /* 避免過度增長導致覆蓋下方區塊 */
     }
 
     /* 文字工具列 */
