@@ -804,7 +804,15 @@
               const url = URL.createObjectURL(file);
               window.AppState.preURL = url;
               const container = elements.originalImage;
-              if (container) { renderPdfToCanvas(url, container); }
+              if (container) {
+                if (window.pdfjsLib) {
+                  renderPdfToCanvas(url, container);
+                } else {
+                  const emb = document.createElement('embed');
+                  emb.type = 'application/pdf'; emb.src = url; emb.style.width='100%'; emb.style.height='100%';
+                  container.innerHTML=''; container.appendChild(emb);
+                }
+              }
               if (typeof window.applyImageFitMode === 'function') window.applyImageFitMode();
               updateAIButtonState();
               return;
@@ -926,7 +934,8 @@
     async function renderPdfToCanvas(src, container) {
       try {
         let arg;
-        if (typeof src === 'string') arg = { url: src }; else arg = { data: src };
+        if (typeof src === 'string') arg = { url: src, disableWorker: true };
+        else arg = { data: src, disableWorker: true };
         const pdf = await window['pdfjsLib'].getDocument(arg).promise;
         const page = await pdf.getPage(1);
         const viewport = page.getViewport({ scale: 2 });
@@ -945,7 +954,17 @@
     try {
       // 若是 data:application/pdf 或 .pdf，使用 pdfjs 渲染
       if (/\.pdf($|\?)/i.test(url) || /^data:application\/pdf/i.test(url) || url.startsWith('blob:')) {
-        await renderPdfToCanvas(url, imgBox);
+        if (window.pdfjsLib) {
+          await renderPdfToCanvas(url, imgBox);
+        } else {
+          // 後備：以內嵌瀏覽元件呈現
+          const emb = d.createElement('embed');
+          emb.type = 'application/pdf';
+          emb.src = url;
+          emb.style.width = '100%';
+          emb.style.height = '100%';
+          imgBox.appendChild(emb);
+        }
       } else {
         const img = new Image();
         img.src = url;
