@@ -408,6 +408,7 @@
       display: flex;
       gap: 20px;
       width: 100%;
+      align-items: stretch; /* 兩側等高 */
     }
 
     .original-image-container,
@@ -432,7 +433,7 @@
 
     /* 圖片容器樣式 */
     .image-container {
-      flex: 1;
+      flex: 1 1 auto;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -498,13 +499,21 @@
     .mode-btn.active { background:#22c3ee; color:#fff; border-color:#22c3ee; }
 
     /* 純文字編輯器 */
-    #text-editor-wrap { margin-top:8px; margin-bottom:8px; }
+    #text-editor-wrap {
+      margin-top:8px;
+      margin-bottom:8px;
+      display:flex;
+      flex-direction:column;
+      flex:1;           /* 佔滿右側容器剩餘高度 */
+      min-height:0;     /* 允許內部子項縮放 */
+    }
     #text-editor {
       width:100%;
-      /* 設定基本高度，實際高度由 JS 依內容自動調整 */
-      min-height:360px;
+      /* 在 flex 佈局下以 flex 撐滿，不再用內容自動高度 */
+      flex: 1 1 auto;
+      min-height:0;
       height:auto;
-      resize:vertical; /* 仍允許手動拉高 */
+      resize:vertical; /* 可手動拉高，若需嚴格等高可移除此設定 */
       white-space:pre;
       line-height:1.6;
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
@@ -514,7 +523,7 @@
       background:#fff;
       overflow-y:auto;
       box-sizing: border-box;
-      max-height: 70vh; /* 避免過度增長導致覆蓋下方區塊 */
+      /* 取消先前的 max-height 限制，讓其等高於左側容器 */
     }
 
     /* 文字工具列 */
@@ -776,6 +785,14 @@
   // 自動高度調整：根據內容變化自適應高度，保留最小高度門檻
   function autoResizeTextEditor() {
     if (!textArea) return;
+    // 若採用 flex:1 等高填滿，就不以內容高度重設 height，避免破壞等高布局
+    const style = g.getComputedStyle ? g.getComputedStyle(textArea) : null;
+    const isFlexFill = style && /flex\s*:/i.test(style.getPropertyValue('flex') || '');
+    if (isFlexFill) {
+      // 在等高模式下僅確保不低於 0，不需動態調整
+      textArea.style.minHeight = '0';
+      return;
+    }
     const min = 360; // 與 CSS min-height 對齊
     textArea.style.height = 'auto';
     const next = Math.max(min, textArea.scrollHeight + 2);
