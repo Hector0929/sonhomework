@@ -634,7 +634,7 @@
       /* 取消先前的 max-height 限制，讓其等高於左側容器 */
     }
 
-    /* 文字工具列 */
+  /* 文字工具列 */
     .text-tools { display:flex; gap:8px; justify-content:flex-end; margin:6px 0; }
     .tool-btn { padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; background:#fff; cursor:pointer; font-size:12px; }
     .tool-btn:hover { background:#f3f4f6; }
@@ -648,6 +648,17 @@
   .export-btn.primary { background:#10b981; border-color:#10b981; color:#fff; }
   #export-canvas-wrap { border:1px solid #e5e7eb; border-radius:8px; background:#fff; padding:16px; overflow:auto; }
   #export-preview { white-space:pre; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; line-height:1.6; color:#111; }
+
+  /* 新增：卡片與版面容器（Step B） */
+  .app-section-wrapper {max-width:var(--layout-max);margin:0 auto;padding:20px 32px 80px;}
+  .section-title {font-size:28px;font-weight:600;letter-spacing:-.5px;margin:0 0 24px;color:#1d1d1f;}
+  .panel-modern {background:var(--color-surface);border:1px solid var(--color-border);border-radius:24px;padding:32px;box-shadow:var(--shadow-sm);margin-bottom:48px;}
+  .panel-modern.small-pad {padding:20px 24px;}
+  .layout-split {display:grid;gap:40px;grid-template-columns:1fr 420px;align-items:start;}
+  .layout-split .side-sticky {position:sticky;top:88px;align-self:start;}
+  @media (max-width:1180px){.layout-split{grid-template-columns:1fr;} .layout-split .side-sticky{position:static;}}
+  .paper-surface {background:#fff;border:1px solid var(--color-border);border-radius:16px;padding:20px;box-shadow:0 2px 6px rgba(0,0,0,.04);} 
+  .subtle-label {font-size:12px;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;display:block;}
 
     /* Gemini API Key 卡片 */
     .apikey-card { border:1px solid #e5e7eb; border-radius:10px; padding:12px; margin:14px 0; background:#f9fafb; }
