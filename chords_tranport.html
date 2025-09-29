@@ -1782,7 +1782,18 @@
             const canvas = await html2canvas(node, { scale: 2, backgroundColor: '#ffffff' });
             const data = canvas.toDataURL('image/png');
             const a = d.createElement('a');
-            a.href = data; a.download = 'chords.png'; a.click();
+            // 取得原始檔名（不含副檔）
+            let base = 'chords';
+            try {
+              const fi = elements.fileInput;
+              if (fi && fi.files && fi.files[0] && fi.files[0].name) {
+                base = fi.files[0].name.replace(/\.[^.]+$/,'');
+              }
+            } catch(_) {}
+            // 取得目標調性
+            let key = 'C';
+            try { key = (d.getElementById('target-key')?.value || 'C').trim(); } catch(_) {}
+            a.href = data; a.download = `${base}_${key}_key.png`; a.click();
           } catch(e) { console.error('PNG 匯出失敗', e); }
         });
         pngBtn.__wired = true;
@@ -1827,7 +1838,17 @@
                 remaining -= pageSlicePx * (imgWidth / canvas.width);
               }
             }
-            pdf.save('chords.pdf');
+            // 動態命名
+            let base = 'chords';
+            try {
+              const fi = elements.fileInput;
+              if (fi && fi.files && fi.files[0] && fi.files[0].name) {
+                base = fi.files[0].name.replace(/\.[^.]+$/,'');
+              }
+            } catch(_) {}
+            let key = 'C';
+            try { key = (d.getElementById('target-key')?.value || 'C').trim(); } catch(_) {}
+            pdf.save(`${base}_${key}_key.pdf`);
           } catch(e) { console.error('PDF 匯出失敗', e); }
         });
         pdfBtn.__wired = true;
