@@ -1267,6 +1267,18 @@
     /* ---- Upload 首頁顯示安全補丁 ---- */
   </style>
   <body>
+    <!-- 分頁導覽列 -->
+    <nav id="app-tabs" style="max-width:var(--layout-max);margin:0 auto 8px;padding:0 32px;display:flex;gap:8px;">
+      <button class="tab-btn-modern" data-view="upload" aria-selected="true">上傳</button>
+      <button class="tab-btn-modern" data-view="recognition" aria-selected="false">辨識</button>
+      <button class="tab-btn-modern" data-view="transpose" aria-selected="false">移調</button>
+      <button class="tab-btn-modern" data-view="export" aria-selected="false">匯出</button>
+    </nav>
+    <style>
+      .tab-btn-modern{flex:0 0 auto;padding:10px 18px;border:1px solid var(--color-border);background:#fff;border-radius:999px;font:500 14px var(--font-sans);cursor:pointer;transition:background .25s, color .25s, box-shadow .25s;}
+      .tab-btn-modern[aria-selected="true"]{background:var(--color-accent);color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.15);} 
+      .tab-btn-modern:not([aria-selected="true"]):hover{background:var(--color-surface-alt);} 
+    </style>
     <div id="upload-section" class="app-section-wrapper panel-modern" style="margin-top:40px;">
       <h2 class="section-title" style="margin-top:0;">上傳樂譜</h2>
       <p style="color:var(--color-text-secondary);max-width:640px;">選擇圖片或 PDF，後續可使用 AI 進行和弦 / 歌詞辨識，並進入移調與匯出流程。</p>
@@ -1295,6 +1307,26 @@
             尚未選擇檔案
           </div>
         </div>
+          <!-- 匯出區 -->
+          <div id="export-section" class="app-section-wrapper panel-modern hidden">
+            <h2 class="section-title" style="margin-top:0;">匯出</h2>
+            <div style="display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start;">
+              <div class="paper-surface" style="flex:2 1 520px;min-width:420px;display:flex;flex-direction:column;">
+                <span class="subtle-label">匯出預覽（使用移調後內容，若無則原始辨識）</span>
+                <textarea id="export-preview-text" style="flex:1;min-height:360px;resize:vertical;font-family:ui-monospace,monospace;padding:12px;border:1px solid var(--color-border);border-radius:10px;white-space:pre;line-height:1.5;" placeholder="尚未有內容"></textarea>
+                <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-end;margin-top:16px;">
+                  <button class="btn" id="export-refresh">重新載入內容</button>
+                  <button class="btn primary" id="export-download-png">下載 PNG</button>
+                  <button class="btn primary" id="export-download-pdf">下載 PDF</button>
+                </div>
+              </div>
+              <div class="paper-surface" style="flex:1 1 300px;min-width:260px;display:flex;flex-direction:column;gap:12px;">
+                <span class="subtle-label">匯出設定</span>
+                <label style="font-size:12px;color:var(--color-text-secondary);">PNG/PDF 以目前內容全文輸出，標題與 Key 會包含在內。</label>
+                <label style="font-size:12px;color:var(--color-text-secondary);">（進階：可後續加入行距 / 字體 / 分頁寬度設定）</label>
+              </div>
+            </div>
+          </div>
           <!-- 辨識編輯區 -->
           <div id="recognition-section" class="app-section-wrapper panel-modern hidden">
             <h2 class="section-title" style="margin-top:0;">AI 辨識結果編輯</h2>
@@ -1489,6 +1521,81 @@
         syncPreview(fi.files[0]);
         enableRecognize(true);
       }
+
+      // === 分頁切換控制 ===
+      g.switchView = function(view){
+        const mapping={upload:'upload-section',recognition:'recognition-section',transpose:'transpose-section',export:'export-section'};
+        if(!mapping[view]) return;
+        Object.values(mapping).forEach(id=>{ const el=d.getElementById(id); el && el.classList.add('hidden'); });
+        const target=d.getElementById(mapping[view]); target && target.classList.remove('hidden');
+        // tab 樣式同步
+        d.querySelectorAll('#app-tabs .tab-btn-modern').forEach(btn=>{
+          btn.setAttribute('aria-selected', btn.getAttribute('data-view')===view ? 'true':'false');
+        });
+        try{ localStorage.setItem('chordapp.activeView',view);}catch(_){ }
+        if(view==='export') refreshExportPreview();
+      };
+      d.querySelectorAll('#app-tabs .tab-btn-modern').forEach(btn=>{
+        if(btn.__wired) return; btn.addEventListener('click',()=>{ const v=btn.getAttribute('data-view'); g.switchView(v); }); btn.__wired=true; });
+      // 還原上一次頁籤
+      try { const last = localStorage.getItem('chordapp.activeView'); if(last && last!=='upload') g.switchView(last);}catch(_){ }
+
+      // === 匯出功能 ===
+      function ensureExportLibs(){
+        if(!g.html2canvas){
+          const s=d.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'; d.head.appendChild(s); }
+        if(!g.jspdf){
+          const s2=d.createElement('script'); s2.src='https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'; d.head.appendChild(s2); }
+      }
+      function gatherCurrentContent(){
+        // 以移調輸出優先，其次編輯器，再次 AI 原始 out
+        const transOut = d.getElementById('transpose-output')?.value?.trim();
+        const editor = d.getElementById('text-editor')?.value?.trim();
+        const raw = d.getElementById('recognize-output')?.textContent?.trim();
+        return transOut || editor || raw || '';
+      }
+      function refreshExportPreview(){
+        const box = d.getElementById('export-preview-text');
+        if(box){ box.value = gatherCurrentContent(); }
+        ensureExportLibs();
+      }
+      const refreshBtn = d.getElementById('export-refresh');
+      refreshBtn && !refreshBtn.__wired && (refreshBtn.addEventListener('click',refreshExportPreview), refreshBtn.__wired=true);
+      const dlPng = d.getElementById('export-download-png');
+      const dlPdf = d.getElementById('export-download-pdf');
+      dlPng && !dlPng.__wired && (dlPng.addEventListener('click', async ()=>{
+        refreshExportPreview();
+        await new Promise(r=>setTimeout(r,50));
+        if(!g.html2canvas){alert('html2canvas 載入中，稍後再試');return;}
+        const txt = d.getElementById('export-preview-text');
+        const wrap = d.createElement('div'); wrap.style.position='fixed'; wrap.style.left='-9999px'; wrap.style.top='0'; wrap.style.width='800px'; wrap.style.padding='24px'; wrap.style.background='#fff'; wrap.style.font='14px/1.5 ui-monospace,monospace'; wrap.textContent=txt.value; d.body.appendChild(wrap);
+        const canvas = await g.html2canvas(wrap,{scale:2,backgroundColor:'#ffffff'}); d.body.removeChild(wrap);
+        const a=d.createElement('a');
+        const title = (d.getElementById('song-title')?.value||'chords').replace(/\s+/g,'_');
+        const key = (d.getElementById('to-key')?.value||d.getElementById('from-key')?.value||'C');
+        a.href = canvas.toDataURL('image/png'); a.download=`${title}_${key}_export.png`; a.click();
+      }), dlPng.__wired=true);
+      dlPdf && !dlPdf.__wired && (dlPdf.addEventListener('click', async ()=>{
+        refreshExportPreview(); await new Promise(r=>setTimeout(r,50));
+        if(!g.jspdf || !g.html2canvas){alert('匯出函式庫載入中，稍後再試');return;}
+        const { jsPDF } = g.jspdf; const txt = d.getElementById('export-preview-text');
+        const wrap = d.createElement('div'); wrap.style.position='fixed'; wrap.style.left='-9999px'; wrap.style.top='0'; wrap.style.width='800px'; wrap.style.padding='32px'; wrap.style.background='#fff'; wrap.style.font='14px/1.5 ui-monospace,monospace'; wrap.textContent=txt.value; d.body.appendChild(wrap);
+        const canvas = await g.html2canvas(wrap,{scale:2,backgroundColor:'#ffffff'}); d.body.removeChild(wrap);
+        const pdf = new jsPDF({unit:'pt',format:'a4'});
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const margin=36; const imgWidth=pageWidth-margin*2; const imgHeight = canvas.height * (imgWidth/canvas.width);
+        const sliceHeight = pdf.internal.pageSize.getHeight() - margin*2;
+        if(imgHeight <= sliceHeight){
+          pdf.addImage(canvas.toDataURL('image/png'),'PNG',margin,margin,imgWidth,imgHeight);
+        } else {
+          let position=0; while(position < canvas.height){
+            const pageCanvas=d.createElement('canvas'); pageCanvas.width=canvas.width; const slicePx=Math.min(canvas.height-position, Math.floor(sliceHeight*(canvas.width/imgWidth))); pageCanvas.height=slicePx; const ctx=pageCanvas.getContext('2d'); ctx.drawImage(canvas,0,position,canvas.width,slicePx,0,0,canvas.width,slicePx); const pageImg=pageCanvas.toDataURL('image/png'); if(position>0) pdf.addPage(); pdf.addImage(pageImg,'PNG',margin,margin,imgWidth,slicePx*(imgWidth/canvas.width)); position+=slicePx; }
+        }
+        const title = (d.getElementById('song-title')?.value||'chords').replace(/\s+/g,'_');
+        const key = (d.getElementById('to-key')?.value||d.getElementById('from-key')?.value||'C');
+        pdf.save(`${title}_${key}_export.pdf`);
+      }), dlPdf.__wired=true);
+
 
       // === API Key 顯示切換 ===
       const showKeyChk = d.getElementById('show-key');
