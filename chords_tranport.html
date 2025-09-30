@@ -1606,7 +1606,16 @@
         try { 
           const text = await callGeminiAPIFromFile(file, apiKey); 
           const meta = parseMetadataFromText(text);
-          const display = formatDisplay(meta.content); 
+          let display = formatDisplay(meta.content); 
+          // 插入標題與 Key header
+          const headerTitle = (meta.title||'').trim();
+          const headerKey = (meta.key||'').trim();
+          if(headerTitle || headerKey){
+            const headerLines = [];
+            if(headerTitle) headerLines.push(headerTitle);
+            if(headerKey) headerLines.push('Key: ' + headerKey);
+            display = headerLines.join('\n') + '\n\n' + display;
+          }
           out.textContent = display || '(無內容)'; out.style.display='block'; statusEl.textContent='完成';
           // 存入全域狀態
           g.__LAST_AI_RESULT__ = display;
@@ -1641,7 +1650,18 @@
         const flatToSharp={'Db':'C#','Eb':'D#','Gb':'F#','Ab':'G#','Bb':'A#'};
         function norm(k){return flatToSharp[k]||k;}
         const diff = (notes.indexOf(norm(toKey)) - notes.indexOf(norm(fromKey)) + 12) % 12;
-        return txt.split(/(\s+)/).map(tok=> detectChordToken(tok) ? transposeChord(tok,diff): tok).join('');
+        return txt.split(/\n/).map(line=>{
+          // 保留 header 行（Title/Key）不轉
+          if(/^Key:\s*/i.test(line) || line.trim()=== '' || line.length<2) return line;
+            // 判斷是否為和弦密集行（含豎線或多個和弦片段）
+            const chordLike = /\|/.test(line) || (line.match(/[A-G][#b]?/g)||[]).length>2;
+            if(!chordLike) return line; 
+            return line.replace(/([A-G][#b]?)([a-zA-Z0-9()/#]*)/g,(m,root,rest)=>{
+              const token = root+rest;
+              if(!detectChordToken(token)) return m;
+              return transposeChord(token,diff);
+            });
+        }).join('\n');
       }
       const goTrans = d.getElementById('go-to-transpose');
       const backUpload = d.getElementById('back-to-upload');
@@ -1650,8 +1670,42 @@
       const finishBtn = d.getElementById('transpose-finish');
       const outArea = d.getElementById('transpose-output');
       ;[backUpload, backEdit].forEach(btn=> btn && btn.addEventListener('click',()=> g.switchView && g.switchView('upload')));
-  goTrans && goTrans.addEventListener('click',()=>{ doTrans && (doTrans.disabled=false); g.switchView && g.switchView('transpose'); const src = d.getElementById('text-editor')?.value||''; outArea.value = src; finishBtn && (finishBtn.disabled=false); const ti = d.getElementById('song-title')?.value; if(ti) document.title = ti + ' - 移調'; });
-      doTrans && doTrans.addEventListener('click',()=>{ const src = d.getElementById('text-editor')?.value||''; const fk = d.getElementById('from-key').value; const tk = d.getElementById('to-key').value; outArea.value = transposeText(src,fk,tk); });
+  goTrans && goTrans.addEventListener('click',()=>{ 
+        doTrans && (doTrans.disabled=false); 
+        g.switchView && g.switchView('transpose'); 
+        const src = d.getElementById('text-editor')?.value||''; 
+        outArea.value = src; 
+        finishBtn && (finishBtn.disabled=false); 
+        const ti = d.getElementById('song-title')?.value; if(ti) document.title = ti + ' - 移調'; 
+      });
+      doTrans && doTrans.addEventListener('click',()=>{ 
+        const src = d.getElementById('text-editor')?.value||''; 
+        const fk = d.getElementById('from-key').value; 
+        const tk = d.getElementById('to-key').value; 
+        let transposed = transposeText(src,fk,tk);
+        // 更新/插入 Key header 行
+        let lines = transposed.split(/\n/);
+        const keyLineIndex = lines.findIndex(l=>/^Key:\s*/i.test(l));
+        const newKeyLine = 'Key: '+tk;
+        if(keyLineIndex>=0) lines[keyLineIndex]=newKeyLine; else lines.splice( lines[0].trim()?1:0,0,newKeyLine );
+        outArea.value = lines.join('\n');
+      });
+
+      // 標題 / 調性變更即時套用到正文首部（不影響移調結果除非重跑）
+      const songTitleInput = d.getElementById('song-title');
+      function updateHeaderInEditor(){
+        const editor = d.getElementById('text-editor'); if(!editor) return;
+        const val = editor.value.split(/\n/);
+        let idxKey = val.findIndex(l=>/^Key:\s*/i.test(l));
+        let idxTitle = val.findIndex(l=>l.trim() && !/^Key:/i.test(l));
+        if(idxTitle<0) idxTitle=0;
+        const title = (songTitleInput?.value||'').trim();
+        if(title){ if(idxTitle===0) val[0]=title; else val.unshift(title); }
+        if(detectedKeyInput){ const k = detectedKeyInput.value.trim(); if(k){ if(idxKey>=0) val[idxKey]='Key: '+k; else val.splice( (title?1:0),0,'Key: '+k); } }
+        editor.value = val.join('\n');
+      }
+      songTitleInput && songTitleInput.addEventListener('change',updateHeaderInEditor);
+      detectedKeyInput && detectedKeyInput.addEventListener('change',updateHeaderInEditor);
 
   })(window,document);
 </script>
