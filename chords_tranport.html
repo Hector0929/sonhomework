@@ -1276,11 +1276,18 @@
             <input type="file" id="file-input" hidden accept="image/*,.pdf" />
             <span>選擇檔案</span>
           </label>
+          <div style="display:flex;flex-direction:column;gap:10px;margin:8px 0 4px;">
+            <input id="api-key" type="password" placeholder="輸入 Gemini API Key" style="padding:8px 10px;border:1px solid var(--color-border);border-radius:8px;font:14px var(--font-sans);">
+            <label style="font-size:12px;color:var(--color-text-secondary);display:flex;align-items:center;gap:6px;">
+              <input type="checkbox" id="show-key" style="margin:0;"> 顯示金鑰
+            </label>
+          </div>
           <div id="upload-hint" style="font-size:13px;color:var(--color-text-secondary);line-height:1.5;">支援 JPG / PNG / PDF。選擇後可於上方 Hero 預覽，並啟用 AI 辨識。</div>
           <div style="margin-top:18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
             <button id="recognize-btn-secondary" class="btn-primary" disabled>AI 辨識</button>
             <span id="gemini-status" style="font-size:12px;color:var(--color-text-secondary);"></span>
           </div>
+          <pre id="recognize-output" style="background:#111;color:#f5f5f7;padding:12px;border-radius:12px;font-size:12px;line-height:1.4;max-height:260px;overflow:auto;display:none;margin-top:16px;white-space:pre-wrap;"></pre>
         </div>
         <div id="upload-preview-box" class="paper-surface" style="flex:1 1 420px;min-height:280px;display:flex;align-items:center;justify-content:center;position:relative;">
           <div id="upload-preview-empty" style="text-align:center;color:var(--color-text-secondary);font-size:14px;">
@@ -1419,6 +1426,59 @@
         syncPreview(fi.files[0]);
         enableRecognize(true);
       }
+
+      // === API Key 顯示切換 ===
+      const showKeyChk = d.getElementById('show-key');
+      const apiKeyInput = d.getElementById('api-key');
+      if(showKeyChk && apiKeyInput && !showKeyChk.__wired){
+        showKeyChk.addEventListener('change',()=>{ apiKeyInput.type = showKeyChk.checked ? 'text':'password'; });
+        showKeyChk.__wired = true;
+      }
+
+      // === Gemini API 呼叫核心（精簡版） ===
+      async function fileToBase64Mime(file){
+        return new Promise((resolve,reject)=>{
+          const r=new FileReader();
+            r.onerror=()=>reject(new Error('讀取檔案失敗'));
+            r.onload=()=>{
+              const res=r.result;
+              const m=String(res).match(/^data:([^;]+);base64,(.*)$/);
+              if(!m) return reject(new Error('無法解析 base64'));
+              resolve({mimeType:m[1],base64:m[2]});
+            };
+          r.readAsDataURL(file);
+        });
+      }
+      function buildPrompt(){
+        return '請將樂譜影像轉為文字和弦＋歌詞，和弦行保留 |，歌詞行移除 |，使用程式碼區塊格式。';
+      }
+      async function callGeminiAPIFromFile(file, apiKey){
+        const {mimeType,base64}= await fileToBase64Mime(file);
+        const body={contents:[{parts:[{text:buildPrompt()},{inlineData:{mimeType,data:base64}}]}],generationConfig:{temperature:0.1,maxOutputTokens:2048}};
+        const url=`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${encodeURIComponent(apiKey)}`;
+        const resp= await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+        if(!resp.ok){ const t=await resp.text(); throw new Error('Gemini API 錯誤 '+resp.status+': '+t.slice(0,200)); }
+        const json= await resp.json();
+        const text=json?.candidates?.[0]?.content?.parts?.map(p=>p.text).filter(Boolean).join('\n')||'';
+        return text;
+      }
+      function formatDisplay(raw){
+        return String(raw).split('\n').map(line=>{ if(/\|/.test(line) && /[A-G][#b]?/.test(line)) return line; return line.replace(/\|/g,''); }).join('\n');
+      }
+      async function handleRecognize(){
+        const file = fi?.files?.[0];
+        const apiKey = apiKeyInput?.value.trim();
+        const statusEl = d.getElementById('gemini-status');
+        const out = d.getElementById('recognize-output');
+        if(!file){ statusEl.textContent='請先選擇檔案'; return; }
+        if(!apiKey){ statusEl.textContent='請輸入 API Key'; return; }
+        statusEl.textContent='辨識中...'; out.style.display='none'; out.textContent='';
+        try { const text = await callGeminiAPIFromFile(file, apiKey); const display = formatDisplay(text); out.textContent = display || '(無內容)'; out.style.display='block'; statusEl.textContent='完成'; }
+        catch(err){ statusEl.textContent='錯誤: '+err.message; }
+      }
+      const rbtn1 = d.getElementById('recognize-btn');
+      const rbtn2 = d.getElementById('recognize-btn-secondary');
+      [rbtn1,rbtn2].forEach(btn=>{ if(btn && !btn.__wired){ btn.addEventListener('click',handleRecognize); btn.__wired=true; }});
 
   })(window,document);
 </script>
