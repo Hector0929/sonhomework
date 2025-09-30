@@ -1329,7 +1329,7 @@
           </div>
         </div>
           <!-- 匯出區 -->
-          <div id="export-section" class="app-section-wrapper panel-modern hidden">
+          <div id="export-section" class="app-section-wrapper panel-modern">
             <h2 class="section-title" style="margin-top:0;">匯出</h2>
             <div style="display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start;">
               <div class="paper-surface" style="flex:2 1 520px;min-width:420px;display:flex;flex-direction:column;">
@@ -1444,77 +1444,10 @@
       }
 
     // 若 switchView 缺失 → 建立簡易版
-    if(typeof g.switchView !== 'function'){
-      g.switchView = function(view){
-        const map = { upload:'upload-section', recognition:'recognition-section', transpose:'transpose-section', export:'export-section' };
-        const targetId = map[view];
-        if(!targetId){
-          console.warn('[switchView] 未知視圖', view);
-          return;
-        }
-        // 僅在能找到 target 時才隱藏其他，避免全部空白
-        const targetEl = d.getElementById(targetId);
-        if(!targetEl){
-          console.warn('[switchView] 找不到目標節點', targetId);
-          return;
-        }
-        Object.values(map).forEach(id=>{
-          const el = d.getElementById(id);
-          if(el) el.classList.add('hidden');
-        });
-        targetEl.classList.remove('hidden');
-      };
-    }
+    // 移除舊版 switchView (hidden) 保留新水平切換
 
-    function ensureUploadVisible(){
-      const up = d.getElementById('upload-section');
-      if(!up){
-        console.warn('[Upload] 找不到 #upload-section，請確認 ID。');
-        return;
-      }
-      if(up.classList.contains('hidden')){
-        up.classList.remove('hidden');
-      }
-      // 若其它視圖全顯示錯亂，可主動隱藏它們
-      ['recognition-section','transpose-section','export-section'].forEach(id=>{
-        const el = d.getElementById(id);
-        if(el && el !== up) el.classList.add('hidden');
-      });
-    }
-
-    // DOM 就緒後確保顯示
-    if(d.readyState === 'loading'){
-      d.addEventListener('DOMContentLoaded',()=>{
-        ensureUploadVisible();
-        // 預設切到 upload（不覆寫使用者稍後的操作）
-        g.switchView && g.switchView('upload');
-      });
-    } else {
-      ensureUploadVisible();
-      g.switchView && g.switchView('upload');
-    }
-
-    // 若因其它腳本再次把它藏起來 → MutationObserver 自動拉回
-    if(!g.__UPLOAD_VIS_OBS__){
-      g.__UPLOAD_VIS_OBS__ = true;
-      const mo = new MutationObserver(muts=>{
-        muts.forEach(m=>{
-          if(m.type==='attributes' && m.target.id==='upload-section' && m.attributeName==='class'){
-            if(m.target.classList.contains('hidden')){
-              // 若目前沒有選擇其他視圖（判斷標籤 aria-selected），就重新顯示
-              const activeTab = d.querySelector('[id^="tab-"][aria-selected="true"]');
-              if(!activeTab || activeTab.id==='tab-upload'){
-                m.target.classList.remove('hidden');
-              }
-            }
-          }
-        });
-      });
-      const upNode = d.getElementById('upload-section');
-      if(upNode){
-        mo.observe(upNode,{ attributes:true });
-      }
-    }
+    // 初始定位到第一頁
+    g.switchView && g.switchView('upload');
 
       // --- 新增：上傳預覽與 Hero/次按鈕同步邏輯 ---
       function syncPreview(file){
