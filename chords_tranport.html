@@ -1295,6 +1295,59 @@
             尚未選擇檔案
           </div>
         </div>
+          <!-- 辨識編輯區 -->
+          <div id="recognition-section" class="app-section-wrapper panel-modern hidden">
+            <h2 class="section-title" style="margin-top:0;">AI 辨識結果編輯</h2>
+            <div style="display:flex;flex-direction:row;gap:32px;flex-wrap:wrap;align-items:stretch;">
+              <div class="paper-surface" style="flex:1 1 380px;min-width:340px;max-height:520px;overflow:auto;">
+                <span class="subtle-label">原始影像</span>
+                <div id="recognition-original" style="border:1px solid var(--color-border);border-radius:12px;min-height:320px;display:flex;align-items:center;justify-content:center;overflow:auto;background:#fff;">
+                  <div style="text-align:center;color:var(--color-text-secondary);font-size:13px;">尚未載入</div>
+                </div>
+              </div>
+              <div class="paper-surface" style="flex:2 1 520px;min-width:380px;display:flex;flex-direction:column;">
+                <span class="subtle-label">文字編輯</span>
+                <div id="text-editor-wrap">
+                  <textarea id="text-editor" placeholder="等待 AI 辨識結果..." spellcheck="false"></textarea>
+                </div>
+                <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-end;margin-top:16px;">
+                  <button class="btn ghost" id="back-to-upload">返回上傳</button>
+                  <button class="btn primary" id="go-to-transpose" disabled>前往移調 ▶</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 移調區 -->
+          <div id="transpose-section" class="app-section-wrapper panel-modern hidden">
+            <h2 class="section-title" style="margin-top:0;">移調設定</h2>
+            <div style="display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start;">
+              <div class="paper-surface" style="flex:1 1 320px;min-width:300px;display:flex;flex-direction:column;gap:18px;">
+                <div>
+                  <label class="subtle-label">原調</label>
+                  <select id="from-key" style="padding:8px 10px;border:1px solid var(--color-border);border-radius:8px;">
+                    <option>C</option><option>C#</option><option>D</option><option>Eb</option><option>E</option><option>F</option><option>F#</option><option>G</option><option>Ab</option><option>A</option><option>Bb</option><option>B</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="subtle-label">目標調</label>
+                  <select id="to-key" style="padding:8px 10px;border:1px solid var(--color-border);border-radius:8px;">
+                    <option>C</option><option>C#</option><option>D</option><option>Eb</option><option>E</option><option>F</option><option>F#</option><option>G</option><option>Ab</option><option>A</option><option>Bb</option><option>B</option>
+                  </select>
+                </div>
+                <button class="btn primary" id="do-transpose" disabled>執行移調</button>
+                <div style="font-size:12px;color:var(--color-text-secondary);line-height:1.5;">僅對「看起來像和弦」的 token 進行轉調，歌詞與其它符號不變。</div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                  <button class="btn ghost" id="transpose-back">◀ 返回編輯</button>
+                  <button class="btn" id="transpose-finish" disabled>前往匯出 ▶</button>
+                </div>
+              </div>
+              <div class="paper-surface" style="flex:2 1 520px;min-width:380px;display:flex;flex-direction:column;">
+                <span class="subtle-label">移調後內容</span>
+                  <textarea id="transpose-output" style="flex:1;min-height:340px;resize:vertical;font-family:ui-monospace,monospace;padding:12px;border:1px solid var(--color-border);border-radius:10px;white-space:pre;line-height:1.5;" placeholder="尚未移調"></textarea>
+              </div>
+            </div>
+          </div>
       </div>
     </div>
   <script>
@@ -1479,6 +1532,63 @@
       const rbtn1 = d.getElementById('recognize-btn');
       const rbtn2 = d.getElementById('recognize-btn-secondary');
       [rbtn1,rbtn2].forEach(btn=>{ if(btn && !btn.__wired){ btn.addEventListener('click',handleRecognize); btn.__wired=true; }});
+
+      // === 成功後寫入編輯器並切換 ===
+      const origImgBox = d.getElementById('recognition-original');
+      async function handleRecognize(){
+        const file = fi?.files?.[0];
+        const apiKey = apiKeyInput?.value.trim();
+        const statusEl = d.getElementById('gemini-status');
+        const out = d.getElementById('recognize-output');
+        if(!file){ statusEl.textContent='請先選擇檔案'; return; }
+        if(!apiKey){ statusEl.textContent='請輸入 API Key'; return; }
+        statusEl.textContent='辨識中...'; out.style.display='none'; out.textContent='';
+        try { 
+          const text = await callGeminiAPIFromFile(file, apiKey); 
+          const display = formatDisplay(text); 
+          out.textContent = display || '(無內容)'; out.style.display='block'; statusEl.textContent='完成';
+          // 存入全域狀態
+          g.__LAST_AI_RESULT__ = display;
+          const editor = d.getElementById('text-editor');
+          if(editor){ editor.value = display; d.getElementById('go-to-transpose')?.removeAttribute('disabled'); }
+          // 原圖同步
+          if(origImgBox){
+            if(file.type==='application/pdf') origImgBox.innerHTML='<div style="padding:40px;text-align:center;font-size:13px;color:var(--color-text-secondary);">PDF 已上傳（可擴充預覽）</div>';
+            else {
+              const url = URL.createObjectURL(file);
+              origImgBox.innerHTML = `<img src="${url}" style="max-width:100%;height:auto;display:block;">`;
+            }
+          }
+          g.switchView && g.switchView('recognition');
+        }
+        catch(err){ statusEl.textContent='錯誤: '+err.message; }
+      }
+
+      // === 移調功能 ===
+      function transposeChord(ch, diff){
+        const notes=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+        const mapFlat={'Db':'C#','Eb':'D#','Gb':'F#','Ab':'G#','Bb':'A#'};
+        return ch.replace(/^[A-G][b#]?/,m=>{
+          const norm = mapFlat[m]||m; const i=notes.indexOf(norm); if(i<0) return m; return notes[(i+diff+12)%12];
+        });
+      }
+      function detectChordToken(tok){ return /^[A-G][#b]?[a-zA-Z0-9()/]*$/.test(tok); }
+      function transposeText(txt, fromKey, toKey){
+        const notes=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+        const flatToSharp={'Db':'C#','Eb':'D#','Gb':'F#','Ab':'G#','Bb':'A#'};
+        function norm(k){return flatToSharp[k]||k;}
+        const diff = (notes.indexOf(norm(toKey)) - notes.indexOf(norm(fromKey)) + 12) % 12;
+        return txt.split(/(\s+)/).map(tok=> detectChordToken(tok) ? transposeChord(tok,diff): tok).join('');
+      }
+      const goTrans = d.getElementById('go-to-transpose');
+      const backUpload = d.getElementById('back-to-upload');
+      const doTrans = d.getElementById('do-transpose');
+      const backEdit = d.getElementById('transpose-back');
+      const finishBtn = d.getElementById('transpose-finish');
+      const outArea = d.getElementById('transpose-output');
+      ;[backUpload, backEdit].forEach(btn=> btn && btn.addEventListener('click',()=> g.switchView && g.switchView('upload')));
+      goTrans && goTrans.addEventListener('click',()=>{ doTrans && (doTrans.disabled=false); g.switchView && g.switchView('transpose'); const src = d.getElementById('text-editor')?.value||''; outArea.value = src; finishBtn && (finishBtn.disabled=false); });
+      doTrans && doTrans.addEventListener('click',()=>{ const src = d.getElementById('text-editor')?.value||''; const fk = d.getElementById('from-key').value; const tk = d.getElementById('to-key').value; outArea.value = transposeText(src,fk,tk); });
 
   })(window,document);
 </script>
