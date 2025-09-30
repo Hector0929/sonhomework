@@ -1305,7 +1305,7 @@
               </div>
               <div style="flex:0 0 140px;display:flex;flex-direction:column;gap:6px;">
                 <label class="subtle-label" for="from-key">偵測調性</label>
-                <input id="detected-key" placeholder="--" style="padding:10px 12px;border:1px solid var(--color-border);border-radius:12px;font:14px var(--font-sans);width:100%;" readonly />
+                <input id="detected-key" placeholder="--" title="可手動修正調性 (例如: Bb, F#, Eb)" style="padding:10px 12px;border:1px solid var(--color-border);border-radius:12px;font:14px var(--font-sans);width:100%;" />
               </div>
             </div>
             <div style="display:flex;flex-direction:row;gap:32px;flex-wrap:wrap;align-items:stretch;">
@@ -1572,6 +1572,26 @@
       const rbtn1 = d.getElementById('recognize-btn');
       const rbtn2 = d.getElementById('recognize-btn-secondary');
       [rbtn1,rbtn2].forEach(btn=>{ if(btn && !btn.__wired){ btn.addEventListener('click',handleRecognize); btn.__wired=true; }});
+      // 偵測調性手動修改同步
+      const detectedKeyInput = d.getElementById('detected-key');
+      if(detectedKeyInput && !detectedKeyInput.__wired){
+        detectedKeyInput.addEventListener('change',()=>{
+          let val = detectedKeyInput.value.trim();
+          if(!val) return;
+          // 正規化：首字母大寫 其餘轉小寫，再處理 b/#
+            val = val.replace(/[^A-Ga-g#b]/g,'').toUpperCase().replace(/B(?!B)/,'B');
+          // 映射降號 to 正式（保留原樣若合法）
+          const allow = ['C','C#','D','Eb','D#','E','F','F#','G','Ab','G#','A','Bb','A#','B'];
+          // 若同時存在升降重複，優先使用常見降號名稱
+          const preferMap={'A#':'Bb','D#':'Eb','G#':'Ab'};
+          if(preferMap[val]) val = preferMap[val];
+          if(!allow.includes(val)) { detectedKeyInput.style.borderColor = '#e11d48'; return; }
+          detectedKeyInput.style.borderColor = 'var(--color-border)';
+          const fromSel = d.getElementById('from-key');
+          if(fromSel){ [...fromSel.options].forEach(o=>{ if(o.value.toUpperCase()===val.toUpperCase()) fromSel.value=o.value; }); }
+        });
+        detectedKeyInput.__wired = true;
+      }
 
       // === 成功後寫入編輯器並切換 ===
       const origImgBox = d.getElementById('recognition-original');
