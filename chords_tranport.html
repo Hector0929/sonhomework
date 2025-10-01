@@ -1798,7 +1798,9 @@
       const backEdit = d.getElementById('transpose-back');
       const finishBtn = d.getElementById('transpose-finish');
       const outArea = d.getElementById('transpose-output');
-      ;[backUpload, backEdit].forEach(btn=> btn && btn.addEventListener('click',()=> g.switchView && g.switchView('upload')));
+  // 返回按鈕：上傳頁與編輯頁分開導向
+  backUpload && backUpload.addEventListener('click',()=> g.switchView && g.switchView('upload'));
+  backEdit && backEdit.addEventListener('click',()=> g.switchView && g.switchView('recognition'));
   goTrans && goTrans.addEventListener('click',()=>{ 
         doTrans && (doTrans.disabled=false); 
         g.switchView && g.switchView('transpose'); 
