@@ -1,0 +1,25 @@
+:root {
+  --flow-gap: 40px;
+  --radius-tab: 14px;
+  --anim-duration: 0.6s;
+}
+
+/* Layout container */
+#flow-container { position:relative; width:100%; overflow:hidden; max-width:var(--layout-max); margin:0 auto; padding:0 32px; }
+.flow-track { display:flex; gap:var(--flow-gap); padding:0 4px; transition:transform var(--anim-duration) var(--ease-emphasized); will-change:transform; }
+.flow-page { flex:0 0 calc(100% - var(--flow-gap)); padding:8px 0 96px; box-sizing:border-box; min-height:calc(100vh - 160px); }
+
+/* Tabs */
+#app-tabs { max-width:var(--layout-max); margin:20px auto 8px; padding:0 32px; display:flex; gap:8px; justify-content:center; }
+.tab-btn-modern { flex:0 0 auto; padding:10px 22px; border:1px solid var(--color-border); background:#fff; border-radius:var(--radius-tab); font:500 14px var(--font-sans); cursor:pointer; transition:background .25s, color .25s, box-shadow .25s; }
+.tab-btn-modern[aria-selected="true"] { background:var(--color-accent); color:#fff; box-shadow:0 2px 6px rgba(0,0,0,.15); }
+.tab-btn-modern:not([aria-selected="true"]):hover { background:var(--color-surface-alt); }
+
+/* Panels */
+#flow-container .panel-modern { margin-top:32px; }
+
+/* Export info badge */
+#export-info { font-size:12px; color:var(--color-text-secondary); margin-top:8px; }
+
+/* Utility */
+.hidden { display:none !important; }
