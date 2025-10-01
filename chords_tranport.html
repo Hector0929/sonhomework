@@ -1822,6 +1822,12 @@
         outArea.value = lines.join('\n');
       });
 
+      // 前往匯出：啟用後可直接滑到第四頁並刷新預覽
+      finishBtn && finishBtn.addEventListener('click',()=>{
+        g.switchView && g.switchView('export');
+        try { typeof refreshExportPreview==='function' && refreshExportPreview(); } catch(_){ }
+      });
+
       // 標題 / 調性變更即時套用到正文首部（不影響移調結果除非重跑）
       const songTitleInput = d.getElementById('song-title');
       function updateHeaderInEditor(){
