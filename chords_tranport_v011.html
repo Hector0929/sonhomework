@@ -1291,39 +1291,31 @@
       <style>
         /* 水平流程版型 */
         #flow-container{position:relative;width:100%;overflow:hidden;max-width:var(--layout-max);margin:0 auto;padding:0 32px;}
-  /* 水平流程：加入 gap 產生各面板左右分隔陰影縫隙 */
-  .flow-track{display:flex;transition:transform .6s var(--ease-emphasized);will-change:transform;gap:10px;padding:0 4px;}
-  /* 每個頁面寬度扣除 gap 重新計算：使用 calc 讓 translateX 還是以 100% chunk 運作 */
-  .flow-page{flex:0 0 calc(100% - 40px);padding:8px 0 96px;box-sizing:border-box;}
+        .flow-track{display:flex;transition:transform .6s var(--ease-emphasized);will-change:transform;}
+        .flow-page{flex:0 0 100%;padding:8px 0 96px;box-sizing:border-box;}
         .flow-page-inner{height:100%;}
         .flow-nav-inline{display:flex;gap:12px;margin:8px 0 24px;}
         .flow-nav-inline button{padding:6px 14px;border:1px solid var(--color-border);background:#fff;border-radius:8px;cursor:pointer;font:500 13px var(--font-sans);} 
         .flow-nav-inline button.active{background:var(--color-accent);color:#fff;}
       </style>
     <!-- 分頁導覽列 -->
-  <!-- UI 調整：加入頂部 20px 間距，符合需求 1 -->
-  <nav id="app-tabs" style="max-width:var(--layout-max);margin:20px auto 8px;padding:0 32px;display:flex;gap:8px;justify-content:center;">
+    <nav id="app-tabs" style="max-width:var(--layout-max);margin:0 auto 8px;padding:0 32px;display:flex;gap:8px;">
       <button class="tab-btn-modern" data-view="upload" aria-selected="true">上傳</button>
       <button class="tab-btn-modern" data-view="recognition" aria-selected="false">辨識</button>
       <button class="tab-btn-modern" data-view="transpose" aria-selected="false">移調</button>
       <button class="tab-btn-modern" data-view="export" aria-selected="false">匯出</button>
     </nav>
     <style>
-  /* UI 調整：按鈕改為長方框圓角 (需求 2) */
-  .tab-btn-modern{flex:0 0 auto;padding:10px 22px;border:1px solid var(--color-border);background:#fff;border-radius:14px;font:500 14px var(--font-sans);cursor:pointer;transition:background .25s, color .25s, box-shadow .25s;}
+      .tab-btn-modern{flex:0 0 auto;padding:10px 18px;border:1px solid var(--color-border);background:#fff;border-radius:999px;font:500 14px var(--font-sans);cursor:pointer;transition:background .25s, color .25s, box-shadow .25s;}
       .tab-btn-modern[aria-selected="true"]{background:var(--color-accent);color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.15);} 
       .tab-btn-modern:not([aria-selected="true"]):hover{background:var(--color-surface-alt);} 
       /* 轉場動畫 */
       .view-panel-enter{opacity:0;transform:translateY(12px);}
       .view-panel-active{opacity:1;transform:translateY(0);transition:opacity .38s var(--ease-standard),transform .38s var(--ease-standard);} 
-  /* UI 調整：統一各頁面高度，並預留下方空白；min-height 以視窗高度計算 (需求 3 部分) */
-  .flow-page{min-height:calc(100vh - 160px);} /* 160px 約略扣掉導覽與內邊距，必要時再微調 */
-  #flow-container .panel-modern{margin-top:32px;} /* 調整：面板間距 32px (由 10px 提升) */
     </style>
     <div id="flow-container">
       <div class="flow-track" id="flow-track">
-  <!-- 移除內嵌 margin-top:8px; 交由全域 #flow-container .panel-modern 控制 32px 間距 -->
-  <section id="upload-section" class="flow-page"><div class="flow-page-inner app-section-wrapper panel-modern">
+        <section id="upload-section" class="flow-page"><div class="flow-page-inner app-section-wrapper panel-modern" style="margin-top:8px;">
       <h2 class="section-title" style="margin-top:0;">上傳樂譜</h2>
       <p style="color:var(--color-text-secondary);max-width:640px;">選擇圖片或 PDF，後續可使用 AI 進行和弦 / 歌詞辨識，並進入移調與匯出流程。</p>
       <div style="margin-top:28px;display:flex;gap:32px;flex-wrap:wrap;align-items:flex-start;">
@@ -1515,21 +1507,15 @@
         // 自我修復：確保四頁都在 track 內
         if(track){ ['upload-section','recognition-section','transpose-section','export-section'].forEach(id=>{ const el=d.getElementById(id); if(el && el.parentElement!==track) track.appendChild(el); }); }
         if(track){
-          const container = d.getElementById('flow-container');
-          const gapValue = 40; // 與 .flow-track gap 保持一致
-          const pages = track.querySelectorAll('.flow-page');
-          if(container && pages.length){
-            // 取得單頁實際寬度（calc 後結果）
-            const pageWidth = pages[0].getBoundingClientRect().width;
-            // 計算前面頁面總位移 (每頁寬 + gap)
-            const offset = idx * (pageWidth + gapValue);
-            // 置中調整：容器剩餘空間的一半
-            const centerAdjust = (container.clientWidth - pageWidth)/2;
-            track.style.transform = `translateX(${-(offset - centerAdjust)}px)`;
-          } else {
-            // 回退策略
-            track.style.transform = `translateX(-${idx*100}%)`;
-          }
+          track.style.transform = `translateX(-${idx*100}%)`;
+          // fallback：若 60ms 後 transform 沒改變 (某些舊快取或樣式衝突) 嘗試使用 scrollLeft
+          setTimeout(()=>{
+            const applied = getComputedStyle(track).transform;
+            if(!applied || applied==='none'){
+              const container = d.getElementById('flow-container');
+              if(container){ container.scrollLeft = container.clientWidth * idx; }
+            }
+          },60);
         }
         // 上方圓角 tab aria-selected 同步
         d.querySelectorAll('#app-tabs .tab-btn-modern').forEach(btn=>{
@@ -1549,14 +1535,6 @@
         try{ const last=localStorage.getItem('chordapp.activeView'); if(last) first=last; }catch(_){ }
         g.switchView(first);
       })();
-
-      // 視窗改變時重新置中當前頁
-      g.addEventListener('resize',()=>{
-        try{
-          const current = localStorage.getItem('chordapp.activeView')||'upload';
-          g.switchView(current);
-        }catch(_){ }
-      });
 
       // === 匯出功能 ===
       function ensureExportLibs(){
