@@ -759,6 +759,22 @@
       background: rgba(0,0,0,.06);
     }
 
+    /* 共用大譜面編輯區樣式：避免 flex 撐死高度，允許雙向拖曳 */
+    .big-textarea {
+      width:100%;
+      min-height:560px;
+      resize:both;
+      font-family:ui-monospace,monospace;
+      line-height:1.55;
+      padding:14px;
+      border:1px solid var(--color-border);
+      border-radius:10px;
+      background:#fff;
+      white-space:pre;
+      box-sizing:border-box;
+      overflow:auto;
+    }
+
     /* 原始影像縮放模式 */
     #recognition-original.zoom-fit img,#recognition-original.zoom-fit canvas{max-width:100%;height:auto;}
     #recognition-original.zoom-actual{overflow:auto;}
@@ -1397,7 +1413,7 @@
               </div>
               <div class="paper-surface" style="flex:2 1 520px;min-width:380px;display:flex;flex-direction:column;">
                 <span class="subtle-label">移調後內容</span>
-                  <textarea id="transpose-output" style="flex:1;min-height:520px;resize:both;font-family:ui-monospace,monospace;padding:14px;border:1px solid var(--color-border);border-radius:10px;white-space:pre;line-height:1.55;" placeholder="尚未移調"></textarea>
+                  <textarea id="transpose-output" class="big-textarea" placeholder="尚未移調"></textarea>
               </div>
             </div>
           </div>
@@ -1407,7 +1423,7 @@
       <div style="display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start;">
         <div class="paper-surface" style="flex:2 1 520px;min-width:420px;display:flex;flex-direction:column;">
           <span class="subtle-label">匯出預覽（使用移調後內容，若無則原始辨識）</span>
-          <textarea id="export-preview-text" style="flex:1;min-height:520px;resize:both;font-family:ui-monospace,monospace;padding:14px;border:1px solid var(--color-border);border-radius:10px;white-space:pre;line-height:1.55;" placeholder="尚未有內容"></textarea>
+          <textarea id="export-preview-text" class="big-textarea" placeholder="尚未有內容"></textarea>
           <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-end;margin-top:16px;">
             <button class="btn" id="export-refresh">重新載入內容</button>
             <button class="btn primary" id="export-download-png">下載 PNG</button>
