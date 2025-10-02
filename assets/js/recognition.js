@@ -54,7 +54,17 @@ export function initRecognition(win, doc){
     statusEl.textContent='辨識中...'; out.style.display='none'; out.textContent='';
     try { const text = await callGeminiAPIFromFile(file, apiKey); const meta=parseMetadataFromText(text); let display=formatDisplay(meta.content); const headerLines=[]; if(meta.title) headerLines.push(meta.title); if(meta.key) headerLines.push('Key: '+meta.key); if(headerLines.length) display=headerLines.join('\n')+'\n\n'+display; out.textContent=display||'(無內容)'; out.style.display='block'; statusEl.textContent='完成'; g.__LAST_AI_RESULT__=display; if(meta.title){ const ti=d.getElementById('song-title'); ti && (ti.value=meta.title); } if(meta.key){ const dk=d.getElementById('from-key'); dk && (dk.value=meta.key); const dk2=d.getElementById('detected-key'); dk2 && (dk2.value=meta.key); }
       const editor = d.getElementById('text-editor'); if(editor){ editor.value=display; d.getElementById('go-to-transpose')?.removeAttribute('disabled'); }
-      if(origImgBox){ if(file.type==='application/pdf') origImgBox.innerHTML='<div style="padding:40px;text-align:center;font-size:13px;color:var(--color-text-secondary);">PDF 已上傳</div>'; else { const url = URL.createObjectURL(file); origImgBox.innerHTML = `<img src="${url}" style="max-width:100%;height:auto;display:block;">`; } }
+      if(origImgBox){
+        if(file.type==='application/pdf'){
+          // 若上傳時已快取第一頁影像則顯示，否則給文字提示
+            const cached = g.__PDF_FIRST_PAGE_DATAURL__;
+            if(cached){ origImgBox.innerHTML = `<img src="${cached}" style="max-width:100%;height:auto;display:block;">`; }
+            else origImgBox.innerHTML='<div style="padding:40px;text-align:center;font-size:13px;color:var(--color-text-secondary);">PDF 已上傳 (無預覽快取)</div>';
+        } else {
+          const url = URL.createObjectURL(file);
+          origImgBox.innerHTML = `<img src="${url}" style="max-width:100%;height:auto;display:block;">`;
+        }
+      }
       g.switchView && g.switchView('recognition'); }
     catch(err){ statusEl.textContent='錯誤: '+err.message; }
   }

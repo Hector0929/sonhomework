@@ -1,7 +1,27 @@
 // Upload & preview
 export function initUpload(win, doc){
   const d=doc,g=win;
-  function syncPreview(file){
+  async function renderPdfFirstPage(file){
+    try {
+      // 動態載入 PDF.js (使用 CDN 免安裝)；若未連網會 fallback 文字提示
+      const pdfjsUrl = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.mjs';
+      const pdfjs = await import(/* @vite-ignore */ pdfjsUrl);
+      const pdfData = await file.arrayBuffer();
+      const loadingTask = pdfjs.getDocument({ data: pdfData });
+      const pdf = await loadingTask.promise;
+      const page = await pdf.getPage(1);
+      const viewport = page.getViewport({ scale: 1.25 });
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = viewport.width; canvas.height = viewport.height;
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      return canvas.toDataURL('image/png');
+    } catch (err){
+      console.warn('[PDF 預覽失敗]', err);
+      return null;
+    }
+  }
+  async function syncPreview(file){
     const heroBox = d.getElementById('hero-preview');
     const uploadBox = d.getElementById('upload-preview-box');
     const empty1 = d.getElementById('upload-preview-empty');
@@ -11,10 +31,21 @@ export function initUpload(win, doc){
       if(uploadBox) uploadBox.innerHTML = '<div id="upload-preview-empty" style="text-align:center;color:var(--color-text-secondary);font-size:14px;"><div style="font-size:46px;opacity:.15;">🎼</div>尚未選擇檔案</div>';
       return;
     }
-    const url = URL.createObjectURL(file);
-    const imgHTML = file.type==='application/pdf'
-      ? '<div style="text-align:center;color:var(--color-text-secondary);font-size:13px;">PDF 已選擇，稍後於辨識頁預覽第一頁。</div>'
-      : `<img src="${url}" alt="preview" style="max-width:100%;height:auto;display:block;">`;
+    let imgHTML = '';
+    if(file.type==='application/pdf'){
+      if(heroBox) heroBox.innerHTML = '<div style="padding:24px;text-align:center;font-size:13px;color:var(--color-text-secondary);">PDF 載入中...</div>';
+      if(uploadBox) uploadBox.innerHTML = '<div style="padding:24px;text-align:center;font-size:13px;color:var(--color-text-secondary);">PDF 載入中...</div>';
+      const dataUrl = await renderPdfFirstPage(file);
+      if(dataUrl){
+        imgHTML = `<img src="${dataUrl}" alt="pdf page 1" style="max-width:100%;height:auto;display:block;">`;
+        g.__PDF_FIRST_PAGE_DATAURL__ = dataUrl;
+      } else {
+        imgHTML = '<div style="text-align:center;color:var(--color-text-secondary);font-size:13px;">PDF 預覽失敗，將於辨識時直接上傳原檔。</div>';
+      }
+    } else {
+      const url = URL.createObjectURL(file);
+      imgHTML = `<img src="${url}" alt="preview" style="max-width:100%;height:auto;display:block;">`;
+    }
     if(heroBox){ heroBox.innerHTML = `<div style="padding:12px;width:100%;height:100%;display:flex;align-items:center;justify-content:center;">${imgHTML}</div>`; }
     if(uploadBox){ uploadBox.innerHTML = `<div style="width:100%;">${imgHTML}</div>`; }
   }
@@ -24,7 +55,7 @@ export function initUpload(win, doc){
   }
   const fi=d.getElementById('file-input');
   if(fi && !fi.__wired){
-    fi.addEventListener('change',()=>{ const f=fi.files && fi.files[0]; syncPreview(f); enableRecognize(!!f); });
+  fi.addEventListener('change',()=>{ const f=fi.files && fi.files[0]; syncPreview(f); enableRecognize(!!f); });
     fi.__wired=true;
   }
   if(fi && fi.files && fi.files[0]){ syncPreview(fi.files[0]); enableRecognize(true); }
