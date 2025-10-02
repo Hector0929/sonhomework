@@ -10,12 +10,16 @@ export function initNavigation(win, doc){
     if(track){
       const container = d.getElementById('flow-container');
       const gapValue = 40;
-      const pages = track.querySelectorAll('.flow-page');
+  const pages = Array.from(track.querySelectorAll('.flow-page'));
+  pages.forEach((p,i)=>{ if(i===idx) p.setAttribute('data-active','true'); else p.removeAttribute('data-active'); });
       if(container && pages.length){
-        const pageWidth = pages[0].getBoundingClientRect().width;
-        const offset = idx * (pageWidth + gapValue);
-        const centerAdjust = (container.clientWidth - pageWidth)/2;
-        track.style.transform = `translateX(${-(offset - centerAdjust)}px)`;
+        const target = pages[idx];
+        // 目標頁面中心位置 - 容器中心位置
+        const containerWidth = container.clientWidth;
+        const targetMid = target.offsetLeft + target.offsetWidth/2;
+        // track 左邊 padding 會反映在 offsetLeft，因此直接用差值即可
+        const translate = (containerWidth/2) - targetMid;
+        track.style.transform = `translateX(${translate}px)`;
       } else {
         track.style.transform = `translateX(-${idx*100}%)`;
       }
@@ -39,7 +43,12 @@ export function initNavigation(win, doc){
   })();
   g.addEventListener('resize',()=>{ try{ const current = localStorage.getItem('chordapp.activeView')||'upload'; g.switchView(current);}catch(_){ } });
   g.addEventListener('keydown', (e)=>{
+    // 新規則：必須按住 Shift + 左右 才切換頁面；單純左右讓給文字編輯區
     if(e.altKey || e.metaKey || e.ctrlKey) return;
+    if(!(e.shiftKey && (e.key==='ArrowLeft' || e.key==='ArrowRight'))) return;
+    // 若焦點在可編輯輸入框，且沒有 Shift 則不攔截（上面已 return）；有 Shift 則允許切換
+    const activeEl = doc.activeElement;
+    if(activeEl && /^(INPUT|TEXTAREA)$/i.test(activeEl.tagName) && !e.shiftKey) return;
     const order=['upload','recognition','transpose','export'];
     const current = (localStorage.getItem('chordapp.activeView')||'upload');
     const idx = order.indexOf(current);

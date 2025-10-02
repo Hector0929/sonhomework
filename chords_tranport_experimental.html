@@ -427,17 +427,15 @@
         }catch(_){ }
       });
 
-      // 方向鍵快捷切換 (Left/Right)
+      // 方向鍵快捷切換：改為 Shift + ArrowLeft/ArrowRight
       g.addEventListener('keydown', (e)=>{
-        if(e.altKey || e.metaKey || e.ctrlKey) return; // 避免與系統快捷衝突
+        if(e.altKey || e.metaKey || e.ctrlKey) return;
+        if(!(e.shiftKey && (e.key==='ArrowLeft' || e.key==='ArrowRight'))) return;
         const order=['upload','recognition','transpose','export'];
         const current = (localStorage.getItem('chordapp.activeView')||'upload');
         const idx = order.indexOf(current);
-        if(e.key==='ArrowRight' && idx < order.length-1){
-          e.preventDefault(); g.switchView(order[idx+1]);
-        } else if(e.key==='ArrowLeft' && idx>0){
-          e.preventDefault(); g.switchView(order[idx-1]);
-        }
+        if(e.key==='ArrowRight' && idx < order.length-1){ e.preventDefault(); g.switchView(order[idx+1]); }
+        else if(e.key==='ArrowLeft' && idx>0){ e.preventDefault(); g.switchView(order[idx-1]); }
       });
 
       // === 匯出功能 ===
