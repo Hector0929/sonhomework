@@ -1462,7 +1462,23 @@
     g.switchView && g.switchView('upload');
 
       // --- 新增：上傳預覽與 Hero/次按鈕同步邏輯 ---
-      function syncPreview(file){
+      async function renderPdfFirstPage(file){
+        try {
+          const pdfjsUrl = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.mjs';
+          const pdfjs = await import(pdfjsUrl);
+          const pdfData = await file.arrayBuffer();
+          const loadingTask = pdfjs.getDocument({ data: pdfData });
+          const pdf = await loadingTask.promise;
+            const page = await pdf.getPage(1);
+            const viewport = page.getViewport({ scale: 1.25 });
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = viewport.width; canvas.height = viewport.height;
+            await page.render({ canvasContext: ctx, viewport }).promise;
+            return canvas.toDataURL('image/png');
+        } catch(err){ console.warn('[PDF 預覽失敗]', err); return null; }
+      }
+      async function syncPreview(file){
         const heroBox = d.getElementById('hero-preview');
         const uploadBox = d.getElementById('upload-preview-box');
         const empty1 = d.getElementById('upload-preview-empty');
@@ -1472,10 +1488,17 @@
           if(uploadBox) uploadBox.innerHTML = '<div id="upload-preview-empty" style="text-align:center;color:var(--color-text-secondary);font-size:14px;"><div style="font-size:46px;opacity:.15;">🎼</div>尚未選擇檔案</div>';
           return;
         }
-        const url = URL.createObjectURL(file);
-        const imgHTML = file.type==='application/pdf'
-          ? '<div style="text-align:center;color:var(--color-text-secondary);font-size:13px;">PDF 已選擇，稍後於辨識頁預覽第一頁。</div>'
-          : `<img src="${url}" alt="preview" style="max-width:100%;height:auto;display:block;">`;
+        let imgHTML='';
+        if(file.type==='application/pdf'){
+          if(heroBox) heroBox.innerHTML = '<div style="padding:24px;text-align:center;font-size:13px;color:var(--color-text-secondary);">PDF 載入中...</div>';
+          if(uploadBox) uploadBox.innerHTML = '<div style="padding:24px;text-align:center;font-size:13px;color:var(--color-text-secondary);">PDF 載入中...</div>';
+          const dataUrl = await renderPdfFirstPage(file);
+          if(dataUrl){ imgHTML = `<img src="${dataUrl}" alt="pdf page 1" style="max-width:100%;height:auto;display:block;">`; g.__PDF_FIRST_PAGE_DATAURL__=dataUrl; }
+          else { imgHTML='<div style="text-align:center;color:var(--color-text-secondary);font-size:13px;">PDF 預覽失敗，辨識時仍可上傳原檔。</div>'; }
+        } else {
+          const url = URL.createObjectURL(file);
+          imgHTML = `<img src="${url}" alt="preview" style="max-width:100%;height:auto;display:block;">`;
+        }
         if(heroBox){
           heroBox.innerHTML = `<div style="padding:12px;width:100%;height:100%;display:flex;align-items:center;justify-content:center;">${imgHTML}</div>`;
         }
@@ -1828,7 +1851,11 @@
           if(editor){ editor.value = display; d.getElementById('go-to-transpose')?.removeAttribute('disabled'); }
           // 原圖同步
           if(origImgBox){
-            if(file.type==='application/pdf') origImgBox.innerHTML='<div style="padding:40px;text-align:center;font-size:13px;color:var(--color-text-secondary);">PDF 已上傳（可擴充預覽）</div>';
+            if(file.type==='application/pdf'){
+              const cached = g.__PDF_FIRST_PAGE_DATAURL__;
+              if(cached) origImgBox.innerHTML=`<img src="${cached}" style="max-width:100%;height:auto;display:block;">`;
+              else origImgBox.innerHTML='<div style="padding:40px;text-align:center;font-size:13px;color:var(--color-text-secondary);">PDF 已上傳 (無預覽快取)</div>';
+            }
             else {
               const url = URL.createObjectURL(file);
               origImgBox.innerHTML = `<img src="${url}" style="max-width:100%;height:auto;display:block;">`;
