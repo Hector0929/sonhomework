@@ -6,8 +6,9 @@
 
 /* Layout container */
 #flow-container { position:relative; width:100%; overflow:hidden; max-width:var(--layout-max); margin:0 auto; padding:0 32px; }
-.flow-track { display:flex; gap:var(--flow-gap); padding:0 4px; transition:transform var(--anim-duration) var(--ease-emphasized); will-change:transform; }
-.flow-page { flex:0 0 calc(100% - var(--flow-gap)); padding:8px 0 96px; box-sizing:border-box; min-height:calc(100vh - 160px); }
+/* 加入一層可捲動的 snap wrapper (沿用 #flow-container 內部 track) */
+.flow-track { display:flex; gap:var(--flow-gap); padding:0 4px; transition:transform var(--anim-duration) var(--ease-emphasized); will-change:transform; scroll-snap-type:x mandatory; }
+.flow-page { flex:0 0 calc(100% - var(--flow-gap)); padding:8px 0 96px; box-sizing:border-box; min-height:calc(100vh - 160px); scroll-snap-align:center; }
 
 /* Tabs */
 #app-tabs { max-width:var(--layout-max); margin:20px auto 8px; padding:0 32px; display:flex; gap:8px; justify-content:center; }

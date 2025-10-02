@@ -1432,6 +1432,7 @@
         <div class="paper-surface" style="flex:1 1 100%;min-width:620px;display:flex;flex-direction:column;">
           <span class="subtle-label">匯出預覽（使用移調後內容，若無則原始辨識）</span>
           <textarea id="export-preview-text" class="big-textarea" placeholder="尚未有內容"></textarea>
+          <div id="export-info"></div>
           <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-end;margin-top:16px;">
             <button class="btn" id="export-refresh">重新載入內容</button>
             <button class="btn primary" id="export-download-png">下載 PNG</button>
@@ -1558,6 +1559,19 @@
         }catch(_){ }
       });
 
+      // 方向鍵快捷切換 (Left/Right)
+      g.addEventListener('keydown', (e)=>{
+        if(e.altKey || e.metaKey || e.ctrlKey) return; // 避免與系統快捷衝突
+        const order=['upload','recognition','transpose','export'];
+        const current = (localStorage.getItem('chordapp.activeView')||'upload');
+        const idx = order.indexOf(current);
+        if(e.key==='ArrowRight' && idx < order.length-1){
+          e.preventDefault(); g.switchView(order[idx+1]);
+        } else if(e.key==='ArrowLeft' && idx>0){
+          e.preventDefault(); g.switchView(order[idx-1]);
+        }
+      });
+
       // === 匯出功能 ===
       function ensureExportLibs(){
         if(!g.html2canvas){
@@ -1575,6 +1589,20 @@
       function refreshExportPreview(){
         const box = d.getElementById('export-preview-text');
         if(box){ box.value = gatherCurrentContent(); }
+        // 預檢統計
+        try {
+          const txt = box ? box.value : '';
+          const lines = txt.split(/\n/).length;
+            const chars = txt.length;
+            // 簡易和弦 token 檢測 (大寫字母 + 可選 #/b + 可選 m / dim / aug / sus / 7 等)
+            const chordMatches = txt.match(/\b([A-G](?:#|b)?(?:m|maj7|maj|dim|aug|sus2|sus4|add9|m7|7|m9|9|m6|6|dim7)?(?:\/[A-G](?:#|b)?)?)\b/g) || [];
+            // PDF 預估頁數：假設一頁約 60 行（粗估）
+            const estPages = Math.max(1, Math.ceil(lines / 60));
+            const infoEl = d.getElementById('export-info');
+            if(infoEl){
+              infoEl.innerHTML = `字元數: ${chars} | 行數: ${lines} | 偵測和弦: ${chordMatches.length} | 預估 PDF 頁數: ${estPages}`;
+            }
+        } catch(err){ console.warn('[export preflight] fail', err); }
         ensureExportLibs();
       }
       const refreshBtn = d.getElementById('export-refresh');
