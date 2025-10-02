@@ -4,11 +4,23 @@ export function initUpload(win, doc){
   async function renderPdfFirstPage(file){
     try {
       // 動態載入 PDF.js (使用 CDN 免安裝)；若未連網會 fallback 文字提示
-      const pdfjsUrl = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.mjs';
+      const base = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67';
+      const pdfjsUrl = base + '/pdf.min.mjs';
+      const workerUrl = base + '/pdf.worker.min.mjs';
       const pdfjs = await import(/* @vite-ignore */ pdfjsUrl);
+      // 設定 workerSrc 避免 "No GlobalWorkerOptions.workerSrc" 錯誤
+      try { if(pdfjs?.GlobalWorkerOptions) pdfjs.GlobalWorkerOptions.workerSrc = workerUrl; } catch(_) {}
       const pdfData = await file.arrayBuffer();
-      const loadingTask = pdfjs.getDocument({ data: pdfData });
-      const pdf = await loadingTask.promise;
+      let pdf;
+      try {
+        pdf = await pdfjs.getDocument({ data: pdfData }).promise;
+      } catch(firstErr){
+        // 若 worker 仍失敗，嘗試退回不使用 worker 的模式
+        try {
+          if(pdfjs?.GlobalWorkerOptions) pdfjs.GlobalWorkerOptions.workerSrc = '';
+          pdf = await pdfjs.getDocument({ data: pdfData, useWorkerFetch:false }).promise;
+        } catch(secondErr){ throw firstErr; }
+      }
       const page = await pdf.getPage(1);
       const viewport = page.getViewport({ scale: 1.25 });
       const canvas = document.createElement('canvas');

@@ -1464,18 +1464,25 @@
       // --- 新增：上傳預覽與 Hero/次按鈕同步邏輯 ---
       async function renderPdfFirstPage(file){
         try {
-          const pdfjsUrl = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.mjs';
+          const base='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67';
+          const pdfjsUrl = base + '/pdf.min.mjs';
+          const workerUrl = base + '/pdf.worker.min.mjs';
           const pdfjs = await import(pdfjsUrl);
+          try { if(pdfjs?.GlobalWorkerOptions) pdfjs.GlobalWorkerOptions.workerSrc = workerUrl; } catch(_) {}
           const pdfData = await file.arrayBuffer();
-          const loadingTask = pdfjs.getDocument({ data: pdfData });
-          const pdf = await loadingTask.promise;
-            const page = await pdf.getPage(1);
-            const viewport = page.getViewport({ scale: 1.25 });
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            canvas.width = viewport.width; canvas.height = viewport.height;
-            await page.render({ canvasContext: ctx, viewport }).promise;
-            return canvas.toDataURL('image/png');
+          let pdf;
+          try { pdf = await pdfjs.getDocument({ data: pdfData }).promise; }
+          catch(firstErr){
+            try { if(pdfjs?.GlobalWorkerOptions) pdfjs.GlobalWorkerOptions.workerSrc=''; pdf = await pdfjs.getDocument({ data: pdfData, useWorkerFetch:false }).promise; }
+            catch(secondErr){ throw firstErr; }
+          }
+          const page = await pdf.getPage(1);
+          const viewport = page.getViewport({ scale: 1.25 });
+          const canvas=document.createElement('canvas');
+          const ctx=canvas.getContext('2d');
+          canvas.width=viewport.width; canvas.height=viewport.height;
+          await page.render({ canvasContext: ctx, viewport }).promise;
+          return canvas.toDataURL('image/png');
         } catch(err){ console.warn('[PDF 預覽失敗]', err); return null; }
       }
       async function syncPreview(file){
