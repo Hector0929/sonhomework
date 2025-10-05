@@ -1900,12 +1900,19 @@
       }
 
       // === 移調功能 ===
-      function transposeChord(ch, diff){
+      function transposeNote(note, diff){
         const notes=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
         const mapFlat={'Db':'C#','Eb':'D#','Gb':'F#','Ab':'G#','Bb':'A#'};
-        return ch.replace(/^[A-G][b#]?/,m=>{
-          const norm = mapFlat[m]||m; const i=notes.indexOf(norm); if(i<0) return m; return notes[(i+diff+12)%12];
-        });
+        const n=mapFlat[note]||note; const i=notes.indexOf(n); if(i<0) return note; return notes[(i+diff+12)%12];
+      }
+      function transposeChord(ch, diff){
+        const m = ch.match(/^([A-G][b#]?)(.*)$/);
+        if(!m) return ch;
+        const root = transposeNote(m[1], diff);
+        let rest = m[2]||'';
+        // 轉換 slash 低音（可能有多個片段，但通常一個）
+        rest = rest.replace(/\/([A-G][b#]?)/g, (s, bass)=> '/'+transposeNote(bass,diff));
+        return root + rest;
       }
       function detectChordToken(tok){ return /^[A-G][#b]?[a-zA-Z0-9()/]*$/.test(tok); }
       function transposeText(txt, fromKey, toKey){
