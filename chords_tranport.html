@@ -1449,6 +1449,10 @@
       </div>
     </div>
   <script>
+        // 提前載入合併後處理工具（以便下方 formatDisplay 可使用）
+      </script>
+      <script type="module" src="assets/js/chordUtils.js"></script>
+      <script>
     (function(g,d){
       // 錯誤監聽（防止靜默失敗）
       if(!g.__UI_ERR_TRAP__){
@@ -1775,7 +1779,11 @@
         return text;
       }
       function formatDisplay(raw){
-        return String(raw).split('\n').map(line=>{ if(/\|/.test(line) && /[A-G][#b]?/.test(line)) return line; return line.replace(/\|/g,''); }).join('\n');
+        const basic = String(raw).split('\n').map(line=>{ if(/\|/.test(line) && /[A-G][#b]?/.test(line)) return line; return line.replace(/\|/g,''); }).join('\n');
+        if(window.restructureChordLyricsBlock){
+          try { return window.restructureChordLyricsBlock(basic); } catch(_){ return basic; }
+        }
+        return basic;
       }
       function parseMetadataFromText(text){
         const meta={title:'',key:'',content:text};
