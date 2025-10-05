@@ -1,10 +1,22 @@
 // Transpose logic
 export function initTranspose(win, doc){
   const d=doc,g=win;
-  function transposeChord(ch, diff){
+  function transposeNote(note, diff){
     const notes=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-    const mapFlat={'Db':'C#','Eb':'D#','Gb':'F#','Ab':'G#','Bb':'A#'};
-    return ch.replace(/^[A-G][b#]?/,m=>{ const norm=mapFlat[m]||m; const i=notes.indexOf(norm); if(i<0) return m; return notes[(i+diff+12)%12]; });
+    const flats={'Db':'C#','Eb':'D#','Gb':'F#','Ab':'G#','Bb':'A#'};
+    const n=flats[note]||note; const i=notes.indexOf(n); if(i<0) return note; return notes[(i+diff+12)%12];
+  }
+  function transposeChord(ch, diff){
+    // 解析 root 與剩餘，並偵測 slash 低音
+    const m = ch.match(/^([A-G][b#]?)(.*)$/);
+    if(!m) return ch;
+    const root = transposeNote(m[1], diff);
+    let rest = m[2]||'';
+    rest = rest.replace(/\/[A-G][b#]?/g, (s)=>{
+      const bass = s.slice(1);
+      return '/'+transposeNote(bass,diff);
+    });
+    return root+rest;
   }
   function detectChordToken(tok){ return /^[A-G][#b]?[a-zA-Z0-9()/]*$/.test(tok); }
   function transposeText(txt, fromKey, toKey){
@@ -16,7 +28,7 @@ export function initTranspose(win, doc){
       if(/^Key:\s*/i.test(line) || line.trim()==='' || line.length<2) return line;
       const chordLike=/\|/.test(line) || (line.match(/[A-G][#b]?/g)||[]).length>2;
       if(!chordLike) return line;
-      return line.replace(/([A-G][#b]?)([a-zA-Z0-9()/#]*)/g,(m,root,rest)=>{ const token=root+rest; if(!detectChordToken(token)) return m; return transposeChord(token,diff); });
+  return line.replace(/([A-G][#b]?)([a-zA-Z0-9()/#]*)/g,(m,root,rest)=>{ const token=root+rest; if(!detectChordToken(token)) return m; return transposeChord(token,diff); });
     }).join('\n');
   }
   const goTrans=d.getElementById('go-to-transpose');

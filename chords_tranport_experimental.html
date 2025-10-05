@@ -298,11 +298,14 @@
       <h2 class="section-title" style="margin-top:0;">匯出</h2>
       <div style="display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start;">
         <div class="paper-surface" style="flex:1 1 100%;min-width:620px;display:flex;flex-direction:column;">
-          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:space-between;margin-bottom:8px;">
+                <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:space-between;margin-bottom:8px;">
             <span class="subtle-label">匯出預覽（使用移調後內容，若無則原始辨識）</span>
             <label style="font-size:12px;color:var(--color-text-secondary);display:inline-flex;align-items:center;gap:6px;">
               <input type="checkbox" id="export-bold-toggle" /> 粗體
             </label>
+                  <label style="font-size:12px;color:var(--color-text-secondary);display:inline-flex;align-items:center;gap:6px;">
+                    <input type="checkbox" id="export-mono-toggle" checked /> 等寬字型
+                  </label>
           </div>
           <textarea id="export-preview-text" class="big-textarea" placeholder="尚未有內容" style="font-family:'Microsoft JhengHei','微軟正黑體','Noto Sans TC','PingFang TC','Segoe UI',Arial,sans-serif;"></textarea>
           <div id="export-info"></div>
@@ -463,7 +466,8 @@
         // 預覽字型與粗體
         try{
           if(box){
-            box.style.fontFamily='"Microsoft JhengHei","微軟正黑體","Noto Sans TC","PingFang TC","Segoe UI",Arial,sans-serif';
+            const useMono = d.getElementById('export-mono-toggle')?.checked !== false; // 預設 true
+            box.style.fontFamily= useMono ? 'ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace' : '"Microsoft JhengHei","微軟正黑體","Noto Sans TC","PingFang TC","Segoe UI",Arial,sans-serif';
             const bold = !!d.getElementById('export-bold-toggle')?.checked; box.style.fontWeight = bold ? '700' : '400';
           }
         }catch(_){ }
@@ -493,7 +497,8 @@
         pre.style.margin='0';
         pre.style.whiteSpace='pre';
         pre.style.tabSize='4';
-        pre.style.fontFamily='"Microsoft JhengHei","微軟正黑體","Noto Sans TC","PingFang TC","Segoe UI",Arial,sans-serif';
+        const useMono = d.getElementById('export-mono-toggle')?.checked !== false;
+        pre.style.fontFamily= useMono ? 'ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace' : '"Microsoft JhengHei","微軟正黑體","Noto Sans TC","PingFang TC","Segoe UI",Arial,sans-serif';
         pre.style.fontSize='14px';
         pre.style.lineHeight='1.55';
         const bold = !!d.getElementById('export-bold-toggle')?.checked; pre.style.fontWeight = bold ? '700' : '400';

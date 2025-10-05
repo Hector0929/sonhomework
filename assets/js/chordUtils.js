@@ -43,18 +43,15 @@ export function restructureChordLyricsBlock(text){
   const out = [];
   let buffer = [];
 
-  function flush(forceSingle){
+  function flush(){
     if(!buffer.length) return;
     const allTokens = buffer.flatMap(line=>{
       const cleaned = line.trim().replace(/^\|+|\|+$/g,'');
       return tokenizeChordLine(cleaned).filter(isChordToken).map(normalizeChordToken);
     });
     if(!allTokens.length){ buffer=[]; return; }
-    if(forceSingle || allTokens.length<=1){
-      out.push(allTokens.join(' '));
-    } else {
-      out.push('| ' + allTokens.join(' | ') + ' |');
-    }
+    // 一律輸出小節線，包含單一和弦時亦包裹，避免 | 遺失
+    out.push('| ' + allTokens.join(' | ') + ' |');
     buffer = [];
   }
 
@@ -70,10 +67,7 @@ export function restructureChordLyricsBlock(text){
       buffer.push(trimmed);
       continue;
     }
-    if(buffer.length){
-      const isLyric = /[\u4e00-\u9fff]/.test(trimmed) || /[a-zA-Z]/.test(trimmed);
-      flush(!isLyric);
-    }
+    if(buffer.length){ flush(); }
     out.push(line);
   }
   flush();

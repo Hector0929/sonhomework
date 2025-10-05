@@ -2,6 +2,8 @@
 export function initExport(win, doc){
   const g=win,d=doc;
   const FONT_FAMILY = '"Microsoft JhengHei","微軟正黑體","Noto Sans TC","PingFang TC","Segoe UI",Arial,sans-serif';
+  const FONT_SANS = '"Microsoft JhengHei","微軟正黑體","Noto Sans TC","PingFang TC","Segoe UI",Arial,sans-serif';
+  const FONT_MONO = 'ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace';
   function ensureExportLibs(){
     if(!g.html2canvas){ const s=d.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'; d.head.appendChild(s); }
     if(!g.jspdf){ const s2=d.createElement('script'); s2.src='https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'; d.head.appendChild(s2); }
@@ -18,7 +20,8 @@ export function initExport(win, doc){
     // 檢視區統一字型與粗細
     try{
       if(box){
-        box.style.fontFamily = FONT_FAMILY;
+        const useMono = d.getElementById('export-mono-toggle')?.checked !== false; // 預設 true
+        box.style.fontFamily = useMono ? FONT_MONO : FONT_SANS;
         const bold = !!d.getElementById('export-bold-toggle')?.checked;
         box.style.fontWeight = bold ? '700' : '400';
       }
@@ -41,7 +44,8 @@ export function initExport(win, doc){
     pre.style.margin='0';
     pre.style.whiteSpace='pre';
     pre.style.tabSize='4';
-    pre.style.fontFamily = FONT_FAMILY;
+  const useMono = d.getElementById('export-mono-toggle')?.checked !== false;
+  pre.style.fontFamily = useMono ? FONT_MONO : FONT_SANS;
     pre.style.fontSize = '14px';
     pre.style.lineHeight = '1.55';
     const bold = !!d.getElementById('export-bold-toggle')?.checked;
