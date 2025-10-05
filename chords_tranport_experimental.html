@@ -753,7 +753,8 @@
           // 保留 header 行（Title/Key）不轉
           if(/^Key:\s*/i.test(line) || line.trim()=== '' || line.length<2) return line;
             // 判斷是否為和弦密集行（含豎線或多個和弦片段）
-            const chordLike = /\|/.test(line) || (line.match(/[A-G][#b]?/g)||[]).length>2;
+            const slashChord = /[A-G][#b]?\s*\/\s*[A-G][#b]?/.test(line);
+            const chordLike = /\|/.test(line) || slashChord || (line.match(/[A-G][#b]?/g)||[]).length>2;
             if(!chordLike) return line; 
             return line.replace(/([A-G][#b]?)([a-zA-Z0-9()/#]*)/g,(m,root,rest)=>{
               const token = root+rest;

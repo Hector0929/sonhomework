@@ -26,7 +26,8 @@ export function initTranspose(win, doc){
     const diff=(notes.indexOf(norm(toKey)) - notes.indexOf(norm(fromKey)) + 12) % 12;
     return txt.split(/\n/).map(line=>{
       if(/^Key:\s*/i.test(line) || line.trim()==='' || line.length<2) return line;
-      const chordLike=/\|/.test(line) || (line.match(/[A-G][#b]?/g)||[]).length>2;
+      const slashChord=/[A-G][#b]?\s*\/\s*[A-G][#b]?/.test(line);
+      const chordLike=/\|/.test(line) || slashChord || (line.match(/[A-G][#b]?/g)||[]).length>2;
       if(!chordLike) return line;
   return line.replace(/([A-G][#b]?)([a-zA-Z0-9()/#]*)/g,(m,root,rest)=>{ const token=root+rest; if(!detectChordToken(token)) return m; return transposeChord(token,diff); });
     }).join('\n');
