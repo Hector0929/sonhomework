@@ -1,4 +1,5 @@
 // AI recognition & text editing
+import { restructureChordLyricsBlock } from './chordUtils.js';
 export function initRecognition(win, doc){
   const g=win,d=doc;
   const fi = d.getElementById('file-input');
@@ -18,7 +19,8 @@ export function initRecognition(win, doc){
   aliasKey && aliasKey.addEventListener('input',()=>{ if(apiKeyInput) apiKeyInput.value = aliasKey.value; });
 
   function formatDisplay(raw){
-    return String(raw).split('\n').map(line=>{ if(/\|/.test(line) && /[A-G][#b]?/.test(line)) return line; return line.replace(/\|/g,''); }).join('\n');
+    const basic = String(raw).split('\n').map(line=>{ if(/\|/.test(line) && /[A-G][#b]?/.test(line)) return line; return line.replace(/\|/g,''); }).join('\n');
+    try { return restructureChordLyricsBlock(basic); } catch(_){ return basic; }
   }
   function parseMetadataFromText(text){
     const meta={title:'',key:'',content:text};

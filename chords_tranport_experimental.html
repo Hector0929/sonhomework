@@ -596,7 +596,11 @@
         return text;
       }
       function formatDisplay(raw){
-        return String(raw).split('\n').map(line=>{ if(/\|/.test(line) && /[A-G][#b]?/.test(line)) return line; return line.replace(/\|/g,''); }).join('\n');
+        const basic = String(raw).split('\n').map(line=>{ if(/\|/.test(line) && /[A-G][#b]?/.test(line)) return line; return line.replace(/\|/g,''); }).join('\n');
+        if(window.restructureChordLyricsBlock){
+          try { return window.restructureChordLyricsBlock(basic); } catch(_){ return basic; }
+        }
+        return basic;
       }
       function parseMetadataFromText(text){
         const meta={title:'',key:'',content:text};
