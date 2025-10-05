@@ -41,4 +41,14 @@ export function initTranspose(win, doc){
   goTrans && goTrans.addEventListener('click',()=>{ doTrans && (doTrans.disabled=false); g.switchView && g.switchView('transpose'); const src=d.getElementById('text-editor')?.value||''; outArea.value=src; finishBtn && (finishBtn.disabled=false); const ti=d.getElementById('song-title')?.value; if(ti) document.title=ti+' - 移調'; });
   doTrans && doTrans.addEventListener('click',()=>{ const src=d.getElementById('text-editor')?.value||''; const fk=d.getElementById('from-key').value; const tk=d.getElementById('to-key').value; let transposed=transposeText(src,fk,tk); let lines=transposed.split(/\n/); const keyLineIndex=lines.findIndex(l=>/^Key:\s*/i.test(l)); const newKeyLine='Key: '+tk; if(keyLineIndex>=0) lines[keyLineIndex]=newKeyLine; else lines.splice(lines[0].trim()?1:0,0,newKeyLine); outArea.value=lines.join('\n'); });
   finishBtn && finishBtn.addEventListener('click',()=>{ g.switchView && g.switchView('export'); try { typeof g.refreshExportPreview==='function' && g.refreshExportPreview(); } catch(_){ } });
+
+  // 將移調函式暴露到全域，提供頁面直接呼叫以統一來源
+  try {
+    g.__transpose__ = {
+      transposeText,
+      transposeChord,
+      transposeNote,
+      detectChordToken
+    };
+  } catch(_){ }
 }

@@ -1867,7 +1867,8 @@
         const src = d.getElementById('text-editor')?.value||''; 
         const fk = d.getElementById('from-key').value; 
         const tk = d.getElementById('to-key').value; 
-        let transposed = transposeText(src,fk,tk);
+        const api = (window.__transpose__ && window.__transpose__.transposeText) || transposeText;
+        let transposed = api(src,fk,tk);
         // 更新/插入 Key header 行
         let lines = transposed.split(/\n/);
         const keyLineIndex = lines.findIndex(l=>/^Key:\s*/i.test(l));
