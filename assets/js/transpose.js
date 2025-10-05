@@ -12,13 +12,11 @@ export function initTranspose(win, doc){
     if(!m) return ch;
     const root = transposeNote(m[1], diff);
     let rest = m[2]||'';
-    rest = rest.replace(/\/[A-G][b#]?/g, (s)=>{
-      const bass = s.slice(1);
-      return '/'+transposeNote(bass,diff);
-    });
+    // 允許 slash 與低音之間的空白，並保留原空白
+    rest = rest.replace(/\/(\s*)([A-G][b#]?)/g, (s, sp, bass)=> '/' + sp + transposeNote(bass,diff));
     return root+rest;
   }
-  function detectChordToken(tok){ return /^[A-G][#b]?[a-zA-Z0-9()/]*$/.test(tok); }
+  function detectChordToken(tok){ return /^[A-G][#b]?[a-zA-Z0-9()\/\s]*$/.test(tok); }
   function transposeText(txt, fromKey, toKey){
     const notes=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
     const flatToSharp={'Db':'C#','Eb':'D#','Gb':'F#','Ab':'G#','Bb':'A#'};
@@ -26,10 +24,10 @@ export function initTranspose(win, doc){
     const diff=(notes.indexOf(norm(toKey)) - notes.indexOf(norm(fromKey)) + 12) % 12;
     return txt.split(/\n/).map(line=>{
       if(/^Key:\s*/i.test(line) || line.trim()==='' || line.length<2) return line;
-      const slashChord=/[A-G][#b]?\s*\/\s*[A-G][#b]?/.test(line);
-      const chordLike=/\|/.test(line) || slashChord || (line.match(/[A-G][#b]?/g)||[]).length>2;
+    const slashChord=/[A-G][#b]?\s*\/\s*[A-G][#b]?/.test(line);
+    const chordLike=/\|/.test(line) || slashChord || (line.match(/[A-G][#b]?/g)||[]).length>2;
       if(!chordLike) return line;
-  return line.replace(/([A-G][#b]?)([a-zA-Z0-9()/#]*)/g,(m,root,rest)=>{ const token=root+rest; if(!detectChordToken(token)) return m; return transposeChord(token,diff); });
+  return line.replace(/([A-G][#b]?)([a-zA-Z0-9()#\/\s]*)/g,(m,root,rest)=>{ const token=root+rest; if(!detectChordToken(token)) return m; return transposeChord(token,diff); });
     }).join('\n');
   }
   const goTrans=d.getElementById('go-to-transpose');
