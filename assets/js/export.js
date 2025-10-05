@@ -1,6 +1,7 @@
 // Export + preflight stats
 export function initExport(win, doc){
   const g=win,d=doc;
+  const FONT_FAMILY = '"Microsoft JhengHei","微軟正黑體","Noto Sans TC","PingFang TC","Segoe UI",Arial,sans-serif';
   function ensureExportLibs(){
     if(!g.html2canvas){ const s=d.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'; d.head.appendChild(s); }
     if(!g.jspdf){ const s2=d.createElement('script'); s2.src='https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'; d.head.appendChild(s2); }
@@ -14,6 +15,14 @@ export function initExport(win, doc){
   g.refreshExportPreview=function(){
     const box=d.getElementById('export-preview-text');
     if(box){ box.value=gatherCurrentContent(); }
+    // 檢視區統一字型與粗細
+    try{
+      if(box){
+        box.style.fontFamily = FONT_FAMILY;
+        const bold = !!d.getElementById('export-bold-toggle')?.checked;
+        box.style.fontWeight = bold ? '700' : '400';
+      }
+    }catch(_){ }
     try {
       const txt = box ? box.value : '';
       const lines = txt.split(/\n/).length;
@@ -26,7 +35,20 @@ export function initExport(win, doc){
     ensureExportLibs();
   };
   const refreshBtn=d.getElementById('export-refresh'); refreshBtn && !refreshBtn.__wired && (refreshBtn.addEventListener('click',g.refreshExportPreview), refreshBtn.__wired=true);
-  function createExportWrap(text){ const pre=d.createElement('pre'); pre.textContent=text; pre.style.margin='0'; pre.style.font='14px/1.55 ui-monospace,monospace'; pre.style.whiteSpace='pre'; pre.style.tabSize='4'; const wrap=d.createElement('div'); wrap.style.position='fixed'; wrap.style.left='-9999px'; wrap.style.top='0'; wrap.style.width='860px'; wrap.style.padding='32px'; wrap.style.background='#fff'; wrap.style.boxSizing='border-box'; wrap.appendChild(pre); return wrap; }
+  function createExportWrap(text){
+    const pre=d.createElement('pre');
+    pre.textContent=text;
+    pre.style.margin='0';
+    pre.style.whiteSpace='pre';
+    pre.style.tabSize='4';
+    pre.style.fontFamily = FONT_FAMILY;
+    pre.style.fontSize = '14px';
+    pre.style.lineHeight = '1.55';
+    const bold = !!d.getElementById('export-bold-toggle')?.checked;
+    pre.style.fontWeight = bold ? '700' : '400';
+    const wrap=d.createElement('div');
+    wrap.style.position='fixed';wrap.style.left='-9999px';wrap.style.top='0';wrap.style.width='860px';wrap.style.padding='32px';wrap.style.background='#fff';wrap.style.boxSizing='border-box';
+    wrap.appendChild(pre); return wrap; }
   const dlPng=d.getElementById('export-download-png');
   dlPng && !dlPng.__wired && (dlPng.addEventListener('click', async ()=>{ g.refreshExportPreview(); await new Promise(r=>setTimeout(r,50)); if(!g.html2canvas){alert('html2canvas 載入中，稍後再試');return;} const txt=d.getElementById('export-preview-text'); const wrap=createExportWrap(txt.value); d.body.appendChild(wrap); const canvas=await g.html2canvas(wrap,{scale:2,backgroundColor:'#ffffff'}); d.body.removeChild(wrap); const a=d.createElement('a'); const title=(d.getElementById('song-title')?.value||'chords').replace(/\s+/g,'_'); const key=(d.getElementById('to-key')?.value||d.getElementById('from-key')?.value||'C'); a.href=canvas.toDataURL('image/png'); a.download=`${title}_${key}_export.png`; a.click(); }), dlPng.__wired=true);
   const dlPdf=d.getElementById('export-download-pdf');
