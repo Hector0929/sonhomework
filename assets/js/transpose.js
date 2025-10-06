@@ -19,7 +19,10 @@ export function initTranspose(win, doc){
   rest = rest.replace(/[\/／](\s*)([A-G][b#]?)/g, (s, sp, bass)=> '/' + sp + transposeNote(bass,diff));
     return root+rest;
   }
-  function detectChordToken(tok){ return /^[A-G][#b]?[a-zA-Z0-9()\/\s／]*$/.test(tok); }
+  // 僅允許斜線周圍的空白，且允許沒有擴展也帶 slash（例如 "A/C#"）
+  function detectChordToken(tok){
+    return /^[A-G][#b]?(?:[a-zA-Z0-9()#]*)?(?:\s*[\/／]\s*[A-G][#b]?)?$/.test(tok);
+  }
   function transposeText(txt, fromKey, toKey){
     const notes=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
     const flatToSharp={'Db':'C#','Eb':'D#','Gb':'F#','Ab':'G#','Bb':'A#'};
@@ -30,7 +33,11 @@ export function initTranspose(win, doc){
   const slashChord=/[A-G][#b]?\s*[\/／]\s*[A-G][#b]?/.test(line);
     const chordLike=/\|/.test(line) || slashChord || (line.match(/[A-G][#b]?/g)||[]).length>2;
       if(!chordLike) return line;
-  return line.replace(/([A-G][#b]?)([a-zA-Z0-9()#\/\s／]*)/g,(m,root,rest)=>{ const token=root+rest; if(!detectChordToken(token)) return m; return transposeChord(token,diff); });
+  // 僅比對單一和弦（含可選的 slash 低音），不再允許任意空白導致黏到下一個和弦
+  return line.replace(/([A-G][#b]?(?:[a-zA-Z0-9()#]*)?(?:\s*[\/／]\s*[A-G][#b]?)?)/g,(m)=>{
+    if(!detectChordToken(m)) return m;
+    return transposeChord(m, diff);
+  });
     }).join('\n');
   }
   const goTrans=d.getElementById('go-to-transpose');
