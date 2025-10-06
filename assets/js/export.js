@@ -56,8 +56,20 @@ export function initExport(win, doc){
     wrap.appendChild(pre); return wrap; }
   const dlPng=d.getElementById('export-download-png');
   dlPng && !dlPng.__wired && (dlPng.addEventListener('click', async ()=>{ g.refreshExportPreview(); await new Promise(r=>setTimeout(r,50)); if(!g.html2canvas){alert('html2canvas 載入中，稍後再試');return;} const txt=d.getElementById('export-preview-text'); const wrap=createExportWrap(txt.value); d.body.appendChild(wrap); const canvas=await g.html2canvas(wrap,{scale:2,backgroundColor:'#ffffff'}); d.body.removeChild(wrap); const a=d.createElement('a'); const title=(d.getElementById('song-title')?.value||'chords').replace(/\s+/g,'_'); const key=(d.getElementById('to-key')?.value||d.getElementById('from-key')?.value||'C'); a.href=canvas.toDataURL('image/png'); a.download=`${title}_${key}_export.png`; a.click(); }), dlPng.__wired=true);
+  // 下載 JPG（以 JPEG 匯出，忠實保留排版）
+  const dlJpg=d.getElementById('export-download-jpg');
+  dlJpg && !dlJpg.__wired && (dlJpg.addEventListener('click', async ()=>{ g.refreshExportPreview(); await new Promise(r=>setTimeout(r,50)); if(!g.html2canvas){alert('html2canvas 載入中，稍後再試');return;} const txt=d.getElementById('export-preview-text'); const wrap=createExportWrap(txt.value); d.body.appendChild(wrap); const canvas=await g.html2canvas(wrap,{scale:2,backgroundColor:'#ffffff'}); d.body.removeChild(wrap); const a=d.createElement('a'); const title=(d.getElementById('song-title')?.value||'chords').replace(/\s+/g,'_'); const key=(d.getElementById('to-key')?.value||d.getElementById('from-key')?.value||'C'); a.href=canvas.toDataURL('image/jpeg',0.95); a.download=`${title}_${key}_export.jpg`; a.click(); }), dlJpg.__wired=true);
   const dlPdf=d.getElementById('export-download-pdf');
   dlPdf && !dlPdf.__wired && (dlPdf.addEventListener('click', async ()=>{ g.refreshExportPreview(); await new Promise(r=>setTimeout(r,50)); if(!g.jspdf || !g.html2canvas){alert('匯出函式庫載入中，稍後再試');return;} const { jsPDF }=g.jspdf; const txtEl=d.getElementById('export-preview-text'); const wrap=createExportWrap(txtEl.value); d.body.appendChild(wrap); const canvas=await g.html2canvas(wrap,{scale:2,backgroundColor:'#ffffff'}); d.body.removeChild(wrap); const pdf=new jsPDF({unit:'pt',format:'a4'}); const pageWidth=pdf.internal.pageSize.getWidth(); const margin=40; const imgWidth=pageWidth-margin*2; const imgHeight=canvas.height * (imgWidth/canvas.width); const sliceHeight=pdf.internal.pageSize.getHeight() - margin*2; if(imgHeight <= sliceHeight){ pdf.addImage(canvas.toDataURL('image/png'),'PNG',margin,margin,imgWidth,imgHeight); } else { let position=0; while(position < canvas.height){ const pageCanvas=d.createElement('canvas'); pageCanvas.width=canvas.width; const slicePx=Math.min(canvas.height-position, Math.floor(sliceHeight*(canvas.width/imgWidth))); pageCanvas.height=slicePx; const ctx=pageCanvas.getContext('2d'); ctx.drawImage(canvas,0,position,canvas.width,slicePx,0,0,canvas.width,slicePx); const pageImg=pageCanvas.toDataURL('image/png'); if(position>0) pdf.addPage(); pdf.addImage(pageImg,'PNG',margin,margin,imgWidth,slicePx*(imgWidth/canvas.width)); position+=slicePx; } } const title=(d.getElementById('song-title')?.value||'chords').replace(/\s+/g,'_'); const key=(d.getElementById('to-key')?.value||d.getElementById('from-key')?.value||'C'); pdf.save(`${title}_${key}_export.pdf`); }), dlPdf.__wired=true);
+
+  // 匯出預覽輸入同步：使用者若在匯出頁手動排版，寫回 shared state
+  try{
+    const box=d.getElementById('export-preview-text');
+    if(box && !box.__wired){
+      box.addEventListener('input', ()=>{ try{ win.setSharedText && win.setSharedText(box.value, 'export-edit'); }catch(_){ } });
+      box.__wired=true;
+    }
+  }catch(_){ }
 
   // 註冊分頁進入鉤子：當切到 export 時回填共享內容
   try{

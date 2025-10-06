@@ -15,8 +15,8 @@ export function initTranspose(win, doc){
     if(!m) return ch;
     const root = transposeNote(m[1], diff);
     let rest = m[2]||'';
-  // 允許半形/全形斜線與低音之間的空白，並保留原空白
-  rest = rest.replace(/[\/／](\s*)([A-G][b#]?)/g, (s, sp, bass)=> '/' + sp + transposeNote(bass,diff));
+  // 允許半形/全形斜線與低音之間的空白，並保留原斜線字元與原空白
+  rest = rest.replace(/([\/／])(\s*)([A-G][b#]?)/g, (s, slash, sp, bass)=> slash + sp + transposeNote(bass,diff));
     return root+rest;
   }
   // 僅允許斜線周圍的空白，且允許沒有擴展也帶 slash（例如 "A/C#"）
@@ -49,7 +49,8 @@ export function initTranspose(win, doc){
   backUpload && backUpload.addEventListener('click',()=> g.switchView && g.switchView('upload'));
   backEdit && backEdit.addEventListener('click',()=> g.switchView && g.switchView('recognition'));
   goTrans && goTrans.addEventListener('click',()=>{ doTrans && (doTrans.disabled=false); g.switchView && g.switchView('transpose'); const shared=g.getSharedText?g.getSharedText():''; const src=shared || d.getElementById('text-editor')?.value||''; outArea.value=src; finishBtn && (finishBtn.disabled=false); const ti=d.getElementById('song-title')?.value; if(ti) document.title=ti+' - 移調'; });
-  doTrans && doTrans.addEventListener('click',()=>{ const base=(outArea?.value||d.getElementById('text-editor')?.value||''); const fk=d.getElementById('from-key').value; const tk=d.getElementById('to-key').value; let transposed=transposeText(base,fk,tk); let lines=transposed.split(/\n/); const keyLineIndex=lines.findIndex(l=>/^Key:\s*/i.test(l)); const newKeyLine='Key: '+tk; if(keyLineIndex>=0) lines[keyLineIndex]=newKeyLine; else lines.splice(lines[0].trim()?1:0,0,newKeyLine); const out=lines.join('\n'); outArea.value=out; try{ g.setSharedText && g.setSharedText(out,'transpose'); }catch(_){ } });
+  // 僅更改和弦，不進行任何排版操作（不新增或改寫 Key 行）
+  doTrans && doTrans.addEventListener('click',()=>{ const base=(outArea?.value||d.getElementById('text-editor')?.value||''); const fk=d.getElementById('from-key').value; const tk=d.getElementById('to-key').value; const out=transposeText(base,fk,tk); outArea.value=out; try{ g.setSharedText && g.setSharedText(out,'transpose'); }catch(_){ } });
   // 手動編輯同步 shared text
   if(outArea && !outArea.__wired){ outArea.addEventListener('input',()=>{ try{ g.setSharedText && g.setSharedText(outArea.value,'transpose-edit'); }catch(_){ } }); outArea.__wired=true; }
   finishBtn && finishBtn.addEventListener('click',()=>{ try{ g.setSharedText && g.setSharedText(outArea?.value||'','transpose-finish'); }catch(_){ } g.switchView && g.switchView('export'); try { typeof g.refreshExportPreview==='function' && g.refreshExportPreview(); } catch(_){ } });
