@@ -50,10 +50,8 @@ export function restructureChordLyricsBlock(text){
       return tokenizeChordLine(cleaned).filter(isChordToken).map(normalizeChordToken);
     });
     if(!allTokens.length){ buffer=[]; return; }
-    // 僅在原本有小節線時包裹整行；不在和弦間插入 |，避免把同一小節的多和弦拆散
-    const hadBar = buffer.some(l=>/\|/.test(l));
-    const lineText = hadBar ? ('| ' + allTokens.join(' ') + ' |') : allTokens.join(' ');
-    out.push(lineText);
+    // 一律輸出小節線，包含單一和弦時亦包裹，避免 | 遺失
+    out.push('|' + allTokens.join('|') + ' |');
     buffer = [];
   }
 

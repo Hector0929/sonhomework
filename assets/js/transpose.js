@@ -4,7 +4,10 @@ export function initTranspose(win, doc){
   function transposeNote(note, diff){
     const notes=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
     const flats={'Db':'C#','Eb':'D#','Gb':'F#','Ab':'G#','Bb':'A#'};
-    const n=flats[note]||note; const i=notes.indexOf(n); if(i<0) return note; return notes[(i+diff+12)%12];
+    const m = String(note||'').trim().match(/^([A-Ga-g])([b#]?)/);
+    if(!m) return note;
+    const base = m[1].toUpperCase() + (m[2]==='#'?'#':(m[2]==='b'?'b':''));
+    const n=flats[base]||base; const i=notes.indexOf(n); if(i<0) return base; return notes[(i+diff+12)%12];
   }
   function transposeChord(ch, diff){
     // 解析 root 與剩餘，並偵測 slash 低音
@@ -12,11 +15,11 @@ export function initTranspose(win, doc){
     if(!m) return ch;
     const root = transposeNote(m[1], diff);
     let rest = m[2]||'';
-    // 允許 slash 與低音之間的空白，並保留原空白
-    rest = rest.replace(/\/(\s*)([A-G][b#]?)/g, (s, sp, bass)=> '/' + sp + transposeNote(bass,diff));
+  // 允許半形/全形斜線與低音之間的空白，並保留原空白
+  rest = rest.replace(/[\/／](\s*)([A-G][b#]?)/g, (s, sp, bass)=> '/' + sp + transposeNote(bass,diff));
     return root+rest;
   }
-  function detectChordToken(tok){ return /^[A-G][#b]?[a-zA-Z0-9()\/\s]*$/.test(tok); }
+  function detectChordToken(tok){ return /^[A-G][#b]?[a-zA-Z0-9()\/\s／]*$/.test(tok); }
   function transposeText(txt, fromKey, toKey){
     const notes=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
     const flatToSharp={'Db':'C#','Eb':'D#','Gb':'F#','Ab':'G#','Bb':'A#'};
@@ -24,10 +27,10 @@ export function initTranspose(win, doc){
     const diff=(notes.indexOf(norm(toKey)) - notes.indexOf(norm(fromKey)) + 12) % 12;
     return txt.split(/\n/).map(line=>{
       if(/^Key:\s*/i.test(line) || line.trim()==='' || line.length<2) return line;
-    const slashChord=/[A-G][#b]?\s*\/\s*[A-G][#b]?/.test(line);
+  const slashChord=/[A-G][#b]?\s*[\/／]\s*[A-G][#b]?/.test(line);
     const chordLike=/\|/.test(line) || slashChord || (line.match(/[A-G][#b]?/g)||[]).length>2;
       if(!chordLike) return line;
-  return line.replace(/([A-G][#b]?)([a-zA-Z0-9()#\/\s]*)/g,(m,root,rest)=>{ const token=root+rest; if(!detectChordToken(token)) return m; return transposeChord(token,diff); });
+  return line.replace(/([A-G][#b]?)([a-zA-Z0-9()#\/\s／]*)/g,(m,root,rest)=>{ const token=root+rest; if(!detectChordToken(token)) return m; return transposeChord(token,diff); });
     }).join('\n');
   }
   const goTrans=d.getElementById('go-to-transpose');
