@@ -48,9 +48,21 @@ export function initTranspose(win, doc){
   const outArea=d.getElementById('transpose-output');
   backUpload && backUpload.addEventListener('click',()=> g.switchView && g.switchView('upload'));
   backEdit && backEdit.addEventListener('click',()=> g.switchView && g.switchView('recognition'));
-  goTrans && goTrans.addEventListener('click',()=>{ doTrans && (doTrans.disabled=false); g.switchView && g.switchView('transpose'); const src=d.getElementById('text-editor')?.value||''; outArea.value=src; finishBtn && (finishBtn.disabled=false); const ti=d.getElementById('song-title')?.value; if(ti) document.title=ti+' - 移調'; });
-  doTrans && doTrans.addEventListener('click',()=>{ const src=d.getElementById('text-editor')?.value||''; const fk=d.getElementById('from-key').value; const tk=d.getElementById('to-key').value; let transposed=transposeText(src,fk,tk); let lines=transposed.split(/\n/); const keyLineIndex=lines.findIndex(l=>/^Key:\s*/i.test(l)); const newKeyLine='Key: '+tk; if(keyLineIndex>=0) lines[keyLineIndex]=newKeyLine; else lines.splice(lines[0].trim()?1:0,0,newKeyLine); outArea.value=lines.join('\n'); });
-  finishBtn && finishBtn.addEventListener('click',()=>{ g.switchView && g.switchView('export'); try { typeof g.refreshExportPreview==='function' && g.refreshExportPreview(); } catch(_){ } });
+  goTrans && goTrans.addEventListener('click',()=>{ doTrans && (doTrans.disabled=false); g.switchView && g.switchView('transpose'); const shared=g.getSharedText?g.getSharedText():''; const src=shared || d.getElementById('text-editor')?.value||''; outArea.value=src; finishBtn && (finishBtn.disabled=false); const ti=d.getElementById('song-title')?.value; if(ti) document.title=ti+' - 移調'; });
+  doTrans && doTrans.addEventListener('click',()=>{ const base=(outArea?.value||d.getElementById('text-editor')?.value||''); const fk=d.getElementById('from-key').value; const tk=d.getElementById('to-key').value; let transposed=transposeText(base,fk,tk); let lines=transposed.split(/\n/); const keyLineIndex=lines.findIndex(l=>/^Key:\s*/i.test(l)); const newKeyLine='Key: '+tk; if(keyLineIndex>=0) lines[keyLineIndex]=newKeyLine; else lines.splice(lines[0].trim()?1:0,0,newKeyLine); const out=lines.join('\n'); outArea.value=out; try{ g.setSharedText && g.setSharedText(out,'transpose'); }catch(_){ } });
+  // 手動編輯同步 shared text
+  if(outArea && !outArea.__wired){ outArea.addEventListener('input',()=>{ try{ g.setSharedText && g.setSharedText(outArea.value,'transpose-edit'); }catch(_){ } }); outArea.__wired=true; }
+  finishBtn && finishBtn.addEventListener('click',()=>{ try{ g.setSharedText && g.setSharedText(outArea?.value||'','transpose-finish'); }catch(_){ } g.switchView && g.switchView('export'); try { typeof g.refreshExportPreview==='function' && g.refreshExportPreview(); } catch(_){ } });
+
+  // 註冊分頁進入鉤子：當切到 transpose 時回填共享內容
+  try{
+    if(g.__onEnterView){
+      g.__onEnterView.transpose = function(){
+        const text = g.getSharedText ? g.getSharedText() : '';
+        if(outArea && text && outArea.value !== text) outArea.value = text;
+      };
+    }
+  }catch(_){ }
 
   // 將移調函式暴露到全域，提供頁面直接呼叫以統一來源
   try {

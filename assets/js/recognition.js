@@ -56,6 +56,8 @@ export function initRecognition(win, doc){
     statusEl.textContent='辨識中...'; out.style.display='none'; out.textContent='';
     try { const text = await callGeminiAPIFromFile(file, apiKey); const meta=parseMetadataFromText(text); let display=formatDisplay(meta.content); const headerLines=[]; if(meta.title) headerLines.push(meta.title); if(meta.key) headerLines.push('Key: '+meta.key); if(headerLines.length) display=headerLines.join('\n')+'\n\n'+display; out.textContent=display||'(無內容)'; out.style.display='block'; statusEl.textContent='完成'; g.__LAST_AI_RESULT__=display; if(meta.title){ const ti=d.getElementById('song-title'); ti && (ti.value=meta.title); } if(meta.key){ const dk=d.getElementById('from-key'); dk && (dk.value=meta.key); const dk2=d.getElementById('detected-key'); dk2 && (dk2.value=meta.key); }
       const editor = d.getElementById('text-editor'); if(editor){ editor.value=display; d.getElementById('go-to-transpose')?.removeAttribute('disabled'); }
+      // 更新共享文字狀態
+      try { g.setSharedText && g.setSharedText(display, 'recognition'); } catch(_){ }
       if(origImgBox){
         if(file.type==='application/pdf'){
           // 若上傳時已快取第一頁影像則顯示，否則給文字提示
@@ -81,4 +83,19 @@ export function initRecognition(win, doc){
     let start='fit'; try{ const saved=localStorage.getItem('chordapp.zoomMode'); if(saved) start=saved; }catch(_){ }
     applyZoom(start); g.__applyRecognitionZoom=applyZoom;
   })();
+
+  // 註冊分頁進入鉤子：當切到 recognition 時回填共享內容
+  try{
+    if(g.__onEnterView){
+      g.__onEnterView.recognition = function(){
+        const text = g.getSharedText ? g.getSharedText() : '';
+        if(text){
+          const editor = d.getElementById('text-editor');
+          if(editor && editor.value !== text) editor.value = text;
+          const out = d.getElementById('recognize-output');
+          if(out){ out.textContent = text; out.style.display='block'; }
+        }
+      };
+    }
+  }catch(_){ }
 }

@@ -29,6 +29,8 @@ export function initNavigation(win, doc){
       btn.setAttribute('aria-selected', active?'true':'false');
     });
     try{ localStorage.setItem('chordapp.activeView',view);}catch(_){ }
+    // 觸發該頁的進入鉤子（用於同步共享內容）
+    try{ if(g.__onEnterView && typeof g.__onEnterView[view]==='function'){ g.__onEnterView[view](); } }catch(_){ }
     if(view==='export'){
       try { win.refreshExportPreview && win.refreshExportPreview(); } catch(e){ console.warn('[switchView] refresh export fail', e); }
     }
