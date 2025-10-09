@@ -7,7 +7,7 @@
     if(fi.files && fi.files.length) btn.removeAttribute('disabled'); else btn.setAttribute('disabled','');
   }
   function syncAI(){
-    var key=id('gemini-api-key'); var ck=id('use-gemini-ai'); var btn=id('recognize-ai-btn');
+  var key=id('api-key'); var ck=id('use-gemini-ai'); var btn=id('recognize-ai-btn');
     if(!btn) return; if(ck&&ck.checked && key && key.value.trim()) btn.removeAttribute('disabled'); else btn.setAttribute('disabled','');
   }
   function simulateAI(){
@@ -17,7 +17,7 @@
   }
   function wire(){
     var fi=id('file-input'); fi&&fi.addEventListener('change', syncRecognizeBtn);
-    var key=id('gemini-api-key'); key&&key.addEventListener('input', syncAI);
+  var key=id('api-key'); key&&key.addEventListener('input', syncAI);
     var ck=id('use-gemini-ai'); ck&&ck.addEventListener('change', syncAI);
     var aiBtn=id('recognize-ai-btn'); if(aiBtn && !aiBtn.__aiBound){ aiBtn.addEventListener('click', simulateAI); aiBtn.__aiBound=true; }
     var recBtn=id('recognize-btn'); if(recBtn && !recBtn.__recBound){ recBtn.addEventListener('click', ()=>{ var s=id('recognition-status'); if(s) s.textContent='(完成: '+(g.AppState?.tokens?.length||0)+' 項)'; }); recBtn.__recBound=true; }

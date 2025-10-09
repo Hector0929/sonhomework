@@ -19,6 +19,23 @@ import { initExport } from './export.js';
   };
   // 分頁進入回呼註冊點
   if(!g.__onEnterView){ g.__onEnterView = {}; }
+
+  // 全域樣式套用：統一等寬/粗體偏好到三頁的 textarea / pre
+  g.__applySharedTextStyle = function(){
+    const d=document, g=window;
+    try{
+      const prefMono = localStorage.getItem('chordapp.pref.mono');
+      const prefBold = localStorage.getItem('chordapp.pref.bold');
+      const useMono = prefMono ? (prefMono==='1') : (document.getElementById('export-mono-toggle')?.checked !== false);
+      const useBold = prefBold ? (prefBold==='1') : !!document.getElementById('export-bold-toggle')?.checked;
+      const FONT_SANS = '"Microsoft JhengHei","微軟正黑體","Noto Sans TC","PingFang TC","Segoe UI",Arial,sans-serif';
+      const FONT_MONO = 'ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace';
+      const apply = (el)=>{ if(!el) return; el.style.fontFamily = useMono?FONT_MONO:FONT_SANS; el.style.fontWeight = useBold?'700':'400'; };
+      apply(document.getElementById('text-editor'));
+      apply(document.getElementById('transpose-output'));
+      apply(document.getElementById('export-preview-text'));
+    }catch(_){ }
+  };
   try { initUpload(g,d); } catch(e){ console.warn('[initUpload] fail', e); }
   try { initRecognition(g,d); } catch(e){ console.warn('[initRecognition] fail', e); }
   try { initTranspose(g,d); } catch(e){ console.warn('[initTranspose] fail', e); }

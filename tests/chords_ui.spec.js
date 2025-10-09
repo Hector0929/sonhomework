@@ -21,11 +21,9 @@ test('上傳→辨識（注入 tokens）→移調→匯出（預覽可見）', a
   }, MINI);
 
   // 2) 設定 API key 並點「AI 辨識」
-  await page.fill('#gemini-api-key', 'test-api-key');
   await page.check('#use-gemini-ai');
   // 觸發頁面更新按鈕狀態
   await page.evaluate(() => {
-    document.getElementById('gemini-api-key')?.dispatchEvent(new Event('input', { bubbles: true }));
     document.getElementById('use-gemini-ai')?.dispatchEvent(new Event('change', { bubbles: true }));
     document.getElementById('file-input')?.dispatchEvent(new Event('change', { bubbles: true }));
   });
@@ -111,7 +109,6 @@ test('AI 辨識：選檔 → 設定API → 按鈕啟用 → 觸發流程', async
   await input.setInputFiles({ name: 'sample.png', mimeType: 'image/png', buffer: png1x1Buffer() });
   
   // 設定 API key 並啟用
-  await page.fill('#gemini-api-key', 'test-api-key');
   await page.check('#use-gemini-ai');
 
   await page.evaluate(() => {

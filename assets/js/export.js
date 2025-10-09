@@ -9,23 +9,20 @@ export function initExport(win, doc){
     if(!g.jspdf){ const s2=d.createElement('script'); s2.src='https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'; d.head.appendChild(s2); }
   }
   function gatherCurrentContent(){
-    try{ const shared = win.getSharedText ? win.getSharedText() : ''; if(shared) return shared; }catch(_){ }
-    const transOut=d.getElementById('transpose-output')?.value?.trim();
-    const editor=d.getElementById('text-editor')?.value?.trim();
-    const raw=d.getElementById('recognize-output')?.textContent?.trim();
-    return transOut || editor || raw || '';
+    // 忠實保留原文空白，不做 trim
+    try{ const shared = win.getSharedText ? win.getSharedText() : ''; if(shared !== undefined && shared !== null && shared !== '') return shared; }catch(_){ }
+    const transOut=d.getElementById('transpose-output')?.value;
+    const editor=d.getElementById('text-editor')?.value;
+    const raw=d.getElementById('recognize-output')?.textContent;
+    return (transOut ?? editor ?? raw ?? '');
   }
   g.refreshExportPreview=function(){
     const box=d.getElementById('export-preview-text');
     if(box){ box.value=gatherCurrentContent(); }
     // 檢視區統一字型與粗細
     try{
-      if(box){
-        const useMono = d.getElementById('export-mono-toggle')?.checked !== false; // 預設 true
-        box.style.fontFamily = useMono ? FONT_MONO : FONT_SANS;
-        const bold = !!d.getElementById('export-bold-toggle')?.checked;
-        box.style.fontWeight = bold ? '700' : '400';
-      }
+      // 套用共享樣式，保持與移調頁一致
+      if(typeof g.__applySharedTextStyle === 'function') g.__applySharedTextStyle();
     }catch(_){ }
     try {
       const txt = box ? box.value : '';
@@ -52,7 +49,10 @@ export function initExport(win, doc){
     const bold = !!d.getElementById('export-bold-toggle')?.checked;
     pre.style.fontWeight = bold ? '700' : '400';
     const wrap=d.createElement('div');
-    wrap.style.position='fixed';wrap.style.left='-9999px';wrap.style.top='0';wrap.style.width='860px';wrap.style.padding='32px';wrap.style.background='#fff';wrap.style.boxSizing='border-box';
+    // 使匯出寬度與預覽框一致，避免因寬度不同導致換行或視覺差異
+    const previewEl = d.getElementById('export-preview-text');
+    const w = previewEl ? Math.max(1, previewEl.clientWidth) : 860;
+    wrap.style.position='fixed';wrap.style.left='-9999px';wrap.style.top='0';wrap.style.width=w+'px';wrap.style.padding='32px';wrap.style.background='#fff';wrap.style.boxSizing='border-box';
     wrap.appendChild(pre); return wrap; }
   const dlPng=d.getElementById('export-download-png');
   dlPng && !dlPng.__wired && (dlPng.addEventListener('click', async ()=>{ g.refreshExportPreview(); await new Promise(r=>setTimeout(r,50)); if(!g.html2canvas){alert('html2canvas 載入中，稍後再試');return;} const txt=d.getElementById('export-preview-text'); const wrap=createExportWrap(txt.value); d.body.appendChild(wrap); const canvas=await g.html2canvas(wrap,{scale:2,backgroundColor:'#ffffff'}); d.body.removeChild(wrap); const a=d.createElement('a'); const title=(d.getElementById('song-title')?.value||'chords').replace(/\s+/g,'_'); const key=(d.getElementById('to-key')?.value||d.getElementById('from-key')?.value||'C'); a.href=canvas.toDataURL('image/png'); a.download=`${title}_${key}_export.png`; a.click(); }), dlPng.__wired=true);
@@ -69,6 +69,29 @@ export function initExport(win, doc){
       box.addEventListener('input', ()=>{ try{ win.setSharedText && win.setSharedText(box.value, 'export-edit'); }catch(_){ } });
       box.__wired=true;
     }
+  }catch(_){ }
+
+  // 監聽樣式切換並保存偏好，廣播套用到其他頁
+  try{
+    const mono = d.getElementById('export-mono-toggle');
+    const bold = d.getElementById('export-bold-toggle');
+    const saveAndApply = ()=>{
+      try{
+        if(mono) localStorage.setItem('chordapp.pref.mono', mono.checked ? '1' : '0');
+        if(bold) localStorage.setItem('chordapp.pref.bold', bold.checked ? '1' : '0');
+      }catch(_){ }
+      if(typeof g.__applySharedTextStyle === 'function') g.__applySharedTextStyle();
+    };
+    if(mono && !mono.__wired){ mono.addEventListener('change', saveAndApply); mono.__wired=true; }
+    if(bold && !bold.__wired){ bold.addEventListener('change', saveAndApply); bold.__wired=true; }
+    // 初始時依照偏好設定切到正確狀態
+    try{
+      const prefMono = localStorage.getItem('chordapp.pref.mono');
+      const prefBold = localStorage.getItem('chordapp.pref.bold');
+      if(mono && (prefMono=== '0' || prefMono === '1')) mono.checked = (prefMono==='1');
+      if(bold && (prefBold=== '0' || prefBold === '1')) bold.checked = (prefBold==='1');
+      if(typeof g.__applySharedTextStyle === 'function') g.__applySharedTextStyle();
+    }catch(_){ }
   }catch(_){ }
 
   // 註冊分頁進入鉤子：當切到 export 時回填共享內容

@@ -4,7 +4,6 @@ export function initRecognition(win, doc){
   const g=win,d=doc;
   const fi = d.getElementById('file-input');
   const apiKeyInput = d.getElementById('api-key');
-  const aliasKey = d.getElementById('gemini-api-key');
   const showKeyChk = d.getElementById('show-key');
   const detectedKeyInput = d.getElementById('detected-key');
   const origImgBox = d.getElementById('recognition-original');
@@ -14,9 +13,7 @@ export function initRecognition(win, doc){
     showKeyChk.addEventListener('change',()=>{ apiKeyInput.type = showKeyChk.checked ? 'text':'password'; });
     showKeyChk.__wired = true;
   }
-  // alias sync
-  apiKeyInput && apiKeyInput.addEventListener('input',()=>{ if(aliasKey) aliasKey.value = apiKeyInput.value; });
-  aliasKey && aliasKey.addEventListener('input',()=>{ if(apiKeyInput) apiKeyInput.value = aliasKey.value; });
+  // 已移除 #gemini-api-key 別名欄位（僅保留 #api-key）
 
   function formatDisplay(raw){
     const basic = String(raw).split('\n').map(line=>{ if(/\|/.test(line) && /[A-G][#b]?/.test(line)) return line; return line.replace(/\|/g,''); }).join('\n');
@@ -96,6 +93,15 @@ export function initRecognition(win, doc){
           if(out){ out.textContent = text; out.style.display='block'; }
         }
       };
+    }
+  }catch(_){ }
+
+  // 編輯器輸入時，同步到 shared state（保持三頁一致）
+  try{
+    const editor = d.getElementById('text-editor');
+    if(editor && !editor.__wired){
+      editor.addEventListener('input', ()=>{ try{ g.setSharedText && g.setSharedText(editor.value, 'recognition-edit'); }catch(_){ } });
+      editor.__wired = true;
     }
   }catch(_){ }
 }

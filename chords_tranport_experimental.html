@@ -72,7 +72,8 @@
     .apikey-card { border:1px solid #e7eaf0; border-radius:10px; padding:12px; margin:14px 0; background:#f9fafb; }
     .apikey-card h3 { margin:0 0 8px; font-size:16px; color:#374151; }
     .apikey-row { display:flex; gap:8px; align-items:center; margin-top:8px; flex-wrap:wrap; }
-    #gemini-api-key { flex:1; min-width:280px; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; }
+  /* 使用統一的 #api-key 欄位 */
+  #api-key { flex:1; min-width:280px; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; }
     .key-btn, #recognize-ai-btn { padding:8px 12px; border:1px solid #d1d5db; border-radius:6px; background:#fff; cursor:pointer; }
     .key-btn:hover, #recognize-ai-btn:hover { background:#f3f4f6; }
     #recognize-ai-btn.primary { background:#10b981; color:#fff; border-color:#10b981; }
@@ -202,8 +203,7 @@
           </label>
           <div style="display:flex;flex-direction:column;gap:10px;margin:8px 0 4px;">
             <input id="api-key" type="password" placeholder="輸入 Gemini API Key" style="padding:8px 10px;border:1px solid var(--color-border);border-radius:8px;font:14px var(--font-sans);">
-            <!-- 測試相容 alias：#gemini-api-key 與 #use-gemini-ai -->
-            <input id="gemini-api-key" type="password" placeholder="(測試) Gemini API Key 同步" style="padding:6px 8px;border:1px dashed var(--color-border);border-radius:6px;font:12px var(--font-sans);opacity:.75;" />
+            
             <label style="font-size:11px;color:var(--color-text-secondary);display:flex;align-items:center;gap:4px;">
               <input type="checkbox" id="use-gemini-ai" checked style="margin:0;transform:scale(.9);" /> 啟用 Gemini (測試)
             </label>
@@ -660,12 +660,7 @@
   const rbtn3 = d.getElementById('recognize-ai-btn');
   if(rbtn3 && !rbtn3.__wired){ rbtn3.addEventListener('click',handleRecognize); rbtn3.__wired=true; }
 
-  // alias 同步：api-key -> gemini-api-key
-  const aliasKey = d.getElementById('gemini-api-key');
-  apiKeyInput && apiKeyInput.addEventListener('input',()=>{ if(aliasKey) aliasKey.value = apiKeyInput.value; });
-  if(apiKeyInput && aliasKey) aliasKey.value = apiKeyInput.value;
-  // 反向同步（測試流程直接填 alias）
-  aliasKey && aliasKey.addEventListener('input',()=>{ if(apiKeyInput) apiKeyInput.value = aliasKey.value; });
+  // 移除測試別名欄位（僅保留 #api-key）
       // 偵測調性手動修改同步
       const detectedKeyInput = d.getElementById('detected-key');
       if(detectedKeyInput && !detectedKeyInput.__wired){

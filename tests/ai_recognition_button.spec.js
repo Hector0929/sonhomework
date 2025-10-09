@@ -23,12 +23,12 @@ test('AI 辨識按鈕 (填入 key+勾選→啟用→模擬完成)', async ({ pag
   }, MINI);
 
   // 輸入 key + 勾選
-  await page.fill('#gemini-api-key','FAKE_KEY');
+  await page.fill('#api-key','FAKE_KEY');
   if (await page.$('#use-gemini-ai')) {
     await page.check('#use-gemini-ai');
   }
   await page.evaluate(() => {
-    document.getElementById('gemini-api-key')?.dispatchEvent(new Event('input', { bubbles: true }));
+    document.getElementById('api-key')?.dispatchEvent(new Event('input', { bubbles: true }));
     document.getElementById('use-gemini-ai')?.dispatchEvent(new Event('change', { bubbles: true }));
     document.getElementById('file-input')?.dispatchEvent(new Event('change', { bubbles: true }));
   });

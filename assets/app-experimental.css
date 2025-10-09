@@ -117,7 +117,7 @@
 .apikey-card { border:1px solid #e7eaf0; border-radius:10px; padding:12px; margin:14px 0; background:#f9fafb; }
 .apikey-card h3 { margin:0 0 8px; font-size:16px; color:#374151; }
 .apikey-row { display:flex; gap:8px; align-items:center; margin-top:8px; flex-wrap:wrap; }
-#gemini-api-key { flex:1; min-width:280px; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; }
+#api-key { flex:1; min-width:280px; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; }
 .key-btn, #recognize-ai-btn { padding:8px 12px; border:1px solid #d1d5db; border-radius:6px; background:#fff; cursor:pointer; }
 .key-btn:hover, #recognize-ai-btn:hover { background:#f3f4f6; }
 #recognize-ai-btn.primary { background:#10b981; color:#fff; border-color:#10b981; }

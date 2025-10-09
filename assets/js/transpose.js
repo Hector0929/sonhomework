@@ -49,8 +49,8 @@ export function initTranspose(win, doc){
   backUpload && backUpload.addEventListener('click',()=> g.switchView && g.switchView('upload'));
   backEdit && backEdit.addEventListener('click',()=> g.switchView && g.switchView('recognition'));
   goTrans && goTrans.addEventListener('click',()=>{ doTrans && (doTrans.disabled=false); g.switchView && g.switchView('transpose'); const shared=g.getSharedText?g.getSharedText():''; const src=shared || d.getElementById('text-editor')?.value||''; outArea.value=src; finishBtn && (finishBtn.disabled=false); const ti=d.getElementById('song-title')?.value; if(ti) document.title=ti+' - 移調'; });
-  // 僅更改和弦，不進行任何排版操作（不新增或改寫 Key 行）
-  doTrans && doTrans.addEventListener('click',()=>{ const base=(outArea?.value||d.getElementById('text-editor')?.value||''); const fk=d.getElementById('from-key').value; const tk=d.getElementById('to-key').value; const out=transposeText(base,fk,tk); outArea.value=out; try{ g.setSharedText && g.setSharedText(out,'transpose'); }catch(_){ } });
+  // 更改和弦；若存在 Key 行則僅更新其值為目標調（不新增新的 Key 行）
+  doTrans && doTrans.addEventListener('click',()=>{ const base=(outArea?.value||d.getElementById('text-editor')?.value||''); const fk=d.getElementById('from-key').value; const tk=d.getElementById('to-key').value; let out=transposeText(base,fk,tk); try{ const lines=out.split(/\n/); for(let i=0;i<lines.length;i++){ if(/^(\s*Key\s*:\s*)/i.test(lines[i])){ lines[i]=lines[i].replace(/^(\s*Key\s*:\s*)([A-G][#b]?)(.*)$/i, (m,p1,_oldKey,p3)=> p1+tk+p3); break; } } out=lines.join('\n'); }catch(_){ } outArea.value=out; try{ g.setSharedText && g.setSharedText(out,'transpose'); }catch(_){ } });
   // 手動編輯同步 shared text
   if(outArea && !outArea.__wired){ outArea.addEventListener('input',()=>{ try{ g.setSharedText && g.setSharedText(outArea.value,'transpose-edit'); }catch(_){ } }); outArea.__wired=true; }
   finishBtn && finishBtn.addEventListener('click',()=>{ try{ g.setSharedText && g.setSharedText(outArea?.value||'','transpose-finish'); }catch(_){ } g.switchView && g.switchView('export'); try { typeof g.refreshExportPreview==='function' && g.refreshExportPreview(); } catch(_){ } });

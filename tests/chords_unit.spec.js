@@ -94,10 +94,10 @@ test('AI 辨識流程 (選檔→設定API→啟用→完成狀態)', async ({ pa
   await input.setInputFiles({ name:'demo.png', mimeType:'image/png', buffer });
   
   // 設定 API key 並啟用
-  await page.fill('#gemini-api-key', 'test-api-key');
+  await page.fill('#api-key', 'test-api-key');
   await page.check('#use-gemini-ai');
   await page.evaluate(() => {
-    document.getElementById('gemini-api-key')?.dispatchEvent(new Event('input', { bubbles: true }));
+  document.getElementById('api-key')?.dispatchEvent(new Event('input', { bubbles: true }));
     document.getElementById('use-gemini-ai')?.dispatchEvent(new Event('change', { bubbles: true }));
   });
   
