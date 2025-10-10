@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>1A2B 猜數字遊戲</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans TC", Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+  </style>
+</head>
+<body class="min-h-screen bg-gray-100 p-4">
+  <div class="max-w-xl mx-auto">
+    <header class="text-center mb-6">
+      <h1 class="text-3xl font-bold text-gray-800">1A2B 猜數字</h1>
+      <p class="text-gray-600 mt-2">電腦會產生一組「4 位不重複數字（首位不為 0）」的謎底。<br>數字正確且位置正確算 A；數字正確但位置錯誤算 B。</p>
+    </header>
+
+    <section class="bg-white rounded-xl shadow p-5">
+      <div class="flex gap-2 items-center">
+        <input id="guess" type="text" inputmode="numeric" maxlength="4"
+               class="flex-1 border rounded-lg px-3 py-2 mono"
+               placeholder="請輸入 4 位不重複數字 (例: 1234)" />
+        <button id="submit" class="px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700">送出</button>
+        <button id="restart" class="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 font-semibold hover:bg-gray-300">重新開始</button>
+      </div>
+      <p id="tip" class="text-sm text-gray-500 mt-2">提示：不可重複、首位不可為 0。可按 Enter 送出。</p>
+
+      <div id="result" class="mt-4 hidden p-3 rounded bg-green-50 text-green-700 border border-green-200"></div>
+
+      <h2 class="mt-6 mb-2 font-bold text-gray-700">猜測紀錄</h2>
+      <div id="history" class="space-y-2"></div>
+    </section>
+
+    <div class="text-center mt-6">
+      <a href="index.html" class="inline-block text-blue-600 hover:underline">← 回首頁</a>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const $ = (id) => document.getElementById(id);
+      const guessInput = $('guess');
+      const submitBtn = $('submit');
+      const restartBtn = $('restart');
+      const historyBox = $('history');
+      const resultBox = $('result');
+
+      let answer = '';
+      let round = 0;
+
+      function genAnswer(){
+        // 4 位數，首位不可為 0、四位不重複
+        const digits = ['0','1','2','3','4','5','6','7','8','9'];
+        // 首位：1-9
+        const first = String(Math.floor(Math.random()*9) + 1);
+        const remain = digits.filter(d => d !== first);
+        // 接下來從 remain 抽 3 個不重複
+        for(let i=remain.length-1;i>0;i--){
+          const j = Math.floor(Math.random()*(i+1));
+          [remain[i], remain[j]] = [remain[j], remain[i]];
+        }
+        answer = first + remain.slice(0,3).join('');
+        round = 0;
+        historyBox.innerHTML = '';
+        resultBox.classList.add('hidden');
+        resultBox.textContent = '';
+      }
+
+      function isValidGuess(s){
+        if(!/^\d{4}$/.test(s)) return false;
+        if(s[0] === '0') return false;
+        // 不重複
+        return new Set(s.split('')).size === 4;
+      }
+
+      function judge(guess, target){
+        let A = 0, B = 0;
+        for(let i=0;i<4;i++){
+          if(guess[i] === target[i]) A++;
+          else if(target.includes(guess[i])) B++;
+        }
+        return { A, B };
+      }
+
+      function addHistoryRow(guess, A, B){
+        const div = document.createElement('div');
+        div.className = 'flex items-center justify-between border rounded-md px-3 py-2';
+        div.innerHTML = `
+          <span class="mono">#${String(++round).padStart(2,'0')}  ${guess}</span>
+          <span class="font-semibold ${A===4? 'text-green-700':'text-gray-700'}">${A}A${B}B</span>
+        `;
+        historyBox.prepend(div);
+      }
+
+      function onSubmit(){
+        const g = guessInput.value.trim();
+        if(!isValidGuess(g)){
+          guessInput.classList.add('ring-2','ring-red-400');
+          $('tip').textContent = '請輸入有效的 4 位不重複數字，且首位不可為 0。';
+          return;
+        }
+        guessInput.classList.remove('ring-2','ring-red-400');
+        $('tip').textContent = '提示：不可重複、首位不可為 0。可按 Enter 送出。';
+
+        const {A,B} = judge(g, answer);
+        addHistoryRow(g, A, B);
+        guessInput.value = '';
+        guessInput.focus();
+
+        if(A === 4){
+          resultBox.textContent = `恭喜答對！答案是 ${answer}。`;
+          resultBox.classList.remove('hidden');
+        }
+      }
+
+      submitBtn.addEventListener('click', onSubmit);
+      guessInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') onSubmit(); });
+      restartBtn.addEventListener('click', genAnswer);
+
+      // 初始化
+      genAnswer();
+    })();
+  </script>
+</body>
+</html>
