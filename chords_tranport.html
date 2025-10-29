@@ -1326,7 +1326,7 @@
       <div style="margin-top:28px;display:flex;gap:32px;flex-wrap:wrap;align-items:flex-start;">
         <div class="paper-surface" style="flex:1 1 320px;min-width:300px;">
           <label class="upload-btn" style="margin-bottom:14px;">
-            <input type="file" id="file-input" hidden accept="image/*,.pdf" />
+            <input type="file" id="file-input" hidden accept="image/*,.pdf,text/plain,.txt,.md" />
             <span>選擇檔案</span>
           </label>
           <div style="display:flex;flex-direction:column;gap:10px;margin:8px 0 4px;">
@@ -1339,7 +1339,7 @@
               <input type="checkbox" id="show-key" style="margin:0;"> 顯示金鑰
             </label>
           </div>
-          <div id="upload-hint" style="font-size:13px;color:var(--color-text-secondary);line-height:1.5;">支援 JPG / PNG / PDF。選擇後可於上方 Hero 預覽，並啟用 AI 辨識。</div>
+          <div id="upload-hint" style="font-size:13px;color:var(--color-text-secondary);line-height:1.5;">支援 JPG / PNG / PDF / TXT。選擇後可於上方 Hero 預覽，並啟用 AI 辨識。</div>
           <div style="margin-top:18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
             <button id="recognize-btn-secondary" class="btn-primary" disabled>AI 辨識</button>
             <!-- 測試相容主按鈕 alias -->
@@ -1441,6 +1441,7 @@
             <button class="btn" id="export-refresh">重新載入內容</button>
             <button class="btn primary" id="export-download-png">下載 PNG</button>
             <button class="btn" id="export-download-jpg">下載 JPG</button>
+            <button class="btn" id="export-download-txt">下載 TXT</button>
             <button class="btn primary" id="export-download-pdf">下載 PDF</button>
           </div>
         </div>
@@ -1476,6 +1477,22 @@
     g.switchView && g.switchView('upload');
 
       // --- 新增：上傳預覽與 Hero/次按鈕同步邏輯 ---
+      function isTextLikeFile(file){
+        if(!file) return false;
+        const type = (file.type || '').toLowerCase();
+        if(type.startsWith('text/')) return true;
+        const name = (file.name || '').toLowerCase();
+        return ['.txt','.md','.lyrics','.chord','.cho'].some(ext=> name.endsWith(ext));
+      }
+      function escapeHtml(str){
+        return String(str).replace(/[&<>"']/g, ch => ({
+          '&':'&amp;',
+          '<':'&lt;',
+          '>':'&gt;',
+          '"':'&quot;',
+          "'":'&#39;'
+        })[ch] || ch);
+      }
       async function renderPdfFirstPage(file){
         try {
           const base='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67';
@@ -1510,6 +1527,27 @@
           return;
         }
         let imgHTML='';
+        if(isTextLikeFile(file)){
+          try{
+            const raw = await file.text();
+            const previewLength = 2000;
+            const snippet = raw.slice(0, previewLength);
+            const sanitized = escapeHtml(snippet);
+            const ellipsis = raw.length > previewLength ? '\n...' : '';
+            const block = `<pre style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace;font-size:13px;line-height:1.45;white-space:pre-wrap;margin:0;">${sanitized}${ellipsis}</pre>`;
+            if(heroBox){
+              heroBox.innerHTML = `<div style="padding:18px;width:100%;height:100%;overflow:auto;">${block}</div>`;
+            }
+            if(uploadBox){
+              uploadBox.innerHTML = `<div style="padding:18px;max-height:360px;overflow:auto;">${block}</div>`;
+            }
+          }catch(err){
+            console.warn('[text preview fail]', err);
+            if(heroBox) heroBox.innerHTML = '<div style="padding:24px;color:var(--color-text-secondary);font-size:13px;">無法預覽此文字檔</div>';
+            if(uploadBox) uploadBox.innerHTML = '<div style="padding:24px;color:var(--color-text-secondary);font-size:13px;">無法預覽此文字檔</div>';
+          }
+          return;
+        }
         if(file.type==='application/pdf'){
           if(heroBox) heroBox.innerHTML = '<div style="padding:24px;text-align:center;font-size:13px;color:var(--color-text-secondary);">PDF 載入中...</div>';
           if(uploadBox) uploadBox.innerHTML = '<div style="padding:24px;text-align:center;font-size:13px;color:var(--color-text-secondary);">PDF 載入中...</div>';
@@ -1537,10 +1575,35 @@
 
       const fi = d.getElementById('file-input');
       if(fi && !fi.__wired){
-        fi.addEventListener('change',()=>{
+        fi.addEventListener('change', async ()=>{
           const f = fi.files && fi.files[0];
-          syncPreview(f);
-          enableRecognize(!!f);
+          const statusEl = d.getElementById('gemini-status');
+          const out = d.getElementById('recognize-output');
+          const editor = d.getElementById('text-editor');
+          const goBtn = d.getElementById('go-to-transpose');
+          const outArea = d.getElementById('transpose-output');
+          const doTransBtn = d.getElementById('do-transpose');
+          const finishBtn = d.getElementById('transpose-finish');
+          const origImgBox = d.getElementById('recognition-original');
+          if(goBtn) goBtn.setAttribute('disabled','');
+          if(outArea) outArea.value='';
+          if(doTransBtn){ doTransBtn.disabled=true; doTransBtn.setAttribute('disabled',''); }
+          if(finishBtn){ finishBtn.disabled=true; finishBtn.setAttribute('disabled',''); }
+          if(out){ out.textContent=''; out.style.display='none'; }
+          if(editor) editor.value='';
+          if(statusEl) statusEl.textContent='';
+          if(origImgBox){ origImgBox.innerHTML = '<div style="text-align:center;color:var(--color-text-secondary);font-size:13px;">尚未載入</div>'; }
+          if(!f){
+            await syncPreview(null);
+            enableRecognize(false);
+            return;
+          }
+          await syncPreview(f);
+          const isText = isTextLikeFile(f);
+          enableRecognize(!isText);
+          if(isText){
+            await handleTextUpload(f);
+          }
         });
         fi.__wired = true;
       }
@@ -1656,6 +1719,7 @@
       const refreshBtn = d.getElementById('export-refresh');
       refreshBtn && !refreshBtn.__wired && (refreshBtn.addEventListener('click',refreshExportPreview), refreshBtn.__wired=true);
       const dlPng = d.getElementById('export-download-png');
+      const dlTxt = d.getElementById('export-download-txt');
       const dlPdf = d.getElementById('export-download-pdf');
       function createExportWrap(text){
         const pre = d.createElement('pre');
@@ -1692,6 +1756,21 @@
         const key = (d.getElementById('to-key')?.value||d.getElementById('from-key')?.value||'C');
         a.href = canvas.toDataURL('image/png'); a.download=`${title}_${key}_export.png`; a.click();
       }), dlPng.__wired=true);
+      dlTxt && !dlTxt.__wired && (dlTxt.addEventListener('click', ()=>{
+        refreshExportPreview();
+        const box = d.getElementById('export-preview-text');
+        const text = (box ? box.value : gatherCurrentContent() || '').replace(/\r?\n/g,'\r\n');
+        const blob = new Blob([text],{type:'text/plain;charset=utf-8'});
+        const a = d.createElement('a');
+        const title = (d.getElementById('song-title')?.value||'chords').replace(/\s+/g,'_');
+        const key = (d.getElementById('to-key')?.value||d.getElementById('from-key')?.value||'C');
+        a.href = URL.createObjectURL(blob);
+        a.download = `${title}_${key}_export.txt`;
+        a.style.display = 'none';
+        d.body.appendChild(a);
+        a.click();
+        setTimeout(()=>{ URL.revokeObjectURL(a.href); d.body.removeChild(a); },1000);
+      }), dlTxt.__wired=true);
       dlPdf && !dlPdf.__wired && (dlPdf.addEventListener('click', async ()=>{
         refreshExportPreview(); await new Promise(r=>setTimeout(r,50));
         if(!g.jspdf || !g.html2canvas){alert('匯出函式庫載入中，稍後再試');return;}
@@ -1936,6 +2015,56 @@
           g.switchView && g.switchView('recognition');
         }
         catch(err){ statusEl.textContent='錯誤: '+err.message; }
+      }
+
+      async function handleTextUpload(file){
+        if(!file) return;
+        const statusEl = d.getElementById('gemini-status');
+        const out = d.getElementById('recognize-output');
+        const editor = d.getElementById('text-editor');
+        const origImgBox = d.getElementById('recognition-original');
+        const goBtn = d.getElementById('go-to-transpose');
+        const outArea = d.getElementById('transpose-output');
+        const doTransBtn = d.getElementById('do-transpose');
+        const finishBtn = d.getElementById('transpose-finish');
+        const titleInput = d.getElementById('song-title');
+        const detectedKeyInput = d.getElementById('detected-key');
+        try{
+          const raw = await file.text();
+          const normalized = raw.replace(/\r\n/g,'\n');
+          if(fi && fi.files && fi.files[0] !== file) return;
+          if(out){ out.textContent = normalized || '(無內容)'; out.style.display='block'; }
+          if(editor){ editor.value = normalized; }
+          if(statusEl) statusEl.textContent = '已載入文字檔，已略過 AI 辨識。';
+          if(goBtn) goBtn.removeAttribute('disabled');
+          if(outArea) outArea.value = normalized;
+          if(doTransBtn){ doTransBtn.disabled=false; doTransBtn.removeAttribute('disabled'); }
+          if(finishBtn){ finishBtn.disabled=false; finishBtn.removeAttribute('disabled'); }
+          if(titleInput && !titleInput.value){ titleInput.value = file.name ? file.name.replace(/\.[^.]*$/, '').trim() : ''; }
+          if(origImgBox){
+            origImgBox.innerHTML = '<div style="padding:24px;font-size:13px;color:var(--color-text-secondary);">此為文字檔，已直接載入內容供編輯。</div>';
+          }
+          if(detectedKeyInput){
+            let matchedKey = '';
+            if(!detectedKeyInput.value){
+              const keyMatch = normalized.match(/^\s*Key\s*:\s*([A-G][#b]?)/im);
+              if(keyMatch) matchedKey = keyMatch[1];
+            }
+            if(matchedKey){
+              detectedKeyInput.value = matchedKey;
+              const fromSel = d.getElementById('from-key');
+              if(fromSel){
+                [...fromSel.options].forEach(o=>{ if(o.value.toUpperCase()===matchedKey.toUpperCase()) fromSel.value=o.value; });
+              }
+            }
+            detectedKeyInput.style.borderColor = 'var(--color-border)';
+          }
+          try{ g.setSharedText && g.setSharedText(normalized,'text-upload'); g.__LAST_AI_RESULT__ = normalized; }catch(_){ }
+          g.switchView && g.switchView('recognition');
+        }catch(err){
+          console.warn('[text upload] read fail', err);
+          if(statusEl) statusEl.textContent = '文字檔讀取失敗';
+        }
       }
 
       // === 移調功能 ===
