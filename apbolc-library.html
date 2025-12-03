@@ -297,6 +297,7 @@
             if (html5QrcodeScanner) {
                 html5QrcodeScanner.clear().then(_ => {
                     console.log("Scanner cleared");
+                    html5QrcodeScanner = null;
                 }).catch(error => {
                     console.error("Failed to clear scanner", error);
                 });
@@ -448,14 +449,15 @@
             }
         }
 
-        function startScanner() {
+        async function startScanner() {
             // 清除舊的實例（如果有的話）
             if (html5QrcodeScanner) {
                 try {
-                    html5QrcodeScanner.clear();
+                    await html5QrcodeScanner.clear();
                 } catch (e) {
                     console.log("Scanner clear error", e);
                 }
+                html5QrcodeScanner = null;
             }
 
             html5QrcodeScanner = new Html5QrcodeScanner(
