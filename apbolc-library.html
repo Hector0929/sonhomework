@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>班級圖書借閱系統</title>
+    <title>安平靈糧堂圖書借閱系統</title>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
         :root {
@@ -188,6 +188,36 @@
             color: #666;
             cursor: pointer;
             text-decoration: underline;
+        }
+
+        /* Custom styles for html5-qrcode */
+        #html5-qrcode-button-camera-permission {
+            padding: 15px 20px;
+            font-size: 1.1rem;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+            font-weight: 600;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s;
+        }
+
+        #html5-qrcode-button-camera-permission:active {
+            transform: translateY(2px);
+        }
+
+        #html5-qrcode-anchor-scan-type-change {
+            display: block;
+            margin-top: 15px;
+            font-size: 1rem;
+            color: var(--secondary-color);
+            text-decoration: underline;
+            cursor: pointer;
+            text-align: center;
         }
     </style>
 </head>
@@ -377,6 +407,34 @@
 
         // 初始化掃描器
         try {
+            // 監聽器：翻譯按鈕與連結
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    mutation.addedNodes.forEach((node) => {
+                        if (node.nodeType === 1) { // Element
+                            // 1. 請求權限按鈕
+                            if (node.id === 'html5-qrcode-button-camera-permission') {
+                                node.innerText = '請求相機權限 (開啟掃描)';
+                            }
+                            // 2. 切換掃描模式連結
+                            if (node.id === 'html5-qrcode-anchor-scan-type-change') {
+                                const text = node.innerText.toLowerCase();
+                                if (text.includes('scan an image file')) {
+                                    node.innerText = '從相簿選取圖片掃描';
+                                } else if (text.includes('scan using camera directly')) {
+                                    node.innerText = '直接使用相機掃描';
+                                }
+                            }
+                        }
+                    });
+                });
+            });
+
+            observer.observe(document.getElementById('reader'), {
+                childList: true,
+                subtree: true
+            });
+
             html5QrcodeScanner = new Html5QrcodeScanner(
                 "reader",
                 {
