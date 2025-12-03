@@ -287,9 +287,13 @@
                 return;
             }
 
-            // 暫停掃描，避免重複觸發
+            // 掃描成功後，關閉相機
             if (html5QrcodeScanner) {
-                html5QrcodeScanner.pause();
+                html5QrcodeScanner.clear().then(_ => {
+                    console.log("Scanner cleared");
+                }).catch(error => {
+                    console.error("Failed to clear scanner", error);
+                });
             }
             document.getElementById('camera-msg').innerText = "掃描成功！處理中...";
 
@@ -342,10 +346,7 @@
             } catch (error) {
                 // 根據使用者要求，統一顯示此訊息
                 alert("查無此書，請聯絡管理員");
-                // 如果是掃描器暫停中，恢復掃描
-                if (html5QrcodeScanner && html5QrcodeScanner.getState() === Html5QrcodeScannerState.PAUSED) {
-                    html5QrcodeScanner.resume();
-                }
+                // 掃描失敗時，保持相機關閉，等待使用者手動重試
                 document.getElementById('camera-msg').innerText = "掃描失敗，請重試";
             }
         }
@@ -372,9 +373,8 @@
             bookInput.value = '';
             document.getElementById('camera-msg').innerText = "請允許使用相機以進行掃描";
 
-            if (html5QrcodeScanner && html5QrcodeScanner.getState() === Html5QrcodeScannerState.PAUSED) {
-                html5QrcodeScanner.resume();
-            }
+            // 重新啟動掃描器
+            startScanner();
         }
 
         // 5. 執行 借/還/排隊 動作
@@ -397,7 +397,6 @@
                 } else {
                     alert("失敗：" + result.message);
                     // 失敗後重新顯示按鈕
-                    // 這裡簡單處理，重新查詢一次狀態
                     fetchBookInfo(currentBookId);
                 }
             } catch (error) {
@@ -405,6 +404,27 @@
                 alert("查無此書，請聯絡管理員");
                 resetScanner();
             }
+        }
+
+        function startScanner() {
+            // 清除舊的實例（如果有的話）
+            if (html5QrcodeScanner) {
+                try {
+                    html5QrcodeScanner.clear();
+                } catch (e) {
+                    console.log("Scanner clear error", e);
+                }
+            }
+
+            html5QrcodeScanner = new Html5QrcodeScanner(
+                "reader",
+                {
+                    fps: 10,
+                    qrbox: 250,
+                    videoConstraints: { facingMode: "environment" }
+                }
+            );
+            html5QrcodeScanner.render(onScanSuccess);
         }
 
         // 初始化掃描器
@@ -421,15 +441,16 @@
                             // 2. 切換掃描模式連結
                             if (node.id === 'html5-qrcode-anchor-scan-type-change') {
                                 const text = node.innerText.toLowerCase();
-                                if (text.includes('scan an image file')) {
+                                // 修正：檢查英文原文，或已經翻譯過的中文
+                                if (text.includes('scan an image file') || text.includes('從相簿選取圖片掃描')) {
                                     node.innerText = '從相簿選取圖片掃描';
-                                } else if (text.includes('scan using camera directly')) {
+                                } else if (text.includes('scan using camera directly') || text.includes('直接使用相機掃描')) {
                                     node.innerText = '直接使用相機掃描';
                                 }
                             }
                             // 3. 檔案選擇與拖放區域
                             if (node.innerText) {
-                                if (node.innerText.includes('Choose Image')) {
+                                if (node.innerText.includes('Choose Image') || node.innerText.includes('選擇圖片')) {
                                     const labels = node.getElementsByTagName('label');
                                     for (let label of labels) {
                                         if (label.innerText.includes('Choose Image')) {
@@ -437,14 +458,15 @@
                                         }
                                     }
                                 }
-                                if (node.innerText.includes('Or drop an image to scan')) {
+                                if (node.innerText.includes('Or drop an image to scan') || node.innerText.includes('或將圖片拖曳至此')) {
                                     const divs = node.getElementsByTagName('div');
                                     for (let div of divs) {
                                         if (div.innerText.includes('Or drop an image to scan')) {
                                             div.innerText = '或將圖片拖曳至此';
                                         }
                                     }
-                                    if (node.innerText.includes('Or drop an image to scan')) {
+                                    // 有時候文字直接在 node 內
+                                    if (node.innerHTML.includes('Or drop an image to scan')) {
                                         node.innerHTML = node.innerHTML.replace('Or drop an image to scan', '或將圖片拖曳至此');
                                     }
                                 }
@@ -459,15 +481,8 @@
                 subtree: true
             });
 
-            html5QrcodeScanner = new Html5QrcodeScanner(
-                "reader",
-                {
-                    fps: 10,
-                    qrbox: 250,
-                    videoConstraints: { facingMode: "environment" }
-                }
-            );
-            html5QrcodeScanner.render(onScanSuccess);
+            startScanner();
+
         } catch (e) {
             console.error("Scanner init failed", e);
             document.getElementById('reader').innerHTML = "<p style='padding:20px; color:red;'>無法啟動相機，請使用手動輸入。</p>";
