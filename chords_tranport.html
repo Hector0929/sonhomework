@@ -732,129 +732,8 @@
       cursor: pointer;
       transition: background var(--dur-base) var(--ease-standard),
                   color var(--dur-base) var(--ease-standard),
-                  box-shadow var(--dur-fast) var(--ease-standard),
-                  border-color var(--dur-base);
-    }
-    .btn:hover {
-      background: var(--color-surface-alt);
-    }
-    .btn:focus-visible {
-      outline: none;
-      box-shadow: var(--shadow-focus);
-    }
-    .btn.primary {
-      --btn-bg: var(--color-accent);
-      --btn-color: #fff;
-      --btn-border: var(--color-accent);
-    }
-    .btn.primary:hover {
-      background: var(--color-accent-hover);
-    }
-    .btn.ghost {
-      background: transparent;
-      border: 1px solid transparent;
-    }
-    .btn.ghost:hover {
-      background: rgba(0,0,0,.06);
-    }
-
-    /* 共用大譜面編輯區樣式：避免 flex 撐死高度，允許雙向拖曳 */
-    .big-textarea {
-      width:100%;
-      min-height:560px;
-      resize:both;
-      font-family:ui-monospace,monospace;
-      line-height:1.55;
-      padding:14px;
-      border:1px solid var(--color-border);
-      border-radius:10px;
-      background:#fff;
-      white-space:pre;
-      box-sizing:border-box;
-      overflow:auto;
-    }
-
-    /* 原始影像縮放模式 */
-    #recognition-original.zoom-fit img,#recognition-original.zoom-fit canvas{max-width:100%;height:auto;}
-    #recognition-original.zoom-actual{overflow:auto;}
-    #recognition-original.zoom-actual img,#recognition-original.zoom-actual canvas{max-width:none;max-height:none;width:auto;height:auto;display:block;}
-
-    .btn.small { padding: 6px 12px; font-size: 13px; }
-
-  /* Gemini API Key 卡片（僅保留狀態與按鈕） */
-  .apikey-card { border:1px solid #e7eaf0; border-radius:10px; padding:12px; margin:14px 0; background:#f9fafb; }
-  .apikey-card h3 { margin:0 0 8px; font-size:16px; color:#374151; }
-  .apikey-row { display:flex; gap:8px; align-items:center; margin-top:8px; flex-wrap:wrap; }
-  .key-btn, #recognize-ai-btn { padding:8px 12px; border:1px solid #d1d5db; border-radius:6px; background:#fff; cursor:pointer; }
-  .key-btn:hover, #recognize-ai-btn:hover { background:#f3f4f6; }
-  #recognize-ai-btn.primary { background:#10b981; color:#fff; border-color:#10b981; }
-  #gemini-status { font-size:12px; color:#6b7280; min-height:18px; }
-
-    /* 新增的樣式區域 */
-    /* 安全預編譯：單一來源，避免字串拼接遺失跳脫 */
-    .chord-token-re {
-      display: none;
-    }
-    .chord-line-re {
-      display: none;
-    }
-
-    /* 通用樣式 */
-    * {
-      box-sizing: border-box;
-    }
-    body {
-      margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", Arial, sans-serif;
-      background-color: #f5f5f7;
-      color: #333;
-      line-height: 1.6;
-    }
-    h1, h2, h3, h4, h5, h6 {
-      margin: 0;
-      color: #0891b2;
-    }
-    h1 {
-      font-size: 28px;
-      margin-bottom: 10px;
-    }
-    h2 {
-      font-size: 22px;
-      margin-bottom: 8px;
-    }
-    h3 {
-      font-size: 18px;
-      margin-bottom: 6px;
-    }
-    p {
-      margin: 0 0 10px;
-    }
-    a {
-      color: #0066cc;
-      text-decoration: none;
-    }
-    a:hover {
-      text-decoration: underline;
-    }
-    /* 按鈕樣式 */
-    .btn {
-      --btn-bg: var(--color-surface);
-      --btn-color: var(--color-text);
-      --btn-border: var(--color-border);
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font: var(--font-weight-semibold) var(--fs-body)/1.2 var(--font-sans);
-      padding: 10px 18px;
-      border: 1px solid var(--btn-border);
-      background: var(--btn-bg);
-      color: var(--btn-color);
-      border-radius: var(--radius-sm);
-      cursor: pointer;
-      transition: background var(--dur-base) var(--ease-standard),
-                  color var(--dur-base) var(--ease-standard),
-                  box-shadow var(--dur-fast) var(--ease-standard),
-                  border-color var(--dur-base);
+                  box-shadow var(--dur-fast) var,--ease-standard),
+                  border-color var,--dur-base;
     }
     .btn:hover {
       background: var(--color-surface-alt);
@@ -952,9 +831,9 @@
       border-radius: var(--radius-sm);
       cursor: pointer;
       transition: background var(--dur-base) var(--ease-standard),
-                  color var(--dur-base) var(--ease-standard),
-                  box-shadow var(--dur-fast) var(--ease-standard),
-                  border-color var(--dur-base);
+                  color var(--dur-base) var,--ease-standard),
+                  box-shadow var,--dur-fast) var,--ease-standard),
+                  border-color var,--dur-base;
     }
     .btn:hover {
       background: var(--color-surface-alt);
@@ -1052,10 +931,10 @@
       color: var(--btn-color);
       border-radius: var(--radius-sm);
       cursor: pointer;
-      transition: background var(--dur-base) var(--ease-standard),
-                  color var(--dur-base) var(--ease-standard),
-                  box-shadow var(--dur-fast) var(--ease-standard),
-                  border-color var(--dur-base);
+      transition: background var(--dur-base) var,--ease-standard),
+                  color var,--dur-base) var,--ease-standard),
+                  box-shadow var,--dur-fast) var,--ease-standard),
+                  border-color var,--dur-base;
     }
     .btn:hover {
       background: var(--color-surface-alt);
@@ -1153,10 +1032,10 @@
       color: var(--btn-color);
       border-radius: var(--radius-sm);
       cursor: pointer;
-      transition: background var(--dur-base) var(--ease-standard),
-                  color var(--dur-base) var(--ease-standard),
-                  box-shadow var(--dur-fast) var(--ease-standard),
-                  border-color var(--dur-base);
+      transition: background var(--dur-base) var,--ease-standard),
+                  color var,--dur-base) var,--ease-standard),
+                  box-shadow var,--dur-fast) var,--ease-standard),
+                  border-color var,--dur-base;
     }
     .btn:hover {
       background: var(--color-surface-alt);
@@ -1254,10 +1133,717 @@
       color: var(--btn-color);
       border-radius: var(--radius-sm);
       cursor: pointer;
-      transition: background var(--dur-base) var(--ease-standard),
-                  color var(--dur-base) var(--ease-standard),
-                  box-shadow var(--dur-fast) var(--ease-standard),
-                  border-color var(--dur-base) var(--ease-standard);
+      transition: background var(--dur-base) var,--ease-standard),
+                  color var,--dur-base) var,--ease-standard),
+                  box-shadow var,--dur-fast) var,--ease-standard),
+                  border-color var,--dur-base;
+    }
+    .btn:hover {
+      background: var(--color-surface-alt);
+    }
+    .btn:focus-visible {
+      outline: none;
+      box-shadow: var(--shadow-focus);
+    }
+    .btn.primary {
+      --btn-bg: var(--color-accent);
+      --btn-color: #fff;
+      --btn-border: var(--color-accent);
+    }
+    .btn.primary:hover {
+      background: var(--color-accent-hover);
+    }
+    .btn.ghost {
+      background: transparent;
+      border: 1px solid transparent;
+    }
+    .btn.ghost:hover {
+      background: rgba(0,0,0,.06);
+    }
+
+    .btn.small { padding: 6px 12px; font-size: 13px; }
+
+    /* Gemini API Key 卡片 */
+    .apikey-card { border:1px solid #e7eaf0; border-radius:10px; padding:12px; margin:14px 0; background:#f9fafb; }
+    .apikey-card h3 { margin:0 0 8px; font-size:16px; color:#374151; }
+    .apikey-row { display:flex; gap:8px; align-items:center; margin-top:8px; flex-wrap:wrap; }
+    #gemini-api-key { flex:1; min-width:280px; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; }
+    .key-btn, #recognize-ai-btn { padding:8px 12px; border:1px solid #d1d5db; border-radius:6px; background:#fff; cursor:pointer; }
+    .key-btn:hover, #recognize-ai-btn:hover { background:#f3f4f6; }
+    #recognize-ai-btn.primary { background:#10b981; color:#fff; border-color:#10b981; }
+    #gemini-status { font-size:12px; color:#6b7280; min-height:18px; }
+
+    /* 新增的樣式區域 */
+    /* 安全預編譯：單一來源，避免字串拼接遺失跳脫 */
+    .chord-token-re {
+      display: none;
+    }
+    .chord-line-re {
+      display: none;
+    }
+
+    /* 通用樣式 */
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", Arial, sans-serif;
+      background-color: #f5f5f7;
+      color: #333;
+      line-height: 1.6;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin: 0;
+      color: #0891b2;
+    }
+    h1 {
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+    h2 {
+      font-size: 22px;
+      margin-bottom: 8px;
+    }
+    h3 {
+      font-size: 18px;
+      margin-bottom: 6px;
+    }
+    p {
+      margin: 0 0 10px;
+    }
+    a {
+      color: #0066cc;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    /* 按鈕樣式 */
+    .btn {
+      --btn-bg: var(--color-surface);
+      --btn-color: var(--color-text);
+      --btn-border: var(--color-border);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font: var(--font-weight-semibold) var(--fs-body)/1.2 var(--font-sans);
+      padding: 10px 18px;
+      border: 1px solid var(--btn-border);
+      background: var(--btn-bg);
+      color: var(--btn-color);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background var(--dur-base) var,--ease-standard),
+                  color var,--dur-base) var,--ease-standard),
+                  box-shadow var,--dur-fast) var,--ease-standard),
+                  border-color var,--dur-base;
+    }
+    .btn:hover {
+      background: var(--color-surface-alt);
+    }
+    .btn:focus-visible {
+      outline: none;
+      box-shadow: var(--shadow-focus);
+    }
+    .btn.primary {
+      --btn-bg: var(--color-accent);
+      --btn-color: #fff;
+      --btn-border: var(--color-accent);
+    }
+    .btn.primary:hover {
+      background: var(--color-accent-hover);
+    }
+    .btn.ghost {
+      background: transparent;
+      border: 1px solid transparent;
+    }
+    .btn.ghost:hover {
+      background: rgba(0,0,0,.06);
+    }
+
+    .btn.small { padding: 6px 12px; font-size: 13px; }
+
+    /* Gemini API Key 卡片 */
+    .apikey-card { border:1px solid #e7eaf0; border-radius:10px; padding:12px; margin:14px 0; background:#f9fafb; }
+    .apikey-card h3 { margin:0 0 8px; font-size:16px; color:#374151; }
+    .apikey-row { display:flex; gap:8px; align-items:center; margin-top:8px; flex-wrap:wrap; }
+    #gemini-api-key { flex:1; min-width:280px; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; }
+    .key-btn, #recognize-ai-btn { padding:8px 12px; border:1px solid #d1d5db; border-radius:6px; background:#fff; cursor:pointer; }
+    .key-btn:hover, #recognize-ai-btn:hover { background:#f3f4f6; }
+    #recognize-ai-btn.primary { background:#10b981; color:#fff; border-color:#10b981; }
+    #gemini-status { font-size:12px; color:#6b7280; min-height:18px; }
+
+    /* 新增的樣式區域 */
+    /* 安全預編譯：單一來源，避免字串拼接遺失跳脫 */
+    .chord-token-re {
+      display: none;
+    }
+    .chord-line-re {
+      display: none;
+    }
+
+    /* 通用樣式 */
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", Arial, sans-serif;
+      background-color: #f5f5f7;
+      color: #333;
+      line-height: 1.6;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin: 0;
+      color: #0891b2;
+    }
+    h1 {
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+    h2 {
+      font-size: 22px;
+      margin-bottom: 8px;
+    }
+    h3 {
+      font-size: 18px;
+      margin-bottom: 6px;
+    }
+    p {
+      margin: 0 0 10px;
+    }
+    a {
+      color: #0066cc;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    /* 按鈕樣式 */
+    .btn {
+      --btn-bg: var(--color-surface);
+      --btn-color: var(--color-text);
+      --btn-border: var(--color-border);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font: var(--font-weight-semibold) var(--fs-body)/1.2 var(--font-sans;
+      padding: 10px 18px;
+      border: 1px solid var(--btn-border);
+      background: var(--btn-bg);
+      color: var(--btn-color);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background var(--dur-base) var,--ease-standard),
+                  color var,--dur-base) var,--ease-standard),
+                  box-shadow var,--dur-fast) var,--ease-standard),
+                  border-color var,--dur-base;
+    }
+    .btn:hover {
+      background: var(--color-surface-alt);
+    }
+    .btn:focus-visible {
+      outline: none;
+      box-shadow: var(--shadow-focus);
+    }
+    .btn.primary {
+      --btn-bg: var(--color-accent);
+      --btn-color: #fff;
+      --btn-border: var(--color-accent);
+    }
+    .btn.primary:hover {
+      background: var(--color-accent-hover);
+    }
+    .btn.ghost {
+      background: transparent;
+      border: 1px solid transparent;
+    }
+    .btn.ghost:hover {
+      background: rgba(0,0,0,.06);
+    }
+
+    .btn.small { padding: 6px 12px; font-size: 13px; }
+
+    /* Gemini API Key 卡片 */
+    .apikey-card { border:1px solid #e7eaf0; border-radius:10px; padding:12px; margin:14px 0; background:#f9fafb; }
+    .apikey-card h3 { margin:0 0 8px; font-size:16px; color:#374151; }
+    .apikey-row { display:flex; gap:8px; align-items:center; margin-top:8px; flex-wrap:wrap; }
+    #gemini-api-key { flex:1; min-width:280px; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; }
+    .key-btn, #recognize-ai-btn { padding:8px 12px; border:1px solid #d1d5db; border-radius:6px; background:#fff; cursor:pointer; }
+    .key-btn:hover, #recognize-ai-btn:hover { background:#f3f4f6; }
+    #recognize-ai-btn.primary { background:#10b981; color:#fff; border-color:#10b981; }
+    #gemini-status { font-size:12px; color:#6b7280; min-height:18px; }
+
+    /* 新增的樣式區域 */
+    /* 安全預編譯：單一來源，避免字串拼接遺失跳脫 */
+    .chord-token-re {
+      display: none;
+    }
+    .chord-line-re {
+      display: none;
+    }
+
+    /* 通用樣式 */
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", Arial, sans-serif;
+      background-color: #f5f5f7;
+      color: #333;
+      line-height: 1.6;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin: 0;
+      color: #0891b2;
+    }
+    h1 {
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+    h2 {
+      font-size: 22px;
+      margin-bottom: 8px;
+    }
+    h3 {
+      font-size: 18px;
+      margin-bottom: 6px;
+    }
+    p {
+      margin: 0 0 10px;
+    }
+    a {
+      color: #0066cc;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    /* 按鈕樣式 */
+    .btn {
+      --btn-bg: var(--color-surface);
+      --btn-color: var(--color-text);
+      --btn-border: var(--color-border);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font: var(--font-weight-semibold) var(--fs-body)/1.2 var(--font-sans;
+      padding: 10px 18px;
+      border: 1px solid var(--btn-border);
+      background: var(--btn-bg);
+      color: var(--btn-color);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background var(--dur-base) var,--ease-standard),
+                  color var,--dur-base) var,--ease-standard),
+                  box-shadow var,--dur-fast) var,--ease-standard),
+                  border-color var,--dur-base;
+    }
+    .btn:hover {
+      background: var(--color-surface-alt);
+    }
+    .btn:focus-visible {
+      outline: none;
+      box-shadow: var(--shadow-focus);
+    }
+    .btn.primary {
+      --btn-bg: var(--color-accent);
+      --btn-color: #fff;
+      --btn-border: var(--color-accent);
+    }
+    .btn.primary:hover {
+      background: var(--color-accent-hover);
+    }
+    .btn.ghost {
+      background: transparent;
+      border: 1px solid transparent;
+    }
+    .btn.ghost:hover {
+      background: rgba(0,0,0,.06);
+    }
+
+    .btn.small { padding: 6px 12px; font-size: 13px; }
+
+    /* Gemini API Key 卡片 */
+    .apikey-card { border:1px solid #e7eaf0; border-radius:10px; padding:12px; margin:14px 0; background:#f9fafb; }
+    .apikey-card h3 { margin:0 0 8px; font-size:16px; color:#374151; }
+    .apikey-row { display:flex; gap:8px; align-items:center; margin-top:8px; flex-wrap:wrap; }
+    #gemini-api-key { flex:1; min-width:280px; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; }
+    .key-btn, #recognize-ai-btn { padding:8px 12px; border:1px solid #d1d5db; border-radius:6px; background:#fff; cursor:pointer; }
+    .key-btn:hover, #recognize-ai-btn:hover { background:#f3f4f6; }
+    #recognize-ai-btn.primary { background:#10b981; color:#fff; border-color:#10b981; }
+    #gemini-status { font-size:12px; color:#6b7280; min-height:18px; }
+
+    /* 新增的樣式區域 */
+    /* 安全預編譯：單一來源，避免字串拼接遺失跳脫 */
+    .chord-token-re {
+      display: none;
+    }
+    .chord-line-re {
+      display: none;
+    }
+
+    /* 通用樣式 */
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", Arial, sans-serif;
+      background-color: #f5f5f7;
+      color: #333;
+      line-height: 1.6;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin: 0;
+      color: #0891b2;
+    }
+    h1 {
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+    h2 {
+      font-size: 22px;
+      margin-bottom: 8px;
+    }
+    h3 {
+      font-size: 18px;
+      margin-bottom: 6px;
+    }
+    p {
+      margin: 0 0 10px;
+    }
+    a {
+      color: #0066cc;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    /* 按鈕樣式 */
+    .btn {
+      --btn-bg: var(--color-surface);
+      --btn-color: var(--color-text);
+      --btn-border: var(--color-border);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font: var(--font-weight-semibold) var(--fs-body)/1.2 var(--font-sans;
+      padding: 10px 18px;
+      border: 1px solid var(--btn-border);
+      background: var(--btn-bg);
+      color: var(--btn-color);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background var(--dur-base) var,--ease-standard),
+                  color var,--dur-base) var,--ease-standard),
+                  box-shadow var,--dur-fast) var,--ease-standard),
+                  border-color var,--dur-base;
+    }
+    .btn:hover {
+      background: var(--color-surface-alt);
+    }
+    .btn:focus-visible {
+      outline: none;
+      box-shadow: var(--shadow-focus);
+    }
+    .btn.primary {
+      --btn-bg: var(--color-accent);
+      --btn-color: #fff;
+      --btn-border: var(--color-accent);
+    }
+    .btn.primary:hover {
+      background: var(--color-accent-hover);
+    }
+    .btn.ghost {
+      background: transparent;
+      border: 1px solid transparent;
+    }
+    .btn.ghost:hover {
+      background: rgba(0,0,0,.06);
+    }
+
+    .btn.small { padding: 6px 12px; font-size: 13px; }
+
+    /* Gemini API Key 卡片 */
+    .apikey-card { border:1px solid #e7eaf0; border-radius:10px; padding:12px; margin:14px 0; background:#f9fafb; }
+    .apikey-card h3 { margin:0 0 8px; font-size:16px; color:#374151; }
+    .apikey-row { display:flex; gap:8px; align-items:center; margin-top:8px; flex-wrap:wrap; }
+    #gemini-api-key { flex:1; min-width:280px; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; }
+    .key-btn, #recognize-ai-btn { padding:8px 12px; border:1px solid #d1d5db; border-radius:6px; background:#fff; cursor:pointer; }
+    .key-btn:hover, #recognize-ai-btn:hover { background:#f3f4f6; }
+    #recognize-ai-btn.primary { background:#10b981; color:#fff; border-color:#10b981; }
+    #gemini-status { font-size:12px; color:#6b7280; min-height:18px; }
+
+    /* 新增的樣式區域 */
+    /* 安全預編譯：單一來源，避免字串拼接遺失跳脫 */
+    .chord-token-re {
+      display: none;
+    }
+    .chord-line-re {
+      display: none;
+    }
+
+    /* 通用樣式 */
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", Arial, sans-serif;
+      background-color: #f5f5f7;
+      color: #333;
+      line-height: 1.6;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin: 0;
+      color: #0891b2;
+    }
+    h1 {
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+    h2 {
+      font-size: 22px;
+      margin-bottom: 8px;
+    }
+    h3 {
+      font-size: 18px;
+      margin-bottom: 6px;
+    }
+    p {
+      margin: 0 0 10px;
+    }
+    a {
+      color: #0066cc;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    /* 按鈕樣式 */
+    .btn {
+      --btn-bg: var(--color-surface);
+      --btn-color: var(--color-text);
+      --btn-border: var(--color-border);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font: var(--font-weight-semibold) var(--fs-body)/1.2 var(--font-sans;
+      padding: 10px 18px;
+      border: 1px solid var(--btn-border);
+      background: var(--btn-bg);
+      color: var(--btn-color);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background var(--dur-base) var,--ease-standard),
+                  color var,--dur-base) var,--ease-standard),
+                  box-shadow var,--dur-fast) var,--ease-standard),
+                  border-color var,--dur-base;
+    }
+    .btn:hover {
+      background: var(--color-surface-alt);
+    }
+    .btn:focus-visible {
+      outline: none;
+      box-shadow: var(--shadow-focus);
+    }
+    .btn.primary {
+      --btn-bg: var(--color-accent);
+      --btn-color: #fff;
+      --btn-border: var(--color-accent);
+    }
+    .btn.primary:hover {
+      background: var(--color-accent-hover);
+    }
+    .btn.ghost {
+      background: transparent;
+      border: 1px solid transparent;
+    }
+    .btn.ghost:hover {
+      background: rgba(0,0,0,.06);
+    }
+
+    .btn.small { padding: 6px 12px; font-size: 13px; }
+
+    /* Gemini API Key 卡片 */
+    .apikey-card { border:1px solid #e7eaf0; border-radius:10px; padding:12px; margin:14px 0; background:#f9fafb; }
+    .apikey-card h3 { margin:0 0 8px; font-size:16px; color:#374151; }
+    .apikey-row { display:flex; gap:8px; align-items:center; margin-top:8px; flex-wrap:wrap; }
+    #gemini-api-key { flex:1; min-width:280px; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; }
+    .key-btn, #recognize-ai-btn { padding:8px 12px; border:1px solid #d1d5db; border-radius:6px; background:#fff; cursor:pointer; }
+    .key-btn:hover, #recognize-ai-btn:hover { background:#f3f4f6; }
+    #recognize-ai-btn.primary { background:#10b981; color:#fff; border-color:#10b981; }
+    #gemini-status { font-size:12px; color:#6b7280; min-height:18px; }
+
+    /* 新增的樣式區域 */
+    /* 安全預編譯：單一來源，避免字串拼接遺失跳脫 */
+    .chord-token-re {
+      display: none;
+    }
+    .chord-line-re {
+      display: none;
+    }
+
+    /* 通用樣式 */
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", Arial, sans-serif;
+      background-color: #f5f5f7;
+      color: #333;
+      line-height: 1.6;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin: 0;
+      color: #0891b2;
+    }
+    h1 {
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+    h2 {
+      font-size: 22px;
+      margin-bottom: 8px;
+    }
+    h3 {
+      font-size: 18px;
+      margin-bottom: 6px;
+    }
+    p {
+      margin: 0 0 10px;
+    }
+    a {
+      color: #0066cc;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    /* 按鈕樣式 */
+    .btn {
+      --btn-bg: var(--color-surface);
+      --btn-color: var(--color-text);
+      --btn-border: var(--color-border);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font: var(--font-weight-semibold) var(--fs-body)/1.2 var(--font-sans;
+      padding: 10px 18px;
+      border: 1px solid var(--btn-border);
+      background: var(--btn-bg);
+      color: var(--btn-color);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background var(--dur-base) var,--ease-standard),
+                  color var,--dur-base) var,--ease-standard),
+                  box-shadow var,--dur-fast) var,--ease-standard),
+                  border-color var,--dur-base;
+    }
+    .btn:hover {
+      background: var(--color-surface-alt);
+    }
+    .btn:focus-visible {
+      outline: none;
+      box-shadow: var(--shadow-focus);
+    }
+    .btn.primary {
+      --btn-bg: var(--color-accent);
+      --btn-color: #fff;
+      --btn-border: var(--color-accent);
+    }
+    .btn.primary:hover {
+      background: var(--color-accent-hover);
+    }
+    .btn.ghost {
+      background: transparent;
+      border: 1px solid transparent;
+    }
+    .btn.ghost:hover {
+      background: rgba(0,0,0,.06);
+    }
+
+    .btn.small { padding: 6px 12px; font-size: 13px; }
+
+    /* Gemini API Key 卡片 */
+    .apikey-card { border:1px solid #e7eaf0; border-radius:10px; padding:12px; margin:14px 0; background:#f9fafb; }
+    .apikey-card h3 { margin:0 0 8px; font-size:16px; color:#374151; }
+    .apikey-row { display:flex; gap:8px; align-items:center; margin-top:8px; flex-wrap:wrap; }
+    #gemini-api-key { flex:1; min-width:280px; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; }
+    .key-btn, #recognize-ai-btn { padding:8px 12px; border:1px solid #d1d5db; border-radius:6px; background:#fff; cursor:pointer; }
+    .key-btn:hover, #recognize-ai-btn:hover { background:#f3f4f6; }
+    #recognize-ai-btn.primary { background:#10b981; color:#fff; border-color:#10b981; }
+    #gemini-status { font-size:12px; color:#6b7280; min-height:18px; }
+
+    /* 新增的樣式區域 */
+    /* 安全預編譯：單一來源，避免字串拼接遺失跳脫 */
+    .chord-token-re {
+      display: none;
+    }
+    .chord-line-re {
+      display: none;
+    }
+
+    /* 通用樣式 */
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", Arial, sans-serif;
+      background-color: #f5f5f7;
+      color: #333;
+      line-height: 1.6;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin: 0;
+      color: #0891b2;
+    }
+    h1 {
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+    h2 {
+      font-size: 22px;
+      margin-bottom: 8px;
+    }
+    h3 {
+      font-size: 18px;
+      margin-bottom: 6px;
+    }
+    p {
+      margin: 0 0 10px;
+    }
+    a {
+      color: #0066cc;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    /* 按鈕樣式 */
+    .btn {
+      --btn-bg: var(--color-surface);
+      --btn-color: var(--color-text);
+      --btn-border: var(--color-border);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font: var(--font-weight-semibold) var(--fs-body)/1.2 var(--font-sans;
+      padding: 10px 18px;
+      border: 1px solid var(--btn-border);
+      background: var(--btn-bg);
+      color: var(--btn-color);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background var(--dur-base) var,--ease-standard),
+                  color var,--dur-base) var,--ease-standard),
+                  box-shadow var,--dur-fast) var,--ease-standard),
+                  border-color var,--dur-base;
     }
     .btn:hover {
       background: var(--color-surface-alt);
@@ -1332,6 +1918,13 @@
           <div style="display:flex;flex-direction:column;gap:10px;margin:8px 0 4px;">
             <input id="api-key" type="password" placeholder="輸入 Gemini API Key" style="padding:8px 10px;border:1px solid var(--color-border);border-radius:8px;font:14px var(--font-sans);">
             
+            <select id="gemini-model-select" style="padding:8px 10px;border:1px solid var(--color-border);border-radius:8px;font:14px var(--font-sans);background:#fff;">
+              <option value="gemini-3.0-pro">Gemini 3.0 Pro (Latest)</option>
+              <option value="gemini-2.0-flash">Gemini 2.0 Flash (Fast)</option>
+              <option value="gemini-1.5-flash">Gemini 1.5 Flash (Stable)</option>
+              <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+            </select>
+
             <label style="font-size:11px;color:var(--color-text-secondary);display:flex;align-items:center;gap:4px;">
               <input type="checkbox" id="use-gemini-ai" checked style="margin:0;transform:scale(.9);" /> 啟用 Gemini (測試)
             </label>
@@ -1383,7 +1976,7 @@
               <div class="paper-surface" style="flex:2 1 520px;min-width:380px;display:flex;flex-direction:column;">
                 <span class="subtle-label">文字編輯</span>
                 <div id="text-editor-wrap">
-                  <textarea id="text-editor" placeholder="等待 AI 辨識結果..." spellcheck="false"></textarea>
+                  <textarea id="text-editor" placeholder="等待 AI 辞識結果..." spellcheck="false"></textarea>
                 </div>
                 <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-end;margin-top:16px;">
                   <button class="btn ghost" id="back-to-upload">返回上傳</button>
@@ -1721,6 +2314,28 @@
       const dlPng = d.getElementById('export-download-png');
       const dlTxt = d.getElementById('export-download-txt');
       const dlPdf = d.getElementById('export-download-pdf');
+      function adjustExportWrapWidth(wrap){
+        try{
+          if(!wrap) return;
+          const pre = wrap.querySelector('pre');
+          if(!pre) return;
+          const previewEl = d.getElementById('export-preview-text');
+          const clampWidth = Math.max(1, previewEl ? previewEl.clientWidth : 860);
+          const padding = 64; // wrap padding left + right (32px each side)
+          const minWidth = 420;
+          const originalDisplay = pre.style.display;
+          const originalWidth = pre.style.width;
+          wrap.style.width = 'auto';
+          wrap.style.maxWidth = clampWidth + 'px';
+          pre.style.display = 'inline-block';
+          pre.style.width = 'auto';
+          const contentWidth = pre.scrollWidth;
+          const finalWidth = Math.min(clampWidth, Math.max(minWidth, Math.ceil(contentWidth + padding)));
+          wrap.style.width = finalWidth + 'px';
+          pre.style.display = originalDisplay || 'block';
+          pre.style.width = originalWidth || '100%';
+        }catch(err){ console.warn('[export width adjust] fail', err); }
+      }
       function createExportWrap(text){
         const pre = d.createElement('pre');
         pre.textContent = text; // 保留所有空白與換行
@@ -1749,6 +2364,7 @@
         const txt = d.getElementById('export-preview-text');
         const wrap = createExportWrap(txt.value);
         d.body.appendChild(wrap);
+        adjustExportWrapWidth(wrap);
         const canvas = await g.html2canvas(wrap,{scale:2,backgroundColor:'#ffffff'});
         d.body.removeChild(wrap);
         const a=d.createElement('a');
@@ -1776,6 +2392,7 @@
         if(!g.jspdf || !g.html2canvas){alert('匯出函式庫載入中，稍後再試');return;}
         const { jsPDF } = g.jspdf; const txt = d.getElementById('export-preview-text');
         const wrap = createExportWrap(txt.value); d.body.appendChild(wrap);
+        adjustExportWrapWidth(wrap);
         const canvas = await g.html2canvas(wrap,{scale:2,backgroundColor:'#ffffff'}); d.body.removeChild(wrap);
         const pdf = new jsPDF({unit:'pt',format:'a4'});
         const pageWidth = pdf.internal.pageSize.getWidth();
@@ -1867,6 +2484,19 @@
         showKeyChk.__wired = true;
       }
 
+      // === Model Selection Persistence ===
+      const modelSelect = d.getElementById('gemini-model-select');
+      if(modelSelect && !modelSelect.__wired){
+        try {
+          const savedModel = localStorage.getItem('chordapp.pref.geminiModel');
+          if(savedModel) modelSelect.value = savedModel;
+        } catch(_){}
+        modelSelect.addEventListener('change', ()=>{
+          try { localStorage.setItem('chordapp.pref.geminiModel', modelSelect.value); } catch(_){}
+        });
+        modelSelect.__wired = true;
+      }
+
       // === Gemini API 呼叫核心（精簡版） ===
       async function fileToBase64Mime(file){
         return new Promise((resolve,reject)=>{
@@ -1897,7 +2527,9 @@
       async function callGeminiAPIFromFile(file, apiKey){
         const {mimeType,base64}= await fileToBase64Mime(file);
         const body={contents:[{parts:[{text:buildPrompt()},{inlineData:{mimeType,data:base64}}]}],generationConfig:{temperature:0.1,maxOutputTokens:2048}};
-        const url=`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${encodeURIComponent(apiKey)}`;
+        const modelSelect = d.getElementById('gemini-model-select');
+        const modelName = modelSelect ? modelSelect.value : 'gemini-1.5-flash';
+        const url=`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(apiKey)}`;
         const resp= await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
         if(!resp.ok){ const t=await resp.text(); throw new Error('Gemini API 錯誤 '+resp.status+': '+t.slice(0,200)); }
         const json= await resp.json();
@@ -2082,7 +2714,7 @@
         const root = transposeNote(m[1], diff);
         let rest = m[2]||'';
     // 轉換 slash 低音：允許半形/全形斜線與空白，保留原斜線字元與空白
-    rest = rest.replace(/([\/／])(\s*)([A-G][b#]?)/g, (s, slash, sp, bass)=> slash + sp + transposeNote(bass,diff));
+    rest = rest.replace(/([\/／])(\s*)([A-G][#b]?)/g, (s, slash, sp, bass)=> slash + sp + transposeNote(bass,diff));
         return root + rest;
       }
   // 僅允許單一和弦（可選擴展）與可選 slash 低音，避免吃到下一個和弦

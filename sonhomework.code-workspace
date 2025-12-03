@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"name": "VibeChallenge49",
+			"path": "../VibeChallenge49"
+		}
+	],
+	"settings": {
+		"liveServer.settings.multiRootWorkspaceName": "sonhomework"
+	}
+}
