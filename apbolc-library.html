@@ -7,87 +7,156 @@
     <title>班級圖書借閱系統</title>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
+        :root {
+            --primary-color: #4361ee;
+            --secondary-color: #3f37c9;
+            --success-color: #4cc9f0;
+            --warning-color: #f72585;
+            --background-color: #f8f9fa;
+            --card-bg: #ffffff;
+            --text-color: #2b2d42;
+            --border-radius: 16px;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             padding: 20px;
-            background: #f0f2f5;
-            text-align: center;
+            background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            margin: 0;
+            color: var(--text-color);
         }
 
         .card {
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            max-width: 500px;
-            margin: 0 auto;
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            width: 100%;
+            max-width: 480px;
+            margin-top: 20px;
+            transition: transform 0.3s ease;
         }
 
         h1 {
-            margin-bottom: 20px;
-            font-size: 1.5rem;
-            color: #333;
+            margin: 0 0 25px 0;
+            font-size: 1.8rem;
+            color: var(--secondary-color);
+            text-align: center;
+            font-weight: 700;
         }
 
-        input {
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            width: 80%;
-            margin-bottom: 10px;
-            font-size: 16px;
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            box-sizing: border-box;
+            transition: border-color 0.3s ease;
+            outline: none;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--primary-color);
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-group input {
+            flex: 1;
         }
 
         #reader {
             width: 100%;
-            margin-top: 20px;
-            border-radius: 8px;
+            margin-top: 10px;
+            border-radius: 12px;
             overflow: hidden;
+            border: 2px dashed #cbd5e1;
         }
 
         .btn {
-            display: inline-block;
-            padding: 10px 20px;
-            margin: 5px;
-            border-radius: 6px;
+            display: block;
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 12px;
             color: white;
             text-decoration: none;
             border: none;
-            font-size: 16px;
+            font-size: 1.1rem;
+            font-weight: 600;
             cursor: pointer;
-            width: 100%;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
-        .btn-blue {
-            background: #007bff;
+        .btn:active {
+            transform: translateY(2px);
+            box-shadow: none;
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
         }
 
         .btn-green {
-            background: #28a745;
+            background: #2a9d8f;
         }
 
         .btn-orange {
-            background: #fd7e14;
+            background: #fb8500;
+        }
+
+        .btn-blue {
+            background: #4895ef;
         }
 
         .btn-red {
-            background: #dc3545;
+            background: #ef233c;
         }
 
         #result-area {
-            margin-top: 20px;
+            margin-top: 25px;
             display: none;
-            padding: 15px;
-            background: #e9ecef;
-            border-radius: 8px;
+            padding: 20px;
+            background: #f1f5f9;
+            border-radius: 12px;
+            border-left: 5px solid var(--primary-color);
+        }
+
+        #book-title {
+            margin: 0 0 10px 0;
+            font-size: 1.4rem;
+            color: var(--secondary-color);
         }
 
         .status-tag {
             display: inline-block;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
             font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .status-available {
@@ -103,6 +172,22 @@
         .loading {
             color: #666;
             font-style: italic;
+            text-align: center;
+        }
+
+        .divider {
+            height: 1px;
+            background: #e9ecef;
+            margin: 25px 0;
+        }
+
+        .scan-toggle {
+            text-align: center;
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: #666;
+            cursor: pointer;
+            text-decoration: underline;
         }
     </style>
 </head>
@@ -110,15 +195,25 @@
 <body>
 
     <div class="card">
-        <h1>📚 班級圖書掃描</h1>
+        <h1>📚 班級圖書借閱</h1>
 
-        <div>
-            <label>我的學號：</label><br>
-            <input type="text" id="student_id" placeholder="請輸入學號 (如 A001)">
+        <div class="form-group">
+            <label for="student_id">我的學號</label>
+            <input type="text" id="student_id" placeholder="例如：A001">
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="form-group">
+            <label for="book_id">書籍條碼 (或掃描)</label>
+            <div class="input-group">
+                <input type="text" id="book_id" placeholder="輸入書號或掃描">
+                <button class="btn btn-primary" style="width: auto; margin: 0;" onclick="manualSearch()">查詢</button>
+            </div>
         </div>
 
         <div id="reader"></div>
-        <p id="camera-msg" style="font-size:12px; color:#888;">請允許使用相機</p>
+        <p id="camera-msg" style="font-size:12px; color:#888; text-align: center; margin-top: 5px;">請允許使用相機以進行掃描</p>
 
         <div id="result-area">
             <h3 id="book-title">書名載入中...</h3>
@@ -136,9 +231,11 @@
 
         // --- 程式邏輯 ---
         const studentInput = document.getElementById('student_id');
+        const bookInput = document.getElementById('book_id');
         const resultArea = document.getElementById('result-area');
         const actionsDiv = document.getElementById('actions');
         let currentBookId = null;
+        let html5QrcodeScanner = null;
 
         // 1. 自動讀取/儲存學號
         if (localStorage.getItem('student_id')) {
@@ -152,23 +249,45 @@
         function onScanSuccess(decodedText, decodedResult) {
             console.log(`掃描到: ${decodedText}`);
 
+            // 填入輸入框
+            bookInput.value = decodedText;
+
             if (!studentInput.value) {
                 alert("請先輸入學號！");
                 return;
             }
 
             // 暫停掃描，避免重複觸發
-            html5QrcodeScanner.clear();
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.pause();
+            }
             document.getElementById('camera-msg').innerText = "掃描成功！處理中...";
 
             // 呼叫後端查詢書籍
             fetchBookInfo(decodedText);
         }
 
+        // 手動查詢
+        function manualSearch() {
+            const bookId = bookInput.value.trim();
+            if (!bookId) {
+                alert("請輸入書籍條碼！");
+                return;
+            }
+            if (!studentInput.value) {
+                alert("請先輸入學號！");
+                return;
+            }
+            fetchBookInfo(bookId);
+        }
+
         // 3. 查詢書籍 API
         async function fetchBookInfo(bookId) {
             resultArea.style.display = 'block';
             actionsDiv.innerHTML = '<p class="loading">正在查詢書籍狀態...</p>';
+
+            // 滾動到結果區
+            resultArea.scrollIntoView({ behavior: 'smooth' });
 
             try {
                 const response = await fetch(`${API_BASE_URL}/scan/${bookId}`);
@@ -192,7 +311,11 @@
 
             } catch (error) {
                 alert("錯誤：" + error.message);
-                location.reload(); // 重新整理讓掃描器回來
+                // 如果是掃描器暫停中，恢復掃描
+                if (html5QrcodeScanner && html5QrcodeScanner.getState() === Html5QrcodeScannerState.PAUSED) {
+                    html5QrcodeScanner.resume();
+                }
+                document.getElementById('camera-msg').innerText = "掃描失敗，請重試";
             }
         }
 
@@ -205,14 +328,22 @@
             } else if (status === 'Borrowed' || status === 'Reserved') {
                 // 如果是被借走，可能要還書，也可能要排隊
                 html += `<button class="btn btn-orange" onclick="doAction('return')">我要還書</button>`;
-                html += `<div style="height:10px"></div>`; // 間隔
                 html += `<button class="btn btn-blue" onclick="doAction('queue')">我要排隊</button>`;
             }
 
-            html += `<div style="height:10px"></div>`;
-            html += `<button class="btn btn-red" onclick="location.reload()">重新掃描</button>`;
+            html += `<button class="btn btn-red" onclick="resetScanner()">重新掃描 / 查詢</button>`;
 
             actionsDiv.innerHTML = html;
+        }
+
+        function resetScanner() {
+            resultArea.style.display = 'none';
+            bookInput.value = '';
+            document.getElementById('camera-msg').innerText = "請允許使用相機以進行掃描";
+
+            if (html5QrcodeScanner && html5QrcodeScanner.getState() === Html5QrcodeScannerState.PAUSED) {
+                html5QrcodeScanner.resume();
+            }
         }
 
         // 5. 執行 借/還/排隊 動作
@@ -231,29 +362,34 @@
 
                 if (result.success) {
                     alert("成功：" + result.message);
-                    location.reload(); // 成功後重整頁面
+                    resetScanner();
                 } else {
                     alert("失敗：" + result.message);
-                    // 失敗可能要重新顯示按鈕，這裡簡單處理直接重整
-                    location.reload();
+                    // 失敗後重新顯示按鈕
+                    // 這裡簡單處理，重新查詢一次狀態
+                    fetchBookInfo(currentBookId);
                 }
             } catch (error) {
                 alert("連線失敗：" + error.message);
-                location.reload();
+                resetScanner();
             }
         }
 
         // 初始化掃描器
-        html5QrcodeScanner = new Html5QrcodeScanner(
-            "reader",
-            {
-                fps: 10,
-                qrbox: 250,
-                // 下面這行是關鍵：強制優先使用後置鏡頭
-                videoConstraints: { facingMode: "environment" }
-            }
-        );
-        html5QrcodeScanner.render(onScanSuccess);
+        try {
+            html5QrcodeScanner = new Html5QrcodeScanner(
+                "reader",
+                {
+                    fps: 10,
+                    qrbox: 250,
+                    videoConstraints: { facingMode: "environment" }
+                }
+            );
+            html5QrcodeScanner.render(onScanSuccess);
+        } catch (e) {
+            console.error("Scanner init failed", e);
+            document.getElementById('reader').innerHTML = "<p style='padding:20px; color:red;'>無法啟動相機，請使用手動輸入。</p>";
+        }
 
     </script>
 
