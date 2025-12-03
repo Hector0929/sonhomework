@@ -485,33 +485,39 @@
                             // 2. 切換掃描模式連結
                             if (node.id === 'html5-qrcode-anchor-scan-type-change') {
                                 const text = node.innerText.toLowerCase();
-                                // 修正：檢查英文原文，或已經翻譯過的中文
-                                if (text.includes('從相簿選取圖片掃描') || text.includes('從相簿選取圖片掃描')) {
+                                if (text.includes('scan an image file')) {
                                     node.innerText = '從相簿選取圖片掃描';
-                                } else if (text.includes('直接使用相機掃描') || text.includes('直接使用相機掃描')) {
+                                } else if (text.includes('scan using camera directly')) {
                                     node.innerText = '直接使用相機掃描';
                                 }
                             }
                             // 3. 檔案選擇與拖放區域
                             if (node.innerText) {
-                                if (node.innerText.includes('選擇圖片') || node.innerText.includes('選擇圖片')) {
+                                // 處理 "Choose Image" 和 "No image chosen"
+                                if (node.innerText.includes('Choose Image') || node.innerText.includes('No image chosen')) {
                                     const labels = node.getElementsByTagName('label');
                                     for (let label of labels) {
-                                        if (label.innerText.includes('選擇圖片')) {
+                                        if (label.innerText.includes('Choose Image')) {
                                             label.innerText = '選擇圖片';
                                         }
                                     }
+                                    // 處理 "No image chosen"
+                                    if (node.innerText.includes('No image chosen')) {
+                                        node.innerHTML = node.innerHTML.replace('No image chosen', '未選擇圖片');
+                                    }
                                 }
-                                if (node.innerText.includes('或將圖片拖曳至此') || node.innerText.includes('或將圖片拖曳至此')) {
+
+                                // 處理拖放提示
+                                if (node.innerText.includes('Or drop an image to scan')) {
                                     const divs = node.getElementsByTagName('div');
                                     for (let div of divs) {
-                                        if (div.innerText.includes('或將圖片拖曳至此')) {
+                                        if (div.innerText.includes('Or drop an image to scan')) {
                                             div.innerText = '或將圖片拖曳至此';
                                         }
                                     }
                                     // 有時候文字直接在 node 內
-                                    if (node.innerHTML.includes('或將圖片拖曳至此')) {
-                                        node.innerHTML = node.innerHTML.replace('或將圖片拖曳至此', '或將圖片拖曳至此');
+                                    if (node.innerHTML.includes('Or drop an image to scan')) {
+                                        node.innerHTML = node.innerHTML.replace('Or drop an image to scan', '或將圖片拖曳至此');
                                     }
                                 }
                             }
