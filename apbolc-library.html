@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>安平靈糧堂圖書借閱系統</title>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         :root {
             --primary-color: #4361ee;
@@ -294,143 +295,6 @@
                 }).catch(error => {
                     console.error("Failed to clear scanner", error);
                 });
-            }
-            document.getElementById('camera-msg').innerText = "掃描成功！處理中...";
-
-            // 呼叫後端查詢書籍
-            fetchBookInfo(decodedText);
-        }
-
-        // 手動查詢
-        function manualSearch() {
-            const bookId = bookInput.value.trim();
-            if (!bookId) {
-                alert("請輸入書籍條碼！");
-                return;
-            }
-            if (!studentInput.value) {
-                alert("請先輸入學號！");
-                return;
-            }
-            fetchBookInfo(bookId);
-        }
-
-        // 3. 查詢書籍 API
-        async function fetchBookInfo(bookId) {
-            resultArea.style.display = 'block';
-            actionsDiv.innerHTML = '<p class="loading">正在查詢書籍狀態...</p>';
-
-            // 滾動到結果區
-            resultArea.scrollIntoView({ behavior: 'smooth' });
-
-            try {
-                const response = await fetch(`${API_BASE_URL}/scan/${bookId}`);
-                if (!response.ok) throw new Error("找不到書籍或連線錯誤");
-
-                const data = await response.json();
-                currentBookId = data.book_id;
-
-                // 更新畫面
-                document.getElementById('book-title').innerText = data.title;
-                const statusEl = document.getElementById('book-status');
-                const msgEl = document.getElementById('status-msg');
-
-                statusEl.innerText = data.status;
-                msgEl.innerText = data.message;
-
-                statusEl.className = 'status-tag ' + (data.status === 'Available' ? 'status-available' : 'status-borrowed');
-
-                // 產生按鈕
-                renderButtons(data.status);
-
-            } catch (error) {
-                // 根據使用者要求，統一顯示此訊息
-                alert("查無此書，請聯絡管理員");
-                // 掃描失敗時，保持相機關閉，等待使用者手動重試
-                document.getElementById('camera-msg').innerText = "掃描失敗，請重試";
-            }
-        }
-
-        // 4. 根據狀態顯示按鈕
-        function renderButtons(status) {
-            let html = '';
-
-            if (status === 'Available') {
-                html += `<button class="btn btn-green" onclick="doAction('borrow')">我要借書</button>`;
-            } else if (status === 'Borrowed' || status === 'Reserved') {
-                // 如果是被借走，可能要還書，也可能要排隊
-                html += `<button class="btn btn-orange" onclick="doAction('return')">我要還書</button>`;
-                html += `<button class="btn btn-blue" onclick="doAction('queue')">我要排隊</button>`;
-            }
-
-            html += `<button class="btn btn-red" onclick="resetScanner()">重新掃描 / 查詢</button>`;
-
-            actionsDiv.innerHTML = html;
-        }
-
-        function resetScanner() {
-            resultArea.style.display = 'none';
-            bookInput.value = '';
-            document.getElementById('camera-msg').innerText = "請允許使用相機以進行掃描";
-
-            // 重新啟動掃描器
-            startScanner();
-        }
-
-        // 5. 執行 借/還/排隊 動作
-        async function doAction(actionType) {
-            const studentId = studentInput.value;
-            actionsDiv.innerHTML = '<p class="loading">正在處理請求...</p>';
-
-            try {
-                const response = await fetch(`${API_BASE_URL}/${actionType}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ book_id: currentBookId, student_id: studentId })
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    alert("成功：" + result.message);
-                    resetScanner();
-                } else {
-                    alert("失敗：" + result.message);
-                    // 失敗後重新顯示按鈕
-                    fetchBookInfo(currentBookId);
-                }
-            } catch (error) {
-                // 根據使用者要求，統一顯示此訊息
-                alert("查無此書，請聯絡管理員");
-                resetScanner();
-            }
-        }
-
-        function startScanner() {
-            // 清除舊的實例（如果有的話）
-            if (html5QrcodeScanner) {
-                try {
-                    html5QrcodeScanner.clear();
-                } catch (e) {
-                    console.log("Scanner clear error", e);
-                }
-            }
-
-            html5QrcodeScanner = new Html5QrcodeScanner(
-                "reader",
-                {
-                    fps: 10,
-                    qrbox: 250,
-                    videoConstraints: { facingMode: "environment" }
-                }
-            );
-            html5QrcodeScanner.render(onScanSuccess);
-        }
-
-        // 初始化掃描器
-        try {
-            // 監聽器：翻譯按鈕與連結
-            const observer = new MutationObserver((mutations) => {
                 mutations.forEach((mutation) => {
                     mutation.addedNodes.forEach((node) => {
                         if (node.nodeType === 1) { // Element
@@ -442,7 +306,7 @@
                             if (node.id === 'html5-qrcode-anchor-scan-type-change') {
                                 const text = node.innerText.toLowerCase();
                                 // 修正：檢查英文原文，或已經翻譯過的中文
-                                if (text.includes('scan an image file') || text.includes('從相簿選取圖片掃描')) {
+                                if (text.includes('從相簿選取圖片掃描') || text.includes('從相簿選取圖片掃描')) {
                                     node.innerText = '從相簿選取圖片掃描';
                                 } else if (text.includes('scan using camera directly') || text.includes('直接使用相機掃描')) {
                                     node.innerText = '直接使用相機掃描';
@@ -450,7 +314,7 @@
                             }
                             // 3. 檔案選擇與拖放區域
                             if (node.innerText) {
-                                if (node.innerText.includes('Choose Image') || node.innerText.includes('選擇圖片')) {
+                                if (node.innerText.includes('選擇圖片') || node.innerText.includes('選擇圖片')) {
                                     const labels = node.getElementsByTagName('label');
                                     for (let label of labels) {
                                         if (label.innerText.includes('Choose Image')) {
@@ -458,7 +322,7 @@
                                         }
                                     }
                                 }
-                                if (node.innerText.includes('Or drop an image to scan') || node.innerText.includes('或將圖片拖曳至此')) {
+                                if (node.innerText.includes('或將圖片拖曳至此') || node.innerText.includes('或將圖片拖曳至此')) {
                                     const divs = node.getElementsByTagName('div');
                                     for (let div of divs) {
                                         if (div.innerText.includes('Or drop an image to scan')) {
@@ -466,8 +330,8 @@
                                         }
                                     }
                                     // 有時候文字直接在 node 內
-                                    if (node.innerHTML.includes('Or drop an image to scan')) {
-                                        node.innerHTML = node.innerHTML.replace('Or drop an image to scan', '或將圖片拖曳至此');
+                                    if (node.innerHTML.includes('或將圖片拖曳至此')) {
+                                        node.innerHTML = node.innerHTML.replace('或將圖片拖曳至此');
                                     }
                                 }
                             }
