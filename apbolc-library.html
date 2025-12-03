@@ -340,7 +340,8 @@
                 renderButtons(data.status);
 
             } catch (error) {
-                alert("錯誤：" + error.message);
+                // 根據使用者要求，統一顯示此訊息
+                alert("查無此書，請聯絡管理員");
                 // 如果是掃描器暫停中，恢復掃描
                 if (html5QrcodeScanner && html5QrcodeScanner.getState() === Html5QrcodeScannerState.PAUSED) {
                     html5QrcodeScanner.resume();
@@ -400,7 +401,8 @@
                     fetchBookInfo(currentBookId);
                 }
             } catch (error) {
-                alert("連線失敗：" + error.message);
+                // 根據使用者要求，統一顯示此訊息
+                alert("查無此書，請聯絡管理員");
                 resetScanner();
             }
         }
@@ -423,6 +425,28 @@
                                     node.innerText = '從相簿選取圖片掃描';
                                 } else if (text.includes('scan using camera directly')) {
                                     node.innerText = '直接使用相機掃描';
+                                }
+                            }
+                            // 3. 檔案選擇與拖放區域
+                            if (node.innerText) {
+                                if (node.innerText.includes('Choose Image')) {
+                                    const labels = node.getElementsByTagName('label');
+                                    for (let label of labels) {
+                                        if (label.innerText.includes('Choose Image')) {
+                                            label.innerText = '選擇圖片';
+                                        }
+                                    }
+                                }
+                                if (node.innerText.includes('Or drop an image to scan')) {
+                                    const divs = node.getElementsByTagName('div');
+                                    for (let div of divs) {
+                                        if (div.innerText.includes('Or drop an image to scan')) {
+                                            div.innerText = '或將圖片拖曳至此';
+                                        }
+                                    }
+                                    if (node.innerText.includes('Or drop an image to scan')) {
+                                        node.innerHTML = node.innerHTML.replace('Or drop an image to scan', '或將圖片拖曳至此');
+                                    }
                                 }
                             }
                         }
