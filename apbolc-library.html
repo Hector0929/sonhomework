@@ -256,293 +256,458 @@
             <p id="status-msg" style="font-size:14px; color:#555;"></p>
 
             <div id="actions">
-            </div>
-        </div>
-    </div>
+                ```
 
-    <script>
-        // ★★★ 設定區：Render 的網址★★★
-        const API_BASE_URL = "https://library-system-yb3c.onrender.com";
-
-        // --- 程式邏輯 ---
-        const studentInput = document.getElementById('student_id');
-        const bookInput = document.getElementById('book_id');
-        const resultArea = document.getElementById('result-area');
-        const actionsDiv = document.getElementById('actions');
-        let currentBookId = null;
-        let html5QrcodeScanner = null;
-
-        // 1. 自動讀取/儲存學號
-        if (localStorage.getItem('student_id')) {
-            studentInput.value = localStorage.getItem('student_id');
-        }
-        studentInput.addEventListener('change', () => {
-            localStorage.setItem('student_id', studentInput.value);
-        });
-
-        // 2. 掃描成功後的動作
-        function onScanSuccess(decodedText, decodedResult) {
-            console.log(`掃描到: ${decodedText}`);
-
-            // 填入輸入框
-            bookInput.value = decodedText;
-
-            if (!studentInput.value) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: '請先輸入會員編號！',
-                    confirmButtonText: '確定',
-                    confirmButtonColor: '#4361ee'
-                });
-                return;
-            }
-
-            // 掃描成功後，關閉相機
-            if (html5QrcodeScanner) {
-                html5QrcodeScanner.clear().then(_ => {
-                    console.log("Scanner cleared");
-                    html5QrcodeScanner = null;
-                }).catch(error => {
-                    console.error("Failed to clear scanner", error);
-                });
-            }
-            document.getElementById('camera-msg').innerText = "掃描成功！處理中...";
-
-            // 呼叫後端查詢書籍
-            fetchBookInfo(decodedText);
-        }
-
-        // 手動查詢
-        function manualSearch() {
-            const bookId = bookInput.value.trim();
-            if (!bookId) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: '請輸入書籍條碼！',
-                    confirmButtonText: '確定',
-                    confirmButtonColor: '#4361ee'
-                });
-                return;
-            }
-            if (!studentInput.value) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: '請先輸入會員編號！',
-                    confirmButtonText: '確定',
-                    confirmButtonColor: '#4361ee'
-                });
-                return;
-            }
-            fetchBookInfo(bookId);
-        }
-
-        // 3. 查詢書籍 API
-        async function fetchBookInfo(bookId) {
-            resultArea.style.display = 'block';
-            actionsDiv.innerHTML = '<p class="loading">正在查詢書籍狀態...</p>';
-
-            // 滾動到結果區
-            resultArea.scrollIntoView({ behavior: 'smooth' });
-
-            try {
-                const response = await fetch(`${API_BASE_URL}/scan/${bookId}`);
-                if (!response.ok) throw new Error("找不到書籍或連線錯誤");
-
-                const data = await response.json();
-                currentBookId = data.book_id;
-
-                // 更新畫面
-                document.getElementById('book-title').innerText = data.title;
-                const statusEl = document.getElementById('book-status');
-                const msgEl = document.getElementById('status-msg');
-
-                statusEl.innerText = data.status;
-                msgEl.innerText = data.message;
-
-                statusEl.className = 'status-tag ' + (data.status === 'Available' ? 'status-available' : 'status-borrowed');
-
-                // 產生按鈕
-                renderButtons(data.status);
-
-            } catch (error) {
-                // 根據使用者要求，統一顯示此訊息
-                Swal.fire({
-                    icon: 'error',
-                    title: '查無此書，請聯絡管理員',
-                    confirmButtonText: '確定',
-                    confirmButtonColor: '#ef233c'
-                }).then(() => {
-                    resetScanner();
-                });
-                // 掃描失敗時，保持相機關閉，等待使用者手動重試
-                document.getElementById('camera-msg').innerText = "掃描失敗，請重試";
-            }
-        }
-
-        // 4. 根據狀態顯示按鈕
-        function renderButtons(status) {
-            let html = '';
-
-            if (status === 'Available') {
-                html += `<button class="btn btn-green" onclick="doAction('borrow')">我要借書</button>`;
-            } else if (status === 'Borrowed' || status === 'Reserved') {
-                // 如果是被借走，可能要還書，也可能要排隊
-                html += `<button class="btn btn-orange" onclick="doAction('return')">我要還書</button>`;
-                html += `<button class="btn btn-blue" onclick="doAction('queue')">我要排隊</button>`;
-            }
-
-            html += `<button class="btn btn-red" onclick="resetScanner()">重新掃描 / 查詢</button>`;
-
-            actionsDiv.innerHTML = html;
-        }
-
-        function resetScanner() {
-            resultArea.style.display = 'none';
-            bookInput.value = '';
-            document.getElementById('camera-msg').innerText = "請允許使用相機以進行掃描";
-
-            // 重新啟動掃描器
-            startScanner();
-        }
-
-        // 5. 執行 借/還/排隊 動作
-        async function doAction(actionType) {
-            const studentId = studentInput.value;
-            actionsDiv.innerHTML = '<p class="loading">正在處理請求...</p>';
-
-            try {
-                const response = await fetch(`${API_BASE_URL}/${actionType}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ book_id: currentBookId, student_id: studentId })
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: '成功',
-                        text: result.message,
-                        confirmButtonText: '確定',
-                        confirmButtonColor: '#4cc9f0'
-                    }).then(() => {
-                        resetScanner();
-                    });
-                } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: '失敗',
-                        text: result.message,
-                        confirmButtonText: '確定',
-                        confirmButtonColor: '#ef233c'
-                    });
-                    // 失敗後重新顯示按鈕
-                    fetchBookInfo(currentBookId);
-                }
-            } catch (error) {
-                // 根據使用者要求，統一顯示此訊息
-                Swal.fire({
-                    icon: 'error',
-                    title: '查無此書，請聯絡管理員',
-                    confirmButtonText: '確定',
-                    confirmButtonColor: '#ef233c'
-                }).then(() => {
-                    resetScanner();
-                });
-            }
-        }
-
-        async function startScanner() {
-            // 清除舊的實例（如果有的話）
-            if (html5QrcodeScanner) {
-                try {
-                    await html5QrcodeScanner.clear();
-                } catch (e) {
-                    console.log("Scanner clear error", e);
-                }
-                html5QrcodeScanner = null;
-            }
-
-            html5QrcodeScanner = new Html5QrcodeScanner(
-                "reader",
-                {
-                    fps: 10,
-                    qrbox: 250,
-                    videoConstraints: { facingMode: "environment" }
-                }
-            );
-            html5QrcodeScanner.render(onScanSuccess);
-        }
-
-        // 初始化掃描器
-        try {
-            // 監聽器：翻譯按鈕與連結
-            const observer = new MutationObserver((mutations) => {
-                localizeUi();
-            });
-
-            function localizeUi() {
-                const reader = document.getElementById('reader');
-                if (!reader) return;
-
-                // 1. 請求權限按鈕
-                const permBtn = document.getElementById('html5-qrcode-button-camera-permission');
-                if (permBtn) {
-                    if (permBtn.innerText.includes('Request camera permission') || permBtn.innerText.includes('Camera permission')) {
-                        permBtn.innerText = '請求相機權限 (開啟掃描)';
-                    }
+                input[type="text"] {
+                width: 100%;
+                padding: 15px;
+                border: 2px solid #e9ecef;
+                border-radius: 12px;
+                font-size: 1.1rem;
+                box-sizing: border-box;
+                transition: border-color 0.3s ease;
+                outline: none;
                 }
 
-                // 2. 切換掃描模式連結
-                const changeLink = document.getElementById('html5-qrcode-anchor-scan-type-change');
-                if (changeLink) {
-                    const text = changeLink.innerText.toLowerCase();
-                    if (text.includes('scan an image file')) {
-                        changeLink.innerText = '從相簿選取圖片掃描';
-                    } else if (text.includes('scan using camera directly')) {
-                        changeLink.innerText = '直接使用相機掃描';
-                    }
+                input[type="text"]:focus {
+                border-color: var(--primary-color);
                 }
 
-                // 3. 檔案選擇與拖放區域
-                // 搜尋 reader 內的所有元素
-                const allElements = reader.getElementsByTagName('*');
-                for (let el of allElements) {
-                    // 只處理沒有子元素的節點 (最底層文字節點的父元素)，避免重複取代
-                    if (el.children.length === 0 && el.innerText) {
-                        const text = el.innerText;
+                .input-group {
+                display: flex;
+                gap: 10px;
+                }
 
-                        if (text.includes('Choose Image')) {
-                            el.innerText = '選擇圖片';
+                .input-group input {
+                flex: 1;
+                }
+
+                #reader {
+                width: 100%;
+                margin-top: 10px;
+                border-radius: 12px;
+                overflow: hidden;
+                border: 2px dashed #cbd5e1;
+                }
+
+                .btn {
+                display: block;
+                width: 100%;
+                padding: 15px;
+                margin: 10px 0;
+                border-radius: 12px;
+                color: white;
+                text-decoration: none;
+                border: none;
+                font-size: 1.1rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: transform 0.2s, box-shadow 0.2s;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                }
+
+                .btn:active {
+                transform: translateY(2px);
+                box-shadow: none;
+                }
+
+                .btn-primary {
+                background: var(--primary-color);
+                }
+
+                .btn-green {
+                background: #2a9d8f;
+                }
+
+                .btn-orange {
+                background: #fb8500;
+                }
+
+                .btn-blue {
+                background: #4895ef;
+                }
+
+                .btn-red {
+                background: #ef233c;
+                }
+
+                #result-area {
+                margin-top: 25px;
+                display: none;
+                padding: 20px;
+                background: #f1f5f9;
+                border-radius: 12px;
+                border-left: 5px solid var(--primary-color);
+                }
+
+                #book-title {
+                margin: 0 0 10px 0;
+                font-size: 1.4rem;
+                color: var(--secondary-color);
+                }
+
+                .status-tag {
+                display: inline-block;
+                padding: 6px 12px;
+                border-radius: 20px;
+                font-size: 0.9rem;
+                font-weight: bold;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                }
+
+                .status-available {
+                background: #d4edda;
+                color: #155724;
+                }
+
+                .status-borrowed {
+                background: #f8d7da;
+                color: #721c24;
+                }
+
+                .loading {
+                color: #666;
+                font-style: italic;
+                text-align: center;
+                }
+
+                .divider {
+                height: 1px;
+                background: #e9ecef;
+                margin: 25px 0;
+                border: none;
+                }
+
+                .scan-toggle {
+                text-align: center;
+                margin-top: 10px;
+                font-size: 0.9rem;
+                color: #666;
+                cursor: pointer;
+                text-decoration: underline;
+                }
+
+                /* Custom styles for html5-qrcode */
+                #html5-qrcode-button-camera-permission {
+                padding: 15px 20px;
+                font-size: 1.1rem;
+                background-color: var(--primary-color);
+                color: white;
+                border: none;
+                border-radius: 12px;
+                cursor: pointer;
+                width: 100%;
+                margin-top: 10px;
+                font-weight: 600;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                transition: transform 0.2s;
+                }
+
+                #html5-qrcode-button-camera-permission:active {
+                transform: translateY(2px);
+                }
+
+                #html5-qrcode-anchor-scan-type-change {
+                display: block;
+                margin-top: 15px;
+                font-size: 1rem;
+                color: var(--secondary-color);
+                text-decoration: underline;
+                cursor: pointer;
+                text-align: center;
+                }
+                </style>
+                </head>
+
+                <body>
+
+                    <div class="card">
+                        <div style="text-align: center; margin-bottom: 25px;">
+                            <img src="leader_yesu_logo.png" alt="Leader YESU 圖書管理系統"
+                                style="max-width: 100%; height: auto; display: block; margin: 0 auto;">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="student_id">會員編號</label>
+                            <input type="text" id="student_id" placeholder="例如：A001">
+                        </div>
+
+                        <div class="divider"></div>
+
+                        <div class="form-group">
+                            <label for="book_id">書籍條碼 (或掃描)</label>
+                            <div class="input-group">
+                                <input type="text" id="book_id" placeholder="輸入書號或掃描">
+                                <button class="btn btn-primary" style="width: auto; margin: 0;"
+                                    onclick="manualSearch()">查詢</button>
+                            </div>
+                        </div>
+
+                        <div id="reader"></div>
+                        <p id="camera-msg" style="font-size:12px; color:#888; text-align: center; margin-top: 5px;">
+                            請允許使用相機以進行掃描</p>
+
+                        <div id="result-area">
+                            <h3 id="book-title">書名載入中...</h3>
+                            <p>狀態：<span id="book-status" class="status-tag">查詢中</span></p>
+                            <p id="status-msg" style="font-size:14px; color:#555;"></p>
+
+                            <div id="actions">
+                            </div>
+                        </div>
+                    </div>
+
+                    <script>
+                        // ★★★ 設定區：Render 的網址★★★
+                        const API_BASE_URL = "https://library-system-yb3c.onrender.com";
+
+                        // --- 程式邏輯 ---
+                        const studentInput = document.getElementById('student_id');
+                        const bookInput = document.getElementById('book_id');
+                        const resultArea = document.getElementById('result-area');
+                        const actionsDiv = document.getElementById('actions');
+                        let currentBookId = null;
+                        let html5QrCode = null; // 改用 Html5Qrcode class
+
+                        // 1. 自動讀取/儲存學號
+                        if (localStorage.getItem('student_id')) {
+                            studentInput.value = localStorage.getItem('student_id');
                         }
-                        else if (text.includes('No image chosen')) {
-                            el.innerText = '未選擇圖片';
+                        studentInput.addEventListener('change', () => {
+                            localStorage.setItem('student_id', studentInput.value);
+                        });
+
+                        // 2. 掃描成功後的動作
+                        function onScanSuccess(decodedText, decodedResult) {
+                            console.log(`掃描到: ${decodedText}`);
+
+                            // 填入輸入框
+                            bookInput.value = decodedText;
+
+                            if (!studentInput.value) {
+                                Swal.fire({
+                                    icon: 'warning',
+                                    title: '請先輸入會員編號！',
+                                    confirmButtonText: '確定',
+                                    confirmButtonColor: '#4361ee'
+                                });
+                                return;
+                            }
+
+                            // 掃描成功後，暫停掃描
+                            stopScanner();
+
+                            document.getElementById('camera-msg').innerText = "掃描成功！處理中...";
+
+                            // 呼叫後端查詢書籍
+                            fetchBookInfo(decodedText);
                         }
-                        else if (text.includes('Or drop an image to scan')) {
-                            el.innerText = '或將圖片拖曳至此';
+
+                        // 手動查詢
+                        function manualSearch() {
+                            const bookId = bookInput.value.trim();
+                            if (!bookId) {
+                                Swal.fire({
+                                    icon: 'warning',
+                                    title: '請輸入書籍條碼！',
+                                    confirmButtonText: '確定',
+                                    confirmButtonColor: '#4361ee'
+                                });
+                                return;
+                            }
+                            if (!studentInput.value) {
+                                Swal.fire({
+                                    icon: 'warning',
+                                    title: '請先輸入會員編號！',
+                                    confirmButtonText: '確定',
+                                    confirmButtonColor: '#4361ee'
+                                });
+                                return;
+                            }
+                            fetchBookInfo(bookId);
                         }
-                        else if (text.includes('Error getting userMedia')) {
-                            el.innerText = '無法取得相機權限，請確認瀏覽器設定。';
+
+                        // 3. 查詢書籍 API
+                        async function fetchBookInfo(bookId) {
+                            resultArea.style.display = 'block';
+                            actionsDiv.innerHTML = '<p class="loading">正在查詢書籍狀態...</p>';
+
+                            // 滾動到結果區
+                            resultArea.scrollIntoView({ behavior: 'smooth' });
+
+                            try {
+                                const response = await fetch(`${API_BASE_URL}/scan/${bookId}`);
+                                if (!response.ok) throw new Error("找不到書籍或連線錯誤");
+
+                                const data = await response.json();
+                                currentBookId = data.book_id;
+
+                                // 更新畫面
+                                document.getElementById('book-title').innerText = data.title;
+                                const statusEl = document.getElementById('book-status');
+                                const msgEl = document.getElementById('status-msg');
+
+                                statusEl.innerText = data.status;
+                                msgEl.innerText = data.message;
+
+                                statusEl.className = 'status-tag ' + (data.status === 'Available' ? 'status-available' : 'status-borrowed');
+
+                                // 產生按鈕
+                                renderButtons(data.status);
+
+                            } catch (error) {
+                                // 根據使用者要求，統一顯示此訊息
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: '查無此書，請聯絡管理員',
+                                    confirmButtonText: '確定',
+                                    confirmButtonColor: '#ef233c'
+                                }).then(() => {
+                                    resetScanner();
+                                });
+                                // 掃描失敗時，保持相機關閉，等待使用者手動重試
+                                document.getElementById('camera-msg').innerText = "掃描失敗，請重試";
+                            }
                         }
-                    }
-                }
-            }
 
-            observer.observe(document.getElementById('reader'), {
-                childList: true,
-                subtree: true
-            });
+                        // 4. 根據狀態顯示按鈕
+                        function renderButtons(status) {
+                            let html = '';
 
-            startScanner();
+                            if (status === 'Available') {
+                                html += `<button class="btn btn-green" onclick="doAction('borrow')">我要借書</button>`;
+                            } else if (status === 'Borrowed' || status === 'Reserved') {
+                                // 如果是被借走，可能要還書，也可能要排隊
+                                html += `<button class="btn btn-orange" onclick="doAction('return')">我要還書</button>`;
+                                html += `<button class="btn btn-blue" onclick="doAction('queue')">我要排隊</button>`;
+                            }
 
-        } catch (e) {
-            console.error("Scanner init failed", e);
-            document.getElementById('reader').innerHTML = "<p style='padding:20px; color:red;'>無法啟動相機，請使用手動輸入。</p>";
-        }
+                            html += `<button class="btn btn-red" onclick="resetScanner()">重新掃描 / 查詢</button>`;
 
-    </script>
+                            actionsDiv.innerHTML = html;
+                        }
 
-</body>
+                        function resetScanner() {
+                            resultArea.style.display = 'none';
+                            bookInput.value = '';
+                            document.getElementById('camera-msg').innerText = "請允許使用相機以進行掃描";
 
-</html>
+                            // 顯示啟動按鈕
+                            document.getElementById('start-scan-btn').style.display = 'block';
+                        }
+
+                        // 5. 執行 借/還/排隊 動作
+                        async function doAction(actionType) {
+                            const studentId = studentInput.value;
+                            actionsDiv.innerHTML = '<p class="loading">正在處理請求...</p>';
+
+                            try {
+                                const response = await fetch(`${API_BASE_URL}/${actionType}`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ book_id: currentBookId, student_id: studentId })
+                                });
+
+                                const result = await response.json();
+
+                                if (result.success) {
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: '成功',
+                                        text: result.message,
+                                        confirmButtonText: '確定',
+                                        confirmButtonColor: '#4cc9f0'
+                                    }).then(() => {
+                                        resetScanner();
+                                    });
+                                } else {
+                                    Swal.fire({
+                                        icon: 'error',
+                                        title: '失敗',
+                                        text: result.message,
+                                        confirmButtonText: '確定',
+                                        confirmButtonColor: '#ef233c'
+                                    });
+                                    // 失敗後重新顯示按鈕
+                                    fetchBookInfo(currentBookId);
+                                }
+                            } catch (error) {
+                                // 根據使用者要求，統一顯示此訊息
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: '查無此書，請聯絡管理員',
+                                    confirmButtonText: '確定',
+                                    confirmButtonColor: '#ef233c'
+                                }).then(() => {
+                                    resetScanner();
+                                });
+                            }
+                        }
+
+                        // --- 改用 Html5Qrcode 直接控制相機 ---
+
+                        async function startCamera() {
+                            try {
+                                // 隱藏按鈕
+                                document.getElementById('start-scan-btn').style.display = 'none';
+                                document.getElementById('camera-msg').innerText = "正在啟動相機...";
+
+                                if (!html5QrCode) {
+                                    html5QrCode = new Html5Qrcode("reader");
+                                }
+
+                                // 直接使用後置鏡頭 (environment)
+                                const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+                                await html5QrCode.start(
+                                    { facingMode: "environment" },
+                                    config,
+                                    onScanSuccess
+                                );
+
+                                document.getElementById('camera-msg').innerText = "正在掃描中...";
+
+                            } catch (err) {
+                                console.error("Error starting scanner", err);
+                                document.getElementById('camera-msg').innerText = "無法啟動相機，請確認權限或使用手動輸入。";
+                                document.getElementById('start-scan-btn').style.display = 'block'; // 失敗則顯示按鈕
+
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: '無法啟動相機',
+                                    text: '請確認您已允許使用相機權限，或嘗試使用其他瀏覽器。',
+                                    confirmButtonText: '確定'
+                                });
+                            }
+                        }
+
+                        async function stopScanner() {
+                            if (html5QrCode) {
+                                try {
+                                    await html5QrCode.stop();
+                                    console.log("Scanner stopped");
+                                } catch (e) {
+                                    console.log("Error stopping scanner", e);
+                                }
+                            }
+                        }
+
+                        // 初始化
+                        // 插入一個啟動按鈕到 reader 前面
+                        const readerDiv = document.getElementById('reader');
+                        const startBtn = document.createElement('button');
+                        startBtn.id = 'start-scan-btn';
+                        startBtn.className = 'btn btn-primary';
+                        startBtn.innerText = '開啟相機掃描';
+                        startBtn.onclick = startCamera;
+                        // 插入在 reader 之前
+                        readerDiv.parentNode.insertBefore(startBtn, readerDiv);
+
+                        // 預設不自動啟動，等待使用者點擊按鈕
+
+
+                    </script>
+
+                </body>
+                ```
