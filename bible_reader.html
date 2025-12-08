@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>聖經金句讀稿機 (使徒行傳版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: "Microsoft JhengHei", "Heiti TC", sans-serif;
+            background-color: #f3f4f6;
+            padding-bottom: 120px; /* Space for fixed footer */
+        }
+        .verse-item {
+            transition: all 0.3s ease;
+        }
+        .verse-item.active {
+            background-color: #dbeafe; /* Blue-100 */
+            border-left: 5px solid #2563eb; /* Blue-600 */
+            transform: scale(1.02);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .verse-text {
+            line-height: 1.6;
+        }
+        /* Custom scrollbar for better UX */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555; 
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="bg-white shadow-sm sticky top-0 z-10">
+        <div class="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
+            <h1 class="text-xl font-bold text-gray-800">📖 聖經金句讀稿機 <span class="text-sm font-normal text-gray-500 ml-2">(使徒行傳篇)</span></h1>
+            <div class="text-sm text-gray-500">Hector's Dev</div>
+        </div>
+    </header>
+
+    <!-- Controls & Settings Area -->
+    <div class="max-w-4xl mx-auto px-4 py-4">
+        <div class="bg-white rounded-lg shadow p-4 mb-4">
+            <div class="flex flex-wrap gap-4 items-center justify-between">
+                
+                <!-- Selection Tools -->
+                <div class="space-x-2">
+                    <button onclick="selectAll(true)" class="px-3 py-1 text-sm border rounded hover:bg-gray-50 text-gray-600">全選</button>
+                    <button onclick="selectAll(false)" class="px-3 py-1 text-sm border rounded hover:bg-gray-50 text-gray-600">全取消</button>
+                </div>
+
+                <!-- Speed Control -->
+                <div class="flex items-center gap-2">
+                    <label for="rate" class="text-sm text-gray-600">語速:</label>
+                    <input type="range" id="rate" min="0.5" max="2" value="1" step="0.1" class="w-24 accent-blue-600" oninput="updateRateLabel(this.value)">
+                    <span id="rateLabel" class="text-sm font-mono w-8">1.0</span>
+                </div>
+
+                <!-- Loop Toggle -->
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" id="loopToggle" class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500">
+                    <label for="loopToggle" class="text-sm text-gray-700 cursor-pointer select-none">循環播放列表</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Verses List -->
+        <div id="verseList" class="space-y-3">
+            <!-- JavaScript will populate this -->
+            <div class="text-center py-10 text-gray-500">載入中...</div>
+        </div>
+    </div>
+
+    <!-- Fixed Footer Controls -->
+    <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-20">
+        <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="text-sm text-gray-500 hidden sm:block" id="statusText">準備就緒</div>
+            
+            <div class="flex gap-4 mx-auto sm:mx-0">
+                <button onclick="stopReading()" class="flex items-center justify-center w-12 h-12 rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300 transition" title="停止">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+                    </svg>
+                </button>
+                
+                <button id="playBtn" onclick="startReading()" class="flex items-center justify-center w-14 h-14 rounded-full bg-blue-600 text-white hover:bg-blue-700 shadow-lg transition transform hover:scale-105" title="開始朗讀">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data: 40 Bible Verses (User Provided - Mostly Acts)
+        const bibleVerses = [
+            { ref: "使徒行傳 1:8", text: "但聖靈降臨在你們身上，你們就必得着能力，並要在耶路撒冷、猶太全地和撒馬利亞，直到地極，作我的見證。" },
+            { ref: "使徒行傳 1:14", text: "他們都同心合意地恆切禱告，還有幾個婦女和耶穌的母親馬利亞，以及耶穌的弟兄，都在一起。" },
+            { ref: "使徒行傳 2:4", text: "他們都被聖靈充滿，照著聖靈所賜的能力，說起別國的話來。" },
+            { ref: "使徒行傳 2:38", text: "「你們各人要悔改，奉耶穌基督的名受洗，使你們的罪得赦，就必領受所賜的聖靈。」" },
+            { ref: "使徒行傳 2:42", text: "他們都專心致力於使徒的教導、彼此的交接、擘餅和祈禱。" },
+            { ref: "使徒行傳 3:6", text: "「金銀我都沒有，但我把我所有的給你：奉拿撒勒人耶穌基督的名起來走路！」" },
+            { ref: "使徒行傳 4:12", text: "除了他以外，別無拯救；因為在天下人間，沒有賜下別的名，我們可以靠著得救。" },
+            { ref: "使徒行傳 4:32", text: "那許多信的人都是一心一意的，沒有一人說他的東西有一樣是自己的，都是大家公用。" },
+            { ref: "使徒行傳 5:29", text: "「順從神，不順從人，是應當的。」" },
+            { ref: "使徒行傳 6:3", text: "所以弟兄們，從你們中間揀選七個有好名聲、被聖靈充滿又有智慧的人，我們就委派他們管理這事。" },
+            { ref: "使徒行傳 7:56", text: "「看哪，我看見天開了，人子站在神的右邊。」" },
+            { ref: "使徒行傳 8:6", text: "眾人都專心聽腓利所說的話，因為聽見了，又看見他所行的神蹟。" },
+            { ref: "使徒行傳 8:36", text: "…「看哪，這裡有水，有什麼可以阻止我受洗呢？」" },
+            { ref: "使徒行傳 9:5", text: "他說：「主啊，你是誰？」主說：「我就是你所迫害的耶穌。」" },
+            { ref: "使徒行傳 9:34", text: "彼得對他說：「以尼雅，耶穌基督醫好你了！起來，收好你的褥子！」他就立刻起來。" },
+            { ref: "使徒行傳 10:34-35", text: "...「我現在真明白，神是不偏待人的。原來，各國中敬畏他、行義的人，都蒙他悅納。」" },
+            { ref: "使徒行傳 11:26", text: "門徒被稱為「基督徒」，是從安提阿開始的。" },
+            { ref: "使徒行傳 12:7", text: "忽然，主的一位使者來到，屋子裡有光照耀。天使拍彼得的肋旁，把他叫醒，說：「快快起來！」鐵鍊就從他的手上脫落了。" },
+            { ref: "使徒行傳 13:2-3", text: "聖靈說：「要為我分派巴拿巴和掃羅，去作我召他們所作的工。」於是禁食禱告，按手在他們身上，就打發他們去了。" },
+            { ref: "使徒行傳 14:15", text: "「我們也是人，性情和你們一樣。我們傳好消息給你們，是要你們離開這些虛妄的事，歸向那創造天地海和其中萬物的永生神。」" },
+            { ref: "使徒行傳 15:11", text: "「...我們相信，我們得救是因主耶穌的恩典，和他們一樣。」" },
+            { ref: "使徒行傳 16:25", text: "約在半夜，保羅和西拉禱告，唱詩讚美神，眾囚犯都側耳聽他們。" },
+            { ref: "使徒行傳 17:24", text: "創造宇宙和其中萬物的上帝，既是天地的主，就不住人手所造的殿。" },
+            { ref: "使徒行傳 20:24", text: "我卻不以性命為念，也不看為寶貴，只要行完我的路程，完成從主耶穌所領受的職事，要證明神恩惠的福音。" },
+            { ref: "使徒行傳 26:29", text: "保羅說：「我求神，不但你一個人，甚至今天一切聽我說話的人，都要像我一樣，只是不要像我有這些鎖鍊。」" },
+            { ref: "使徒行傳 28:31", text: "他全然傳講神的國，並教導主耶穌基督的事，毫無阻礙，放膽講論。" },
+            { ref: "使徒行傳 18:9-11", text: "有一個晚上，保羅得了一個異象。主在異象中對他說：「你別害怕，只管講，不要緘默，有我與你同在，沒有人能傷害你，而且這城裡有許多我的子民。」保羅就在那裡住了一年半，把上帝的道教導他們。" },
+            { ref: "使徒行傳 19:8-12", text: "一連三個月，保羅照常到會堂去，大膽地講道，跟人家辯論上帝國的事，勸人歸信。他們當中有些人頑固不肯相信；在會眾面前公然毀謗主的道路。於是保羅帶著門徒離開他們，天天在推喇奴講堂進行討論。這樣的工作繼續了兩年，因此所有住在亞細亞省的人，無論猶太人或外邦人，都聽見主的道。上帝藉著保羅行了些奇異的神蹟；甚至有人把他用過的手巾或圍裙拿去放在病人身上，疾病就消除了，邪靈也從附著的人身上出來。" },
+            { ref: "使徒行傳 19:18-20", text: "有許多信徒開始把他們以往所做過的事公開坦白地承認出來。許多行邪術的人帶來他們的書，堆在一起，當眾焚燒。他們計算這些書的價錢，總共約值五萬銀幣。這樣，主的道普遍傳開，大大興旺。" },
+            { ref: "使徒行傳 20:22-24", text: "現在，為著順服聖靈，我要上耶路撒冷去。我不知道在那裡要遇到什麼事；我只知道，在各城市聖靈都指示我，有監獄和災難等著我。但是，我並不珍惜自己的性命，為的是要完成我的使命，成就主耶穌交給我的工作，就是見證上帝恩典的福音。" },
+            { ref: "使徒行傳 20:28-31", text: "你們自己要謹慎，也要為聖靈所付託你們照顧的全群謹慎。要牧養上帝的教會—就是他藉著自己兒子的死所換來的。我知道在我離開後，有凶暴的豺狼要混入你們中間來傷害羊群。就是在你們中間，也有人會造謠撒謊，誘惑門徒去跟從他們。所以，你們要警醒，要記得這三年以來，我怎樣日夜用眼淚勸誡、教導你們每一個人。" },
+            { ref: "使徒行傳 21:10-14", text: "我們在那裡住了幾天後，有一個先知名叫亞迦布，從猶太來。他來看我們，拿起保羅的腰帶，把自己的手腳綁了起來，說：「聖靈這麼說：這腰帶的主人會在耶路撒冷受猶太人這樣的捆綁，然後被交給外邦人。」我們一聽見這話就跟當地的人一起懇切地勸告保羅不要上耶路撒冷去。可是，他說：「你們為什麼這樣痛哭，使我心碎呢？我為著主耶穌的緣故，不但在耶路撒冷被捆綁，就是死在那裡也是心甘情願的。」我們無法說服他，就都住口，只說：「願主的旨意成就。」" },
+            { ref: "使徒行傳 22:6-8", text: "「當我趕路快到大馬士革的時候，約在中午，忽然有一道強烈的光從天空照射在我的周圍。我仆倒在地上，聽見有聲音對我說：『掃羅，掃羅！你為什麼迫害我？』我就問：『主啊，你是誰？』他說：『我是你所迫害的拿撒勒人耶穌。』" },
+            { ref: "使徒行傳 22:9-11", text: "那些跟我同行的人看見了那光，但沒有聽見那向我說話的聲音。我又問：『主啊，我該做什麼？』主對我說：『起來，進大馬士革城去，在那裡有人會告訴你上帝要你做的一切事。』由於那強烈的光，我的眼睛不能看見，跟我同行的人就牽著我的手，帶我進大馬士革。" },
+            { ref: "使徒行傳 23:6-8", text: "保羅看出這一群人當中有些是撒都該黨的人，另有些是法利賽派的人；於是他在議會裡高聲說：「同胞們，我是一個法利賽人，是法利賽人的兒子。我今天在這裡受審問是因為我盼望死人復活！」他這話一出口，法利賽人和撒都該人就爭吵起來，會眾也分成兩派。因為撒都該人不相信復活，也不信有天使和神靈，但是法利賽人三樣都信。" },
+            { ref: "使徒行傳 26:22-23", text: "可是，直到今天，我蒙上帝幫助，能夠站在這裡，向所有高貴和低微的人作見證。我所說的也就是先知和摩西所說將要發生的事，就是基督必須受害，並且首先從死裡復活，向猶太人和外邦人宣布拯救的亮光已經臨到。」" },
+            { ref: "使徒行傳 27:23-25", text: "昨夜，我所屬、所敬拜的上帝差他的天使對我說：『保羅，不要害怕！你必須站在皇帝面前。而且，由於上帝的慈愛，他已經定意保守所有跟你同船的人的性命。』所以，各位可以放心；我相信上帝必定實現他對我說的話。" },
+            { ref: "使徒行傳 28:7-10", text: "距離那地方不遠，酋長部百流有一片田產。他歡迎我們，誠意款待我們三天。當時，部百流的父親患熱病和痢疾，躺在床上，保羅到他的臥室去，為他禱告，按手，治好了他。這一來，島上所有的病人都來了，也都得到醫治。他們送給我們許多禮物；開船的時候又把我們途中所需要的東西送到船上。" },
+            { ref: "使徒行傳 28:26-27", text: "以賽亞說：你去告訴這人民：你們聽了又聽，卻不明白，看了又看，卻看不見。因為這人民心智閉塞；他們塞住了耳朵，閉上了眼睛。不然，他們的眼睛就會看見，耳朵也會聽見，心裡領悟，回心轉意，我就治好他們。" },
+            { ref: "使徒行傳 28:30-31", text: "保羅在自己所租的房子住了兩年。凡來訪問的人，他都接待。他大膽地宣揚上帝國的信息，教導有關主耶穌基督的事，沒有受到什麼阻礙。" }
+        ];
+
+        // State variables
+        let isReading = false;
+        let readingQueue = [];
+        let currentQueueIndex = 0;
+        let synthesis = window.speechSynthesis;
+        let currentUtterance = null;
+        let voices = [];
+
+        // Preload voices
+        function loadVoices() {
+            voices = synthesis.getVoices();
+        }
+
+        // Initialize voices on load (handling async nature)
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = loadVoices;
+        }
+        loadVoices();
+
+        // Initialize UI
+        function renderList() {
+            const listContainer = document.getElementById('verseList');
+            listContainer.innerHTML = bibleVerses.map((verse, index) => `
+                <div id="verse-${index}" class="verse-item bg-white p-4 rounded-lg shadow-sm border border-gray-100 flex items-start gap-3 cursor-pointer hover:bg-gray-50" onclick="toggleCheck(${index})">
+                    <div class="pt-1">
+                        <input type="checkbox" id="check-${index}" value="${index}" class="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 cursor-pointer" onclick="event.stopPropagation()">
+                    </div>
+                    <div class="flex-1">
+                        <div class="font-bold text-blue-800 text-sm mb-1 ref-text">${verse.ref}</div>
+                        <div class="verse-text text-gray-800 text-lg">${verse.text}</div>
+                    </div>
+                </div>
+            `).join('');
+            
+            // Check all by default
+            selectAll(true);
+        }
+
+        function toggleCheck(index) {
+            const checkbox = document.getElementById(`check-${index}`);
+            checkbox.checked = !checkbox.checked;
+        }
+
+        function selectAll(checked) {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"][id^="check-"]');
+            checkboxes.forEach(cb => cb.checked = checked);
+        }
+
+        function updateRateLabel(val) {
+            document.getElementById('rateLabel').textContent = parseFloat(val).toFixed(1);
+        }
+
+        // Logic: Reading Control
+        function startReading() {
+            if (isReading) return; // Already reading
+
+            // Gather selected verses
+            const checkboxes = document.querySelectorAll('input[type="checkbox"][id^="check-"]:checked');
+            readingQueue = Array.from(checkboxes).map(cb => parseInt(cb.value)).sort((a, b) => a - b);
+
+            if (readingQueue.length === 0) {
+                alert("請至少勾選一個章節！");
+                return;
+            }
+
+            isReading = true;
+            currentQueueIndex = 0;
+            updatePlayButton(true);
+            readNext();
+        }
+
+        function stopReading() {
+            isReading = false;
+            synthesis.cancel();
+            updatePlayButton(false);
+            clearHighlights();
+            document.getElementById('statusText').textContent = "已停止";
+        }
+
+        function updatePlayButton(reading) {
+            const btn = document.getElementById('playBtn');
+            if (reading) {
+                // Pause icon
+                btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`;
+                btn.onclick = stopReading; // Toggle to stop/pause
+                btn.classList.replace('bg-blue-600', 'bg-red-500');
+                btn.classList.replace('hover:bg-blue-700', 'hover:bg-red-600');
+            } else {
+                // Play icon
+                btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`;
+                btn.onclick = startReading;
+                btn.classList.replace('bg-red-500', 'bg-blue-600');
+                btn.classList.replace('hover:bg-red-600', 'hover:bg-blue-700');
+            }
+        }
+
+        function readNext() {
+            if (!isReading) return;
+
+            // Check if queue finished
+            if (currentQueueIndex >= readingQueue.length) {
+                const loop = document.getElementById('loopToggle').checked;
+                if (loop) {
+                    currentQueueIndex = 0; // Restart
+                } else {
+                    stopReading();
+                    document.getElementById('statusText').textContent = "播放完畢";
+                    return;
+                }
+            }
+
+            const verseIndex = readingQueue[currentQueueIndex];
+            const verse = bibleVerses[verseIndex];
+
+            // Highlight UI
+            highlightVerse(verseIndex);
+            
+            // Prepare Speech
+            // We transform the text specifically for TTS to fix pronunciation
+            let spokenRef = verse.ref;
+            
+            // 1. Force "zhuan4" sound for "傳" by using "撰" (compose)
+            spokenRef = spokenRef.replace(/使徒行傳/g, "使徒行撰");
+            
+            // 2. Read ":" as "章"
+            spokenRef = spokenRef.replace(/:/g, "章");
+            
+            // 3. Read "-" as "至" (for ranges like 34-35)
+            spokenRef = spokenRef.replace(/-/g, "至");
+            
+            // 4. Append "節" at the end for natural reading
+            spokenRef = spokenRef + "節";
+
+            const textToRead = `${spokenRef}。${verse.text}`;
+            const utterance = new SpeechSynthesisUtterance(textToRead);
+            
+            // Settings
+            utterance.rate = parseFloat(document.getElementById('rate').value);
+            utterance.lang = 'zh-TW'; // Force Traditional Chinese
+            
+            // Try to assign a voice if available
+            if (voices.length > 0) {
+                const voice = voices.find(v => v.lang.includes('zh-TW')) || voices.find(v => v.lang.includes('zh'));
+                if (voice) {
+                    utterance.voice = voice;
+                }
+            }
+            
+            // Events
+            utterance.onend = () => {
+                if (isReading) {
+                    currentQueueIndex++;
+                    // Small delay between verses for better flow
+                    setTimeout(readNext, 800); 
+                }
+            };
+
+            utterance.onerror = (e) => {
+                // Ignore 'canceled' and 'interrupted' errors as they are expected when stopping or switching
+                if (e.error === 'canceled' || e.error === 'interrupted') {
+                    return; 
+                }
+                
+                console.error('Speech error:', e);
+                // Try to skip to next on error only if it's a real error and we are still in reading mode
+                if (isReading) {
+                    currentQueueIndex++;
+                    setTimeout(readNext, 500);
+                }
+            };
+
+            currentUtterance = utterance;
+            document.getElementById('statusText').textContent = `正在朗讀: ${verse.ref}`;
+            synthesis.speak(utterance);
+        }
+
+        function highlightVerse(index) {
+            clearHighlights();
+            const el = document.getElementById(`verse-${index}`);
+            if (el) {
+                el.classList.add('active');
+                // Smooth scroll into view
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        function clearHighlights() {
+            document.querySelectorAll('.verse-item').forEach(el => el.classList.remove('active'));
+        }
+
+        // Handle page unload to stop speech
+        window.onbeforeunload = () => {
+            synthesis.cancel();
+        };
+
+        // Initial Render
+        renderList();
+
+    </script>
+</body>
+</html>
