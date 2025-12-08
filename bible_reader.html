@@ -283,6 +283,12 @@
             // 4. Append "節" at the end for natural reading
             spokenRef = spokenRef + "節";
 
+            // 5. Read "地" as "dì" (earth/land)
+            spokenRef = spokenRef.replace(/地/g, "第");
+
+            // 6. Read "得" as "dé" (to obtain)
+            spokenRef = spokenRef.replace(/得/g, "德");
+
             const textToRead = `${spokenRef}。${verse.text}`;
             const utterance = new SpeechSynthesisUtterance(textToRead);
             
