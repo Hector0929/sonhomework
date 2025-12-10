@@ -271,6 +271,10 @@
             <label for="password">密碼</label>
             <input type="password" id="password" placeholder="請輸入密碼"
                 style="width: 100%; padding: 15px; border: 2px solid #e9ecef; border-radius: 12px; font-size: 1.1rem; box-sizing: border-box; outline: none; transition: border-color 0.3s ease;">
+            <div style="text-align: right; margin-top: 5px;">
+                <a href="#" onclick="showChangePasswordModal(); return false;"
+                    style="font-size: 0.9rem; color: #666; text-decoration: none;">修改密碼？</a>
+            </div>
         </div>
 
         <div class="divider"></div>
@@ -550,6 +554,60 @@
                     console.log("Scanner stopped");
                 } catch (e) {
                     console.log("Error stopping scanner", e);
+                }
+            }
+        }
+
+        // 修改密碼功能
+        async function showChangePasswordModal() {
+            const currentStudentId = studentInput.value || '';
+
+            const { value: formValues } = await Swal.fire({
+                title: '修改密碼',
+                html:
+                    `<input id="swal-student-id" class="swal2-input" placeholder="會員編號" value="${currentStudentId}">` +
+                    '<input id="swal-old-pass" type="password" class="swal2-input" placeholder="舊密碼">' +
+                    '<input id="swal-new-pass" type="password" class="swal2-input" placeholder="新密碼">',
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: '確認修改',
+                cancelButtonText: '取消',
+                confirmButtonColor: '#4361ee',
+                preConfirm: () => {
+                    return [
+                        document.getElementById('swal-student-id').value,
+                        document.getElementById('swal-old-pass').value,
+                        document.getElementById('swal-new-pass').value
+                    ]
+                }
+            });
+
+            if (formValues) {
+                const [sid, oldPass, newPass] = formValues;
+                if (!sid || !oldPass || !newPass) {
+                    Swal.fire('錯誤', '請填寫所有欄位', 'error');
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/change_password`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            student_id: sid,
+                            old_password: oldPass,
+                            new_password: newPass
+                        })
+                    });
+                    const result = await response.json();
+
+                    if (result.success) {
+                        Swal.fire('成功', result.message, 'success');
+                    } else {
+                        Swal.fire('失敗', result.message, 'error');
+                    }
+                } catch (e) {
+                    Swal.fire('錯誤', '連線失敗: ' + e.message, 'error');
                 }
             }
         }

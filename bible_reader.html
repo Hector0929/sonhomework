@@ -351,13 +351,21 @@
             // 4. Append "節" at the end for natural reading
             spokenRef = spokenRef + "節";
 
+            // Process the actual text for pronunciation
+            let spokenText = verse.text;
+
             // 5. Read "地" as "dì" (earth/land) for pronunciation correction
-            spokenRef = spokenRef.replace(/地/g, "第");
+            spokenText = spokenText.replace(/地/g, "第");
 
             // 6. Read "得" as "dé" (to obtain) for pronunciation correction
-            spokenRef = spokenRef.replace(/得/g, "德");
+            // Use "德" to force 'dé' sound. For "得着", change to "德著" or just "德"
+            spokenText = spokenText.replace(/得/g, "德");
 
-            const textToRead = `${spokenRef}。${verse.text}`;
+            // 7. Read "着" as "zhau" (to obtain) for pronunciation correction
+            // Use "著" to force 'zhau' sound. For "得着", change to "德著" or just "德"
+            spokenText = spokenText.replace(/着/g, "找");
+
+            const textToRead = `${spokenRef}。${spokenText}`;
             const utterance = new SpeechSynthesisUtterance(textToRead);
 
             // Settings
