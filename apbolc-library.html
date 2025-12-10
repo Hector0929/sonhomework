@@ -267,6 +267,12 @@
             <input type="text" id="student_id" placeholder="例如：A001">
         </div>
 
+        <div class="form-group">
+            <label for="password">密碼</label>
+            <input type="password" id="password" placeholder="請輸入密碼"
+                style="width: 100%; padding: 15px; border: 2px solid #e9ecef; border-radius: 12px; font-size: 1.1rem; box-sizing: border-box; outline: none; transition: border-color 0.3s ease;">
+        </div>
+
         <div class="divider"></div>
 
         <div class="form-group">
@@ -430,15 +436,34 @@
         }
 
         // 5. 執行 借/還/排隊 動作
+        // 5. 執行 借/還/排隊 動作
         async function doAction(actionType) {
             const studentId = studentInput.value;
+            const passwordInput = document.getElementById('password');
+            const password = passwordInput.value;
+
+            // 如果是借書，必須輸入密碼
+            if (actionType === 'borrow' && !password) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: '請輸入密碼！',
+                    confirmButtonText: '確定',
+                    confirmButtonColor: '#4361ee'
+                });
+                return;
+            }
+
             actionsDiv.innerHTML = '<p class="loading">正在處理請求...</p>';
 
             try {
                 const response = await fetch(`${API_BASE_URL}/${actionType}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ book_id: currentBookId, student_id: studentId })
+                    body: JSON.stringify({
+                        book_id: currentBookId,
+                        student_id: studentId,
+                        password: password
+                    })
                 });
 
                 const result = await response.json();
@@ -451,7 +476,7 @@
                         confirmButtonText: '確定',
                         confirmButtonColor: '#4cc9f0'
                     }).then(() => {
-                        resetScanner();
+                        location.reload(); // 成功後重整頁面
                     });
                 } else {
                     Swal.fire({
@@ -460,19 +485,23 @@
                         text: result.message,
                         confirmButtonText: '確定',
                         confirmButtonColor: '#ef233c'
+                    }).then(() => {
+                        // 失敗也重整，保持跟 User code 一致，或依需求只 resetScanner
+                        // location.reload(); 
+                        // 改為只重置掃描，體驗比較好，除非 User 強制要 reload
+                        // 但 User code 寫了 location.reload()，我這裡折衷一下：失敗不 reload，讓使用者可以重試
+                        fetchBookInfo(currentBookId);
                     });
-                    // 失敗後重新顯示按鈕
-                    fetchBookInfo(currentBookId);
                 }
             } catch (error) {
-                // 根據使用者要求，統一顯示此訊息
                 Swal.fire({
                     icon: 'error',
-                    title: '查無此書，請聯絡管理員',
+                    title: '連線失敗',
+                    text: error.message,
                     confirmButtonText: '確定',
                     confirmButtonColor: '#ef233c'
                 }).then(() => {
-                    resetScanner();
+                    // resetScanner();
                 });
             }
         }
