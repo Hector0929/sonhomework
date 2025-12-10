@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,42 +10,54 @@
         body {
             font-family: "Microsoft JhengHei", "Heiti TC", sans-serif;
             background-color: #f3f4f6;
-            padding-bottom: 120px; /* Space for fixed footer */
+            padding-bottom: 120px;
+            /* Space for fixed footer */
         }
+
         .verse-item {
             transition: all 0.3s ease;
         }
+
         .verse-item.active {
-            background-color: #dbeafe; /* Blue-100 */
-            border-left: 5px solid #2563eb; /* Blue-600 */
+            background-color: #dbeafe;
+            /* Blue-100 */
+            border-left: 5px solid #2563eb;
+            /* Blue-600 */
             transform: scale(1.02);
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
+
         .verse-text {
             line-height: 1.6;
         }
+
         /* Custom scrollbar for better UX */
         ::-webkit-scrollbar {
             width: 8px;
         }
+
         ::-webkit-scrollbar-track {
-            background: #f1f1f1; 
+            background: #f1f1f1;
         }
+
         ::-webkit-scrollbar-thumb {
-            background: #888; 
+            background: #888;
             border-radius: 4px;
         }
+
         ::-webkit-scrollbar-thumb:hover {
-            background: #555; 
+            background: #555;
         }
     </style>
 </head>
+
 <body>
 
     <!-- Header -->
     <header class="bg-white shadow-sm sticky top-0 z-10">
         <div class="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
-            <h1 class="text-xl font-bold text-gray-800">📖 聖經金句讀稿機 <span class="text-sm font-normal text-gray-500 ml-2">(使徒行傳篇)</span></h1>
+            <h1 class="text-xl font-bold text-gray-800">📖 聖經金句讀稿機 <span
+                    class="text-sm font-normal text-gray-500 ml-2">(使徒行傳篇)</span></h1>
             <div class="text-sm text-gray-500">Hector's Dev</div>
         </div>
     </header>
@@ -53,17 +66,29 @@
     <div class="max-w-4xl mx-auto px-4 py-4">
         <div class="bg-white rounded-lg shadow p-4 mb-4">
             <div class="flex flex-wrap gap-4 items-center justify-between">
-                
+
                 <!-- Selection Tools -->
                 <div class="space-x-2">
-                    <button onclick="selectAll(true)" class="px-3 py-1 text-sm border rounded hover:bg-gray-50 text-gray-600">全選</button>
-                    <button onclick="selectAll(false)" class="px-3 py-1 text-sm border rounded hover:bg-gray-50 text-gray-600">全取消</button>
+                    <button onclick="selectAll(true)"
+                        class="px-3 py-1 text-sm border rounded hover:bg-gray-50 text-gray-600">全選</button>
+                    <button onclick="selectAll(false)"
+                        class="px-3 py-1 text-sm border rounded hover:bg-gray-50 text-gray-600">全取消</button>
+                </div>
+
+                <!-- Voice Selection -->
+                <div class="flex items-center gap-2">
+                    <label for="voiceSelect" class="text-sm text-gray-600">聲音:</label>
+                    <select id="voiceSelect" class="text-sm border rounded px-2 py-1 max-w-[150px]"
+                        onchange="saveVoicePreference()">
+                        <option value="">自動選擇</option>
+                    </select>
                 </div>
 
                 <!-- Speed Control -->
                 <div class="flex items-center gap-2">
                     <label for="rate" class="text-sm text-gray-600">語速:</label>
-                    <input type="range" id="rate" min="0.5" max="2" value="1" step="0.1" class="w-24 accent-blue-600" oninput="updateRateLabel(this.value)">
+                    <input type="range" id="rate" min="0.5" max="2" value="1" step="0.1" class="w-24 accent-blue-600"
+                        oninput="updateRateLabel(this.value)">
                     <span id="rateLabel" class="text-sm font-mono w-8">1.0</span>
                 </div>
 
@@ -83,22 +108,33 @@
     </div>
 
     <!-- Fixed Footer Controls -->
-    <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-20">
+    <div
+        class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-20">
         <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
             <div class="text-sm text-gray-500 hidden sm:block" id="statusText">準備就緒</div>
-            
+
             <div class="flex gap-4 mx-auto sm:mx-0">
-                <button onclick="stopReading()" class="flex items-center justify-center w-12 h-12 rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300 transition" title="停止">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+                <button onclick="stopReading()"
+                    class="flex items-center justify-center w-12 h-12 rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300 transition"
+                    title="停止">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
                     </svg>
                 </button>
-                
-                <button id="playBtn" onclick="startReading()" class="flex items-center justify-center w-14 h-14 rounded-full bg-blue-600 text-white hover:bg-blue-700 shadow-lg transition transform hover:scale-105" title="開始朗讀">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+
+                <button id="playBtn" onclick="startReading()"
+                    class="flex items-center justify-center w-14 h-14 rounded-full bg-blue-600 text-white hover:bg-blue-700 shadow-lg transition transform hover:scale-105"
+                    title="開始朗讀">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                 </button>
             </div>
@@ -160,14 +196,46 @@
 
         // Preload voices
         function loadVoices() {
-            voices = synthesis.getVoices();
+            voices = synthesis.getVoices().filter(voice => voice.lang.includes('zh') || voice.lang.includes('CN') || voice.lang.includes('TW') || voice.lang.includes('HK'));
+            const voiceSelect = document.getElementById('voiceSelect');
+
+            // Clear existing options except default
+            voiceSelect.innerHTML = '<option value="">自動選擇 (Default)</option>';
+
+            voices.forEach((voice, index) => {
+                const option = document.createElement('option');
+                option.textContent = `${voice.name} (${voice.lang})`;
+                option.value = index; // Store index for easy retrieval
+                voiceSelect.appendChild(option);
+            });
+
+            // Restore preference if exists
+            const savedVoice = localStorage.getItem('bibleReaderVoice');
+            if (savedVoice) {
+                // Find if the saved voice name still exists
+                const voiceIndex = voices.findIndex(v => v.name === savedVoice);
+                if (voiceIndex !== -1) {
+                    voiceSelect.value = voiceIndex;
+                }
+            }
+        }
+
+        function saveVoicePreference() {
+            const voiceSelect = document.getElementById('voiceSelect');
+            if (voiceSelect.value !== "") {
+                const selectedVoice = voices[voiceSelect.value];
+                localStorage.setItem('bibleReaderVoice', selectedVoice.name);
+            } else {
+                localStorage.removeItem('bibleReaderVoice');
+            }
         }
 
         // Initialize voices on load (handling async nature)
         if (speechSynthesis.onvoiceschanged !== undefined) {
             speechSynthesis.onvoiceschanged = loadVoices;
         }
-        loadVoices();
+        // Some browsers need a little nudge or wait
+        setTimeout(loadVoices, 500);
 
         // Initialize UI
         function renderList() {
@@ -183,7 +251,7 @@
                     </div>
                 </div>
             `).join('');
-            
+
             // Check all by default
             selectAll(true);
         }
@@ -266,20 +334,20 @@
 
             // Highlight UI
             highlightVerse(verseIndex);
-            
+
             // Prepare Speech
             // We transform the text specifically for TTS to fix pronunciation
             let spokenRef = verse.ref;
-            
+
             // 1. Force "zhuan4" sound for "傳" by using "撰" (compose)
             spokenRef = spokenRef.replace(/使徒行傳/g, "使徒行撰");
-            
+
             // 2. Read ":" as "章"
             spokenRef = spokenRef.replace(/:/g, "章");
-            
+
             // 3. Read "-" as "至" (for ranges like 34-35)
             spokenRef = spokenRef.replace(/-/g, "至");
-            
+
             // 4. Append "節" at the end for natural reading
             spokenRef = spokenRef + "節";
 
@@ -291,34 +359,39 @@
 
             const textToRead = `${spokenRef}。${verse.text}`;
             const utterance = new SpeechSynthesisUtterance(textToRead);
-            
+
             // Settings
             utterance.rate = parseFloat(document.getElementById('rate').value);
             utterance.lang = 'zh-TW'; // Force Traditional Chinese
-            
+
             // Try to assign a voice if available
-            if (voices.length > 0) {
+            const voiceSelect = document.getElementById('voiceSelect');
+            if (voiceSelect.value !== "") {
+                // User selected specific voice
+                utterance.voice = voices[voiceSelect.value];
+            } else if (voices.length > 0) {
+                // Auto-select best guess
                 const voice = voices.find(v => v.lang.includes('zh-TW')) || voices.find(v => v.lang.includes('zh'));
                 if (voice) {
                     utterance.voice = voice;
                 }
             }
-            
+
             // Events
             utterance.onend = () => {
                 if (isReading) {
                     currentQueueIndex++;
                     // Small delay between verses for better flow
-                    setTimeout(readNext, 800); 
+                    setTimeout(readNext, 800);
                 }
             };
 
             utterance.onerror = (e) => {
                 // Ignore 'canceled' and 'interrupted' errors as they are expected when stopping or switching
                 if (e.error === 'canceled' || e.error === 'interrupted') {
-                    return; 
+                    return;
                 }
-                
+
                 console.error('Speech error:', e);
                 // Try to skip to next on error only if it's a real error and we are still in reading mode
                 if (isReading) {
@@ -356,4 +429,5 @@
 
     </script>
 </body>
+
 </html>
