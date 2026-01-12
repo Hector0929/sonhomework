@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chords Shared 功能測試</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.5;
+            background: #f0f2f5;
+        }
+
+        h1,
+        h2 {
+            border-bottom: 2px solid #ddd;
+            padding-bottom: 10px;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: inline-block;
+            width: 150px;
+            font-weight: bold;
+        }
+
+        input[type="text"],
+        input[type="number"] {
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 200px;
+        }
+
+        button {
+            padding: 6px 12px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #e9ecef;
+            border-radius: 4px;
+            font-family: monospace;
+            min-height: 20px;
+        }
+
+        /* Stage 樣式 */
+        .preview-stage {
+            border: 2px dashed #999;
+            padding: 10px;
+            background: #fff;
+            position: relative;
+            min-height: 200px;
+            overflow: hidden;
+        }
+
+        .overlay-stage {
+            position: relative;
+            display: inline-block;
+        }
+
+        .tag {
+            position: absolute;
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+
+        .tag.chord {
+            background: rgba(0, 0, 0, 0.8);
+            color: #ffd700;
+            font-weight: bold;
+        }
+
+        .tag.lyric {
+            background: rgba(255, 255, 255, 0.8);
+            color: #333;
+            border: 1px solid #ddd;
+        }
+    </style>
+    <script src="./assets/chords_shared.js"></script>
+</head>
+
+<body>
+
+    <h1>Chords Shared JS 測試面板</h1>
+
+    <div class="card">
+        <h2>1. 和弦文字處理</h2>
+        <div class="control-group">
+            <label>輸入和弦:</label>
+            <input type="text" id="chordInput" value="C#m7b5" placeholder="例如: C#m7, Bb/D">
+            <button onclick="testCanonicalize()">標準化 & 解析</button>
+        </div>
+        <div class="result" id="canonResult">這裡顯示結果...</div>
+    </div>
+
+    <div class="card">
+        <h2>2. 移調計算 (Transpose)</h2>
+        <div class="control-group">
+            <label>原始和弦:</label>
+            <input type="text" id="transInput" value="C">
+        </div>
+        <div class="control-group">
+            <label>半音偏移 (Offset):</label>
+            <input type="number" id="transOffset" value="2">
+            <button onclick="testTranspose()">計算移調</button>
+        </div>
+        <div class="control-group">
+            <small>提示: +2 = 升全音 (C->D), -1 = 降半音</small>
+        </div>
+        <div class="result" id="transResult">這裡顯示移調結果...</div>
+    </div>
+
+    <div class="card">
+        <h2>3. 渲染與即時移調 (Render Stage)</h2>
+        <p>模擬 renderStage 與 applyTransposeInPlace 功能。</p>
+        <div class="control-group">
+            <button onclick="renderDemo()">渲染範例資料</button>
+            <button onclick="transposeStage(1)">全部 +1 (升半音)</button>
+            <button onclick="transposeStage(-1)">全部 -1 (降半音)</button>
+        </div>
+        <div id="stageContainer" class="preview-stage">
+            <div style="color: #777; text-align: center; margin-top: 80px;">點擊「渲染範例資料」來載入測試圖層</div>
+        </div>
+    </div>
+
+    <script>
+        // 測試標準化與解析
+        function testCanonicalize() {
+            const raw = document.getElementById('chordInput').value;
+            const canonical = Chords.canonicalizeChordText(raw);
+            const isToken = Chords.isChordToken(raw);
+            const parsed = Chords.parseChord(raw);
+
+            document.getElementById('canonResult').innerHTML =
+                `<strong>標準化:</strong> ${canonical}<br>` +
+                `<strong>是否為和弦 Token:</strong> ${isToken}<br>` +
+                `<strong>解析結構:</strong> ${JSON.stringify(parsed)}`;
+        }
+
+        // 測試移調文字
+        function testTranspose() {
+            const raw = document.getElementById('transInput').value;
+            const offset = parseInt(document.getElementById('transOffset').value, 10);
+            const result = Chords.transposeChordText(raw, offset);
+
+            document.getElementById('transResult').innerHTML =
+                `<strong>${raw}</strong> (Offset ${offset}) => <strong>${result}</strong>`;
+        }
+
+        // 測試渲染 Stage
+        let currentStageOffset = 0;
+
+        function renderDemo() {
+            const container = document.getElementById('stageContainer');
+            // 模擬一個 600x200 的空白圖片 (用 canvas 生成 dataURI)
+            const canvas = document.createElement('canvas');
+            canvas.width = 600; canvas.height = 200;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ddd'; ctx.fillRect(0, 0, 600, 200);
+            ctx.fillStyle = '#999'; ctx.font = '20px sans-serif'; ctx.fillText('Fake Sheet Music Background', 180, 100);
+            const imgURL = canvas.toDataURL();
+
+            // 模擬 tokens
+            const mockTokens = [
+                { text: 'C', x: 50, y: 50, w: 40, h: 30, kind: 'chord' },
+                { text: 'Am', x: 150, y: 50, w: 40, h: 30, kind: 'chord' },
+                { text: 'Fmaj7', x: 250, y: 50, w: 60, h: 30, kind: 'chord' },
+                { text: 'G7', x: 350, y: 50, w: 40, h: 30, kind: 'chord' },
+                { text: '這是歌詞', x: 50, y: 100, w: 100, h: 30, kind: 'lyric' }
+            ];
+
+            Chords.renderStage(container, imgURL, mockTokens);
+            currentStageOffset = 0;
+        }
+
+        // 測試原地移調
+        function transposeStage(delta) {
+            currentStageOffset += delta;
+            const stage = document.getElementById('stageContainer');
+            Chords.applyTransposeInPlace(stage, currentStageOffset);
+        }
+    </script>
+</body>
+
+</html>

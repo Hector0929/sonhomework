@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 学习分享</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-900 to-purple-800 text-white flex items-center justify-center p-4 md:p-8">
+  <div class="w-full max-w-5xl space-y-8">
+    <header class="bg-white/10 backdrop-blur border border-white/20 rounded-3xl p-6 shadow-2xl">
+      <p class="text-xs uppercase tracking-[0.4em] text-purple-200">AI 練習日誌</p>
+      <h1 class="text-4xl md:text-5xl font-bold mt-2">AI 學習分享專區</h1>
+      <p class="text-lg text-purple-100 mt-4">
+        在這裡整理我們探索 OpenAI、機器學習工具、Prompt 實作與互動原型的重點與心得，將學習過程變成可以複製與再出發的素材。
+      </p>
+    </header>
+
+    <section class="grid gap-6 md:grid-cols-3">
+      <article class="bg-white/10 border border-white/20 rounded-2xl p-5 space-y-3">
+        <p class="text-sm text-purple-200">每日實驗</p>
+        <h2 class="text-xl font-semibold">Prompt 調校記錄</h2>
+        <p class="text-sm text-purple-100">紀錄 prompt 的前後對照、成功率與可複製的結構，幫助下次快速複現。</p>
+      </article>
+      <article class="bg-white/10 border border-white/20 rounded-2xl p-5 space-y-3">
+        <p class="text-sm text-purple-200">工具探索</p>
+        <h2 class="text-xl font-semibold">AI 模型聯調</h2>
+        <p class="text-sm text-purple-100">整理 ChatGPT、音訊辨識與程式生成的串接實例、版本差異與效果對比。</p>
+      </article>
+      <article class="bg-white/10 border border-white/20 rounded-2xl p-5 space-y-3">
+        <p class="text-sm text-purple-200">實作共筆</p>
+        <h2 class="text-xl font-semibold">分享心得</h2>
+        <p class="text-sm text-purple-100">把每一次的突破提煉成視覺草稿或簡報，讓團隊可以快速吸收並延續。</p>
+      </article>
+    </section>
+
+    <section class="bg-white/10 border border-white/20 rounded-3xl p-6 space-y-4">
+      <h3 class="text-2xl font-semibold">近期分享要點</h3>
+      <ul class="space-y-3 text-purple-100 text-sm">
+        <li class="flex items-start gap-3">
+          <span class="mt-1 h-2 w-2 rounded-full bg-purple-400"></span>
+          <span>使用自主資料集訓練 micro prompt，將辨識正確率從 78% 提升至 92%。</span>
+        </li>
+        <li class="flex items-start gap-3">
+          <span class="mt-1 h-2 w-2 rounded-full bg-purple-400"></span>
+          <span>整理「錯誤回報 → 微調 → 驗證」的治理流程，方便未來面對新模型可快速上手。</span>
+        </li>
+        <li class="flex items-start gap-3">
+          <span class="mt-1 h-2 w-2 rounded-full bg-purple-400"></span>
+          <span>建立 Prompt 模板庫，依據任務類型預設欄位，有助於跨功能團隊快速提供需求。</span>
+        </li>
+      </ul>
+    </section>
+
+    <section class="bg-gradient-to-br from-purple-600/40 to-indigo-700/60 border border-white/30 rounded-3xl p-6 md:p-8 space-y-5">
+      <div>
+        <p class="text-sm uppercase tracking-[0.4em] text-purple-200">下一步</p>
+        <h4 class="text-2xl font-semibold mt-1">我們邀請你一起寫下一段 AI 學習故事</h4>
+      </div>
+      <p class="text-sm text-purple-100">
+        把最近看過的概念、解過的問題與抽象的想法整理成分享段落，讓大家在首頁可以快速看到你學到的新知。
+      </p>
+      <div class="flex flex-wrap gap-3">
+        <a href="index.html"
+          class="px-5 py-3 rounded-full bg-white text-purple-900 font-semibold shadow-lg shadow-purple-700/50 hover:bg-purple-50 transition">
+          回到學習中心
+        </a>
+        <a href="public/index.html"
+          class="px-5 py-3 rounded-full border border-white/40 text-white font-semibold hover:border-white hover:bg-white/10 transition">
+          看今天的 AI 工具示範
+        </a>
+      </div>
+    </section>
+
+  </div>
+</body>
+
+</html>

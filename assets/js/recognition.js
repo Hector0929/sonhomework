@@ -17,7 +17,8 @@ export function initRecognition(win, doc){
 
   function formatDisplay(raw){
     const basic = String(raw).split('\n').map(line=>{ if(/\|/.test(line) && /[A-G][#b]?/.test(line)) return line; return line.replace(/\|/g,''); }).join('\n');
-    try { return restructureChordLyricsBlock(basic); } catch(_){ return basic; }
+    // try { return restructureChordLyricsBlock(basic); } catch(_){ return basic; }
+    return basic;
   }
   function parseMetadataFromText(text){
     const meta={title:'',key:'',content:text};
@@ -31,7 +32,7 @@ export function initRecognition(win, doc){
     return new Promise((resolve,reject)=>{ const r=new FileReader(); r.onerror=()=>reject(new Error('讀取檔案失敗')); r.onload=()=>{ const res=r.result; const m=String(res).match(/^data:([^;]+);base64,(.*)$/); if(!m) return reject(new Error('無法解析 base64')); resolve({mimeType:m[1],base64:m[2]}); }; r.readAsDataURL(file); });
   }
   function buildPrompt(){
-    return '你是一個樂譜 OCR 專家。請從圖像偵測並輸出:\n1) 樂曲標題 (Title)\n2) 樂曲主調 (Key) 若無明示推測單一調性\n3) 主要內容 (和弦 + 歌詞)\n輸出使用 JSON 置於 ```json 區塊。';
+    return '你是一個樂譜 OCR 專家。請從圖像偵測並輸出:\n1) 樂曲標題 (Title)\n2) 樂曲主調 (Key) \n3) 內容 (和弦與歌詞)\n\n重要規則：\n- 請保持和弦與歌詞的「空間對應位置」，將和弦寫在歌詞上方對應的位置，不要壓縮成一行。\n- 若有多行，請保留換行。\n- 不要使用 JSON 以外的文字描述。\n- 輸出使用 JSON 置於 ```json 區塊，格式：{ "title": "...", "key": "...", "content": "..." }。content 欄位內請保持原始排版 (保留空格與換行) 以呈現和弦與歌詞的對位。';
   }
   async function callGeminiAPIFromFile(file, apiKey){
     const {mimeType,base64}= await fileToBase64Mime(file);
